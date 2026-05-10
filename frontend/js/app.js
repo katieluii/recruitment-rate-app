@@ -15,11 +15,19 @@ async function init() {
   try {
     const [phases, areas] = await Promise.all([api.getPhases(), api.getTherapeuticAreas()]);
 
+    phaseSelect.options.length = 0;
+    phaseSelect.add(new Option('Select a phase…', '', true, true));
+    phaseSelect.options[0].disabled = true;
+
     phases.forEach(p => {
       const opt = new Option(p.label + (p.trained ? '' : ' (model pending)'), p.key);
       if (!p.trained) opt.style.color = '#8b949e';
       phaseSelect.add(opt);
     });
+
+    taSelect.options.length = 0;
+    taSelect.add(new Option('Select a therapeutic area…', '', true, true));
+    taSelect.options[0].disabled = true;
 
     areas.forEach(ta => taSelect.add(new Option(ta, ta)));
 
