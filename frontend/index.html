@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clinical Trial Duration Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Header -->
+  <header class="header">
+    <h1>Clinical Trial <span>Duration Predictor</span></h1>
+    <p>ML-powered estimates from live ClinicalTrials.gov data &nbsp;·&nbsp; LightGBM · AACT</p>
+  </header>
+
+  <!-- Notices -->
+  <div id="error-notice" class="notice error" role="alert"></div>
+  <div id="warn-notice"  class="notice warning" role="alert"></div>
+
+  <!-- Prediction form -->
+  <section class="card" aria-label="Prediction inputs">
+    <div class="card-title">Select trial parameters</div>
+    <div class="form-grid">
+      <div class="field">
+        <label for="phase-select">Trial Phase</label>
+        <select id="phase-select">
+          <option value="" disabled selected>Loading…</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="ta-select">Therapeutic Area</label>
+        <select id="ta-select">
+          <option value="" disabled selected>Loading…</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn-predict" id="predict-btn" disabled>
+      <span class="spinner" aria-hidden="true"></span>
+      <span class="btn-label">Predict Duration</span>
+    </button>
+  </section>
+
+  <!-- Result card -->
+  <section class="card result-card" id="result-card" aria-live="polite">
+    <div class="card-title">Predicted duration</div>
+    <div class="result-header">
+      <span class="result-months" id="result-months">—</span>
+      <span class="result-unit">months</span>
+      <span class="result-badge" id="result-ta">—</span>
+    </div>
+    <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:1rem">
+      <span id="result-phase-label">—</span> &nbsp;·&nbsp; Primary completion endpoint
+    </p>
+
+    <!-- Error bar -->
+    <div class="error-bar-wrap" id="error-bar-container"></div>
+
+    <!-- Stats row -->
+    <div class="stat-row">
+      <div class="stat-box">
+        <div class="stat-value" id="stat-days">—</div>
+        <div class="stat-label">Days (point estimate)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="stat-rmse">—</div>
+        <div class="stat-label">Model RMSE</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="stat-ntrain">—</div>
+        <div class="stat-label">Training trials</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Charts -->
+  <section class="charts-section" id="charts-section" aria-label="Analytics">
+    <div class="card">
+      <div class="card-title">Analytics</div>
+      <div class="chart-tabs">
+        <button class="tab-btn active" data-target="chart-distribution-panel">
+          Duration by Therapeutic Area
+        </button>
+        <button class="tab-btn" data-target="chart-phases-panel">
+          Phase Comparison
+        </button>
+      </div>
+
+      <div class="chart-panel" id="chart-distribution-panel">
+        <div class="chart-container" id="chart-distribution"></div>
+      </div>
+      <div class="chart-panel" id="chart-phases-panel" style="display:none">
+        <div class="chart-container" id="chart-phases"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    Data: <a href="https://clinicaltrials.gov" target="_blank" rel="noopener">ClinicalTrials.gov</a>
+    &nbsp;·&nbsp; AACT &nbsp;·&nbsp; Model: LightGBM &nbsp;·&nbsp;
+    <a href="https://github.com" target="_blank" rel="noopener">GitHub</a>
+  </footer>
+
+</div>
+<script type="module" src="/static/js/app.js"></script>
+</body>
+</html>
