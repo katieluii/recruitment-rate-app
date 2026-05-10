@@ -208,4 +208,4 @@ CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ## Author
 
-Katie Lui · [Portfolio](https://klui.bolt.host) · [LinkedIn](#)
+Katie Lui · [Portfolio](https://klui.bolt.host) · [LinkedIn](http://www.linkedin.com/in/katieluikakiu)
