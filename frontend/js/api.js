@@ -1,5 +1,5 @@
 /* API client — swap RAILWAY_URL for your deployed Railway backend URL */
-const RAILWAY_URL = 'YOUR_RAILWAY_URL_HERE'; // e.g. 'https://trial-predictor.up.railway.app'
+const RAILWAY_URL = 'https://web-production-e6859b.up.railway.app';
 
 const API_BASE = (() => {
   const { hostname } = window.location;
