@@ -26,7 +26,10 @@ def build_features(df: pd.DataFrame, phase_key: str) -> pd.DataFrame:
     df = df.copy()
 
     # Therapeutic area + region (pipe-separated → one-hot)
-    df["Therapeutic_Area"] = df["conditions"].apply(assign_therapeutic_area)
+    # At inference time, conditions_str IS already a canonical TA label — bypass keyword mapping.
+    df["Therapeutic_Area"] = df["conditions"].apply(
+        lambda c: c if c in THERAPEUTIC_AREAS else assign_therapeutic_area(c)
+    )
     df["Region"] = df["countries"].apply(assign_region)
 
     ta_ohe = one_hot_pipe_col(df, "Therapeutic_Area", THERAPEUTIC_AREAS)
