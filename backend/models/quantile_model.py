@@ -60,7 +60,9 @@ class ConformalQuantileModel:
     def __init__(self, phase_key: str, transform: str = "log1p",
                  params: dict | None = None, ta_target_encoding: bool = True,
                  conformal: bool = True, calib_frac: float = 0.2,
-                 coverage: float = 0.80, calib_strategy: str = "recent"):
+                 coverage: float = 0.80, calib_strategy: str = "recent",
+                 censoring_frame: pd.DataFrame | None = None,
+                 weight_cap: float = 10.0):
         if transform not in TRANSFORMS:
             raise ValueError(f"Unknown transform {transform!r}")
         self.phase_key = phase_key
@@ -71,6 +73,8 @@ class ConformalQuantileModel:
         self.calib_frac = calib_frac
         self.coverage = coverage
         self.calib_strategy = calib_strategy
+        self.censoring_frame = censoring_frame
+        self.weight_cap = weight_cap
         self.qhat_ = 0.0
 
     # ── transforms ───────────────────────────────────────────────────────────
@@ -87,7 +91,8 @@ class ConformalQuantileModel:
 
     # ── fitting ──────────────────────────────────────────────────────────────
 
-    def _fit_quantiles(self, X: pd.DataFrame, y: np.ndarray) -> dict:
+    def _fit_quantiles(self, X: pd.DataFrame, y: np.ndarray,
+                       sample_weight: np.ndarray | None = None) -> dict:
         import lightgbm as lgb
 
         models = {}
@@ -97,18 +102,74 @@ class ConformalQuantileModel:
                 ("model", lgb.LGBMRegressor(objective="quantile", alpha=alpha,
                                             **self.params)),
             ])
-            pipe.fit(X, y)
+            if sample_weight is None:
+                pipe.fit(X, y)
+            else:
+                pipe.fit(X, y, model__sample_weight=sample_weight)
             models[alpha] = pipe
         return models
+
+    # ── censoring correction ─────────────────────────────────────────────────
+
+    def _ipcw_weights(self, train: pd.DataFrame, target: str) -> np.ndarray | None:
+        """Inverse-probability-of-censoring weights for the training rows.
+
+        The corpus holds completed trials, so the slow ones are systematically
+        missing: a trial that started recently and has already finished is
+        disproportionately a quick one. Measured by retrospective backtest —
+        standing at a 2018 vantage and hiding what had not finished by then —
+        Phase 3 duration LOOKED 20.9 months when it was truly 24.6.
+
+        The fix estimates G(t), the probability of still being uncensored at t,
+        with a reverse Kaplan-Meier over `censoring_frame`, then weights each
+        completed trial by 1/G(T). Long trials are the ones censoring removes, so
+        they are the ones upweighted, pushing the training set back toward the
+        duration mix that would exist if every trial had been allowed to finish.
+
+        Chosen over training a survival model directly: survival learners cut the
+        bias too but lose more on scatter than they win, being weaker point
+        predictors than gradient boosting. Backtest, MAE / bias in months:
+
+            completed only   P2 11.75 / −4.57    P3 10.71 / −2.57
+            IPCW             P2 11.70 / −2.61    P3 10.87 / −0.93
+            survival (GBSA)  P2 12.53 / −1.27    P3 11.37 / +1.22
+        """
+        frame = self.censoring_frame
+        if frame is None or "event_observed" not in frame.columns:
+            return None
+        if frame["event_observed"].nunique() < 2:
+            log.info("%s: censoring frame has no censored rows — skipping IPCW",
+                     self.phase_key)
+            return None
+
+        from lifelines import KaplanMeierFitter
+
+        kmf = KaplanMeierFitter()
+        # Flip the indicator: here the "event" is being censored.
+        kmf.fit(frame["duration_days"].to_numpy(dtype=float),
+                event_observed=1 - frame["event_observed"].to_numpy(dtype=int))
+
+        t = train[target].to_numpy(dtype=float)
+        g = np.clip(kmf.survival_function_at_times(t).to_numpy(),
+                    1.0 / self.weight_cap, 1.0)
+        w = np.clip(1.0 / g, 1.0, self.weight_cap)
+        w = w / w.mean()  # hold the effective sample size steady
+        log.info("%s IPCW weights: min %.2f max %.2f (%.0f%% of the frame censored)",
+                 self.phase_key, w.min(), w.max(),
+                 100 * (1 - frame["event_observed"].mean()))
+        return w
 
     def fit(self, train: pd.DataFrame, target: str):
         train = train[train[target].notna()].reset_index(drop=True)
         X = build_features(train, self.phase_key)
         y = self._fwd(train[target].to_numpy(dtype=float))
 
+        w = self._ipcw_weights(train, target)
+        self.ipcw_applied_ = w is not None
+
         self.qhat_ = 0.0
         if not self.conformal or len(y) < 100:
-            self.models = self._fit_quantiles(X, y)
+            self.models = self._fit_quantiles(X, y, w)
             return self
 
         n_cal = max(30, int(len(y) * self.calib_frac))
@@ -120,7 +181,8 @@ class ConformalQuantileModel:
             tr_idx, cal_idx = train_test_split(
                 np.arange(len(y)), test_size=self.calib_frac, random_state=42)
 
-        self.models = self._fit_quantiles(X.iloc[tr_idx], y[tr_idx])
+        self.models = self._fit_quantiles(
+            X.iloc[tr_idx], y[tr_idx], None if w is None else w[tr_idx])
 
         Xc = X.iloc[cal_idx]
         lo = self.models[0.1].predict(Xc)

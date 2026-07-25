@@ -138,6 +138,39 @@ def _feature_ranges(X: pd.DataFrame) -> dict:
     return out
 
 
+async def _censoring_frame(phase_key: str) -> pd.DataFrame | None:
+    """Completed + still-running trials, for the IPCW censoring correction.
+
+    Only the shape of the censoring distribution is needed, not the ongoing
+    trials' features, so this is deliberately cheap. If the fetch fails the
+    duration head simply trains unweighted rather than the whole run dying —
+    losing a bias correction is worse than nothing, but not worse than no model.
+    """
+    from backend.data.ct_api_client import (ONGOING_STATUSES, fetch_studies,
+                                            flatten_study)
+
+    try:
+        completed = await get_raw_dataframe(phase_key)
+        raw = await fetch_studies(PHASES[phase_key]["api_phases"],
+                                  statuses=ONGOING_STATUSES)
+        ongoing = pd.DataFrame(
+            [r for s in raw if (r := flatten_study(s)) is not None])
+        if ongoing.empty:
+            return None
+        for frame, flag in ((completed, 0), (ongoing, 1)):
+            if "is_ongoing" not in frame.columns:
+                frame["is_ongoing"] = flag
+        combined = pd.concat([completed, ongoing], ignore_index=True, sort=False)
+        frame = clean(combined, phase_key, censored=True)
+        log.info("%s censoring frame: %d rows, %.0f%% censored", phase_key,
+                 len(frame), 100 * (1 - frame["event_observed"].mean()))
+        return frame
+    except Exception as exc:
+        log.warning("%s: could not build censoring frame (%s) — the duration head "
+                    "will train without the IPCW correction", phase_key, exc)
+        return None
+
+
 async def train_phase(phase_key: str) -> None:
     log.info("Training %s ...", phase_key)
     raw = await get_raw_dataframe(phase_key)
@@ -146,6 +179,8 @@ async def train_phase(phase_key: str) -> None:
     hv_flag = PHASES[phase_key]["hv"]
     if "is_hv" in df.columns:
         df = df[df["is_hv"] == int(hv_flag)].reset_index(drop=True)
+
+    censoring = await _censoring_frame(phase_key)
 
     base = _phase_dir(phase_key)
     base.mkdir(parents=True, exist_ok=True)
@@ -159,7 +194,13 @@ async def train_phase(phase_key: str) -> None:
                         phase_key, head, len(sub))
             continue
 
-        model = ConformalQuantileModel(phase_key, transform=transform)
+        # Only the duration head is IPCW-corrected. The rate head's censored
+        # rows carry no usable rate — their Enrollment field is the target, not
+        # what has been recruited so far — so there is nothing to reweight
+        # toward and the correction would be noise.
+        model = ConformalQuantileModel(
+            phase_key, transform=transform,
+            censoring_frame=censoring if head == "duration" else None)
         model.fit(sub, target)
 
         for alpha, pipe in model.models.items():
@@ -172,6 +213,7 @@ async def train_phase(phase_key: str) -> None:
             "quantiles": list(QUANTILES),
             "n_fit": int(len(sub)),
             "coverage_nominal": model.coverage,
+            "ipcw_applied": bool(getattr(model, "ipcw_applied_", False)),
         }
         log.info("Saved %s/%s (n=%d, qhat=%.4f)", phase_key, head, len(sub), model.qhat_)
 

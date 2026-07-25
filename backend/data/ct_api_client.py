@@ -37,9 +37,22 @@ _FIELDS = ",".join([
 ])
 
 
+#: Trials that have finished and therefore have an ACTUAL primary completion date.
+COMPLETED_STATUSES = ["COMPLETED"]
+
+#: Trials still running. Their primary completion date is ESTIMATED — the
+#: sponsor's projection, not an outcome — so it must never be used as an event
+#: time. They enter the model as RIGHT-CENSORED observations: all we know is
+#: that the trial has already lasted at least (today − start) and is not done.
+#: Excluding them is what makes recent history look artificially fast, because
+#: the only recent trials that have finished are the quick ones.
+ONGOING_STATUSES = ["RECRUITING", "ACTIVE_NOT_RECRUITING", "ENROLLING_BY_INVITATION"]
+
+
 async def fetch_studies(
     phases: list[str],
     max_records: int = 5000,
+    statuses: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Return raw study dicts from the ClinicalTrials.gov v2 API.
 
@@ -55,7 +68,7 @@ async def fetch_studies(
         "AND AREA[LeadSponsorClass]INDUSTRY"
     )
     params: dict[str, Any] = {
-        "filter.overallStatus": "COMPLETED",
+        "filter.overallStatus": "|".join(statuses or COMPLETED_STATUSES),
         "query.term": query_term,
         "fields": _FIELDS,
         "pageSize": min(settings.ct_api_page_size, 1000),
@@ -99,6 +112,15 @@ def _safe_date(struct: dict | None) -> str | None:
     if not struct:
         return None
     return struct.get("date")
+
+
+def _date_type(struct: dict | None) -> str:
+    """'ACTUAL' or 'ESTIMATED'. Ongoing trials publish an ESTIMATED primary
+    completion date; treating that as an observed outcome trains the model on
+    the sponsor's projection rather than on what happened."""
+    if not struct:
+        return "UNKNOWN"
+    return struct.get("type", "UNKNOWN")
 
 
 def _intervention_type(interventions: list[dict]) -> str:
@@ -147,8 +169,14 @@ def flatten_study(study: dict) -> dict | None:
     nct_id = proto.get("identificationModule", {}).get("nctId")
     start_date = _safe_date(status.get("startDateStruct"))
     primary_date = _safe_date(status.get("primaryCompletionDateStruct"))
+    overall_status = status.get("overallStatus", "")
 
-    if not start_date or not primary_date:
+    # An ongoing trial needs only a start date — its endpoint is unobserved and
+    # will be censored downstream. A finished trial needs both.
+    is_ongoing = overall_status in ONGOING_STATUSES
+    if not start_date:
+        return None
+    if not primary_date and not is_ongoing:
         return None
     if sponsor_mod.get("leadSponsor", {}).get("class") != "INDUSTRY":
         return None
@@ -175,6 +203,11 @@ def flatten_study(study: dict) -> dict | None:
         "nct_id": nct_id,
         "Start Date": start_date,
         "Primary Completion Date": primary_date,
+        "overall_status": overall_status,
+        "is_ongoing": int(is_ongoing),
+        # ACTUAL vs ESTIMATED. Only an ACTUAL primary completion date is an
+        # observed event; everything else is censored.
+        "primary_completion_type": _date_type(status.get("primaryCompletionDateStruct")),
         "Phases": "|".join(design.get("phases", [])),
         "Enrollment": design.get("enrollmentInfo", {}).get("count"),
         "Drug_Type": drug_type,
