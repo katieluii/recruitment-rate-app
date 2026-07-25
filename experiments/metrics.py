@@ -145,6 +145,32 @@ def interval_calibration(y_true: np.ndarray, lower: np.ndarray,
     }
 
 
+def concordance(y_true: np.ndarray, y_pred: np.ndarray,
+                event_observed: np.ndarray) -> float | None:
+    """Harrell's C-index — the fraction of comparable trial pairs ranked correctly.
+
+    The metric the survival literature reports (the 2025 duration survey puts
+    DeepSurv at 0.777, random survival forest 0.762, Cox/Weibull AFT 0.754).
+    Unlike MAE it can score CENSORED rows: a trial known to have run at least 30
+    months and counting is still comparable to one that finished in 12.
+    0.5 is random ordering.
+    """
+    try:
+        from lifelines.utils import concordance_index
+    except ImportError:
+        log.warning("lifelines not installed — skipping C-index")
+        return None
+    try:
+        return round(float(concordance_index(
+            np.asarray(y_true, dtype=float),
+            np.asarray(y_pred, dtype=float),
+            np.asarray(event_observed, dtype=int),
+        )), 4)
+    except Exception as exc:  # degenerate folds
+        log.warning("C-index failed: %s", exc)
+        return None
+
+
 def skill_score(candidate_mae: float, baseline_mae: float) -> float | None:
     """Fraction of the baseline's error removed. Negative = worse than baseline."""
     if not baseline_mae:

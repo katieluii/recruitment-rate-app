@@ -8,11 +8,53 @@ import pandas as pd
 log = logging.getLogger(__name__)
 
 
-def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
+def parse_dates(df: pd.DataFrame, require_completion: bool = True) -> pd.DataFrame:
     for col in ["Start Date", "Primary Completion Date"]:
         df[col] = pd.to_datetime(df[col], errors="coerce")
-    df.dropna(subset=["Start Date", "Primary Completion Date"], inplace=True)
+    subset = ["Start Date", "Primary Completion Date"] if require_completion else ["Start Date"]
+    df.dropna(subset=subset, inplace=True)
     df.reset_index(drop=True, inplace=True)
+    return df
+
+
+def compute_censored_duration(df: pd.DataFrame, as_of: pd.Timestamp | None = None
+                              ) -> pd.DataFrame:
+    """Duration and an event indicator, handling trials that have not finished.
+
+    `event_observed = 1` — the trial finished and its primary completion date is
+    ACTUAL, so `duration_days` is the real endpoint.
+
+    `event_observed = 0` — the trial is still running. Its published primary
+    completion date is the sponsor's ESTIMATE and is discarded; the duration is
+    censored at (as_of − start), which says only "it has already run this long
+    and is not done".
+
+    Excluding these rows is what makes recent history look fast: among trials
+    that started recently, only the quick ones have finished. Our own harness
+    measured the effect — test-fold median recruitment rate ran 2.4-3.6x the
+    training median — and the 2025 duration-prediction literature reports the
+    same selection bias independently.
+    """
+    as_of = as_of or pd.Timestamp.today().normalize()
+
+    ongoing = df.get("is_ongoing", pd.Series([0] * len(df), index=df.index)).fillna(0).astype(int)
+    ctype = df.get("primary_completion_type",
+                   pd.Series(["ACTUAL"] * len(df), index=df.index)).fillna("UNKNOWN")
+
+    observed = (ongoing == 0) & (ctype != "ESTIMATED")
+
+    observed_days = (df["Primary Completion Date"] - df["Start Date"]).dt.days
+    censored_days = (as_of - df["Start Date"]).dt.days
+
+    df["duration_days"] = np.where(observed, observed_days, censored_days)
+    df["event_observed"] = observed.astype(int)
+    df["primary_completion_year"] = df["Primary Completion Date"].dt.year
+    df["start_year"] = df["Start Date"].dt.year
+
+    df = df[df["duration_days"] > 0].reset_index(drop=True)
+    n_cens = int((df["event_observed"] == 0).sum())
+    log.info("Censoring: %d of %d rows are right-censored (%.1f%%)",
+             n_cens, len(df), 100 * n_cens / max(len(df), 1))
     return df
 
 
@@ -78,9 +120,21 @@ def derive_eligibility(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def clean(df: pd.DataFrame, phase_key: str) -> pd.DataFrame:
-    df = parse_dates(df)
-    df = compute_duration(df)
+def clean(df: pd.DataFrame, phase_key: str, censored: bool = False) -> pd.DataFrame:
+    """Clean a raw frame.
+
+    `censored=False` (default, what v2 ships) keeps only finished trials and
+    treats every duration as observed. `censored=True` additionally admits
+    ongoing trials as right-censored rows for the survival models — see
+    compute_censored_duration.
+    """
+    if censored:
+        df = parse_dates(df, require_completion=False)
+        df = compute_censored_duration(df)
+    else:
+        df = parse_dates(df)
+        df = compute_duration(df)
+        df["event_observed"] = 1
     df = impute_medians(df, [
         "Enrollment", "total_primary_outcomes",
         "total_secondary_outcomes", "number_of_arms",
@@ -107,7 +161,11 @@ def clean(df: pd.DataFrame, phase_key: str) -> pd.DataFrame:
     # Clip rather than delete: keeps the long tail's features in the training set.
     df = winsorise(df, "Enrollment")
     df = winsorise(df, "site_count")
-    df = winsorise(df, "duration_days")
+    if not censored:
+        # Never winsorise a censored duration. Clipping "has run at least 91
+        # months and counting" down to a percentile turns a lower bound into a
+        # false observation and corrupts the survival likelihood.
+        df = winsorise(df, "duration_days")
 
     df = compute_recruitment_rate(df)
 
@@ -132,5 +190,13 @@ def compute_recruitment_rate(df: pd.DataFrame) -> pd.DataFrame:
     with np.errstate(divide="ignore", invalid="ignore"):
         rate = enrol / (sites * months)
     df["recruitment_rate"] = rate.replace([np.inf, -np.inf], np.nan)
+
+    # A censored row's denominator is "time elapsed so far", not the trial's
+    # length, and its Enrollment field is the TARGET rather than what has been
+    # recruited. The resulting ratio is meaningless, so it is dropped rather
+    # than fed to the rate head.
+    if "event_observed" in df.columns:
+        df.loc[df["event_observed"] == 0, "recruitment_rate"] = np.nan
+
     df = winsorise(df, "recruitment_rate")
     return df

@@ -183,3 +183,216 @@ class ShippedArtifact:
         std_used = np.maximum(tree_std, self.rmse * 0.5)
         point = self.pipe.predict(X)
         return (np.maximum(1.0, point - _Z_80 * std_used), point + _Z_80 * std_used)
+
+
+# ── Survival models (v3.1) ────────────────────────────────────────────────────
+
+class SurvivalModel:
+    """Right-censored duration models.
+
+    The point of these is not a fancier learner — it is being allowed to LOOK at
+    the trials v2 had to throw away. The corpus is 59-66% censored once ongoing
+    trials are admitted, and those trials have already run LONGER than the
+    completed ones took to finish (P3: 25.2 months elapsed and counting, against
+    an observed median of 21.0). Dropping them is not a neutral filter; it
+    removes the slow half of recent history.
+
+    `kind`:
+      weibull_aft — lifelines, log-linear parametric. The 2025 duration survey
+                    puts this class at C-index 0.754.
+      rsf         — random survival forest (0.762 in the same survey).
+      gbsa        — gradient-boosted survival analysis.
+    """
+
+    name = "survival"
+
+    def __init__(self, phase_key: str, kind: str = "weibull_aft",
+                 ta_target_encoding: bool = True, params: dict | None = None):
+        self.phase_key = phase_key
+        self.kind = kind
+        self.ta_target_encoding = ta_target_encoding
+        self.params = dict(params or {})
+
+    def _prep(self, train: pd.DataFrame):
+        X = build_features(train, self.phase_key)
+        self.pre_ = make_preprocessor(ta_target_encoding=self.ta_target_encoding)
+        y_time = train["duration_days"].to_numpy(dtype=float)
+        # The encoder needs a target; give it the observed/censored time. It is
+        # fitted train-fold only and out-of-fold within it, so this does not leak.
+        Xt = self.pre_.fit_transform(X, y_time)
+        return np.nan_to_num(np.asarray(Xt, dtype=float))
+
+    def fit(self, train: pd.DataFrame, target: str = "duration_days"):
+        if "event_observed" not in train.columns:
+            raise ValueError(
+                "SurvivalModel needs an `event_observed` column — load the frame "
+                "with experiments.dataset.load_clean_censored")
+
+        Xt = self._prep(train)
+        time = train["duration_days"].to_numpy(dtype=float)
+        event = train["event_observed"].to_numpy(dtype=int)
+
+        if self.kind == "weibull_aft":
+            from lifelines import WeibullAFTFitter
+
+            df = pd.DataFrame(Xt, columns=[f"f{i}" for i in range(Xt.shape[1])])
+            # Drop zero-variance columns; a constant column makes the AFT design
+            # matrix singular and the fit throws rather than degrading.
+            keep = df.std(axis=0) > 1e-9
+            self.cols_ = list(df.columns[keep])
+            df = df[self.cols_]
+            df["_T"] = np.maximum(time, 1.0)
+            df["_E"] = event
+            self.model_ = WeibullAFTFitter(penalizer=self.params.get("penalizer", 0.1))
+            self.model_.fit(df, duration_col="_T", event_col="_E")
+        else:
+            from sksurv.ensemble import (GradientBoostingSurvivalAnalysis,
+                                         RandomSurvivalForest)
+
+            y = np.array([(bool(e), t) for e, t in zip(event, time)],
+                         dtype=[("event", "?"), ("time", "<f8")])
+            if self.kind == "rsf":
+                self.model_ = RandomSurvivalForest(
+                    n_estimators=self.params.get("n_estimators", 300),
+                    min_samples_leaf=self.params.get("min_samples_leaf", 15),
+                    max_features="sqrt", n_jobs=-1, random_state=42)
+            elif self.kind == "gbsa":
+                self.model_ = GradientBoostingSurvivalAnalysis(
+                    n_estimators=self.params.get("n_estimators", 300),
+                    learning_rate=self.params.get("learning_rate", 0.05),
+                    max_depth=self.params.get("max_depth", 3), random_state=42)
+            else:
+                raise ValueError(f"Unknown survival kind {self.kind!r}")
+            self.model_.fit(Xt, y)
+        return self
+
+    def _transform(self, test: pd.DataFrame) -> np.ndarray:
+        Xt = self.pre_.transform(build_features(test, self.phase_key))
+        return np.nan_to_num(np.asarray(Xt, dtype=float))
+
+    def predict(self, test: pd.DataFrame) -> np.ndarray:
+        """Median predicted duration in days."""
+        Xt = self._transform(test)
+
+        if self.kind == "weibull_aft":
+            df = pd.DataFrame(Xt, columns=[f"f{i}" for i in range(Xt.shape[1])])
+            return np.maximum(1.0, self.model_.predict_median(df[self.cols_]).to_numpy())
+
+        # sksurv gives survival curves; read the median off each one.
+        surv = self.model_.predict_survival_function(Xt, return_array=True)
+        times = self.model_.unique_times_
+        out = np.empty(len(Xt))
+        for i, curve in enumerate(surv):
+            below = np.where(curve <= 0.5)[0]
+            out[i] = times[below[0]] if len(below) else times[-1]
+        return np.maximum(1.0, out)
+
+    def risk(self, test: pd.DataFrame) -> np.ndarray:
+        """Higher = shorter predicted duration, for C-index ranking."""
+        return -self.predict(test)
+
+    def predict_interval(self, test: pd.DataFrame):
+        if self.kind != "weibull_aft":
+            raise NotImplementedError
+        Xt = self._transform(test)
+        df = pd.DataFrame(Xt, columns=[f"f{i}" for i in range(Xt.shape[1])])[self.cols_]
+        lo = self.model_.predict_percentile(df, p=0.1).to_numpy()
+        hi = self.model_.predict_percentile(df, p=0.9).to_numpy()
+        lo = np.nan_to_num(lo, nan=1.0, posinf=1.0)
+        hi = np.nan_to_num(hi, nan=np.nanmax(lo) * 3 if len(lo) else 1000.0,
+                           posinf=np.nanmax(lo) * 3 if len(lo) else 1000.0)
+        return np.minimum(lo, hi), np.maximum(lo, hi)
+
+
+class IPCWLGBMQuantile(LGBMQuantile):
+    """LightGBM trained on completed trials, reweighted to undo censoring bias.
+
+    Why this shape. The naive v3.1 arms showed that admitting censored trials
+    halves the systematic bias (P2 −4.22 → −2.32 months on a near-unbiased test
+    window) but costs more in scatter than it wins, because survival learners
+    are weaker point predictors than gradient boosting. So keep the learner and
+    move the correction into the sample weights.
+
+    Inverse-probability-of-censoring weighting: estimate G(t), the probability a
+    trial is still uncensored at t, with a reverse Kaplan-Meier over the
+    censoring distribution, then weight each completed trial by 1/G(T_i). Long
+    trials are the ones censoring removes, so they are exactly the ones that get
+    upweighted — the training set is pushed back toward the duration mix that
+    would exist if every trial had been allowed to finish.
+    """
+
+    name = "ipcw_lgbm"
+
+    def __init__(self, phase_key: str, censored_frame: pd.DataFrame | None = None,
+                 weight_cap: float = 10.0, **kwargs):
+        super().__init__(phase_key, **kwargs)
+        self.censored_frame = censored_frame
+        self.weight_cap = weight_cap
+
+    def _censoring_survival(self, frame: pd.DataFrame):
+        """Reverse Kaplan-Meier: survival of the CENSORING process."""
+        from lifelines import KaplanMeierFitter
+
+        kmf = KaplanMeierFitter()
+        # Flip the indicator: an "event" here is being censored.
+        kmf.fit(frame["duration_days"].to_numpy(dtype=float),
+                event_observed=1 - frame["event_observed"].to_numpy(dtype=int))
+        return kmf
+
+    def _weights(self, train: pd.DataFrame) -> np.ndarray:
+        frame = self.censored_frame
+        if frame is None or "event_observed" not in frame.columns:
+            log.warning("No censored frame supplied — IPCW falls back to uniform weights")
+            return np.ones(len(train))
+
+        kmf = self._censoring_survival(frame)
+        t = train["duration_days"].to_numpy(dtype=float)
+        g = kmf.survival_function_at_times(t).to_numpy()
+        g = np.clip(g, 1.0 / self.weight_cap, 1.0)
+        w = 1.0 / g
+        w = np.clip(w, 1.0, self.weight_cap)
+        w = w / w.mean()  # keep the effective sample size stable
+        log.info("%s IPCW weights: min %.2f max %.2f mean %.2f",
+                 self.phase_key, w.min(), w.max(), w.mean())
+        return w
+
+    def fit(self, train: pd.DataFrame, target: str = "duration_days"):
+        from backend.models.quantile_model import make_preprocessor as _mp  # noqa: F401
+        import lightgbm as lgb
+        from sklearn.pipeline import Pipeline as _P
+
+        m = self.model
+        train = train[train[target].notna()].reset_index(drop=True)
+        X = build_features(train, self.phase_key)
+        y = m._fwd(train[target].to_numpy(dtype=float))
+        w = self._weights(train)
+
+        def fit_quantiles(Xf, yf, wf):
+            out = {}
+            for alpha in (0.1, 0.5, 0.9):
+                pipe = _P([
+                    ("pre", make_preprocessor(ta_target_encoding=m.ta_target_encoding)),
+                    ("model", lgb.LGBMRegressor(objective="quantile", alpha=alpha,
+                                                **m.params)),
+                ])
+                pipe.fit(Xf, yf, model__sample_weight=wf)
+                out[alpha] = pipe
+            return out
+
+        m.qhat_ = 0.0
+        if not m.conformal or len(y) < 100:
+            m.models = fit_quantiles(X, y, w)
+            return self
+
+        n_cal = max(30, int(len(y) * m.calib_frac))
+        order = np.argsort(pd.to_datetime(train["Start Date"]).to_numpy())
+        cal_idx, tr_idx = order[-n_cal:], order[:-n_cal]
+        m.models = fit_quantiles(X.iloc[tr_idx], y[tr_idx], w[tr_idx])
+
+        Xc = X.iloc[cal_idx]
+        lo = m.models[0.1].predict(Xc)
+        hi = m.models[0.9].predict(Xc)
+        scores = np.maximum(lo - y[cal_idx], y[cal_idx] - hi)
+        level = min(1.0, np.ceil((len(scores) + 1) * m.coverage) / len(scores))
+        m.qhat_ = float(np.quantile(scores, level, method="higher"))
+        return self
