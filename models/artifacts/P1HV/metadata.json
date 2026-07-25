@@ -1,6 +1,31 @@
 {
-  "rmse": 205.58688756913108,
-  "n_train": 672,
+  "n_train": 840,
+  "heads": {
+    "duration": {
+      "target": "duration_days",
+      "transform": "log1p",
+      "qhat": 0.28137498884940637,
+      "quantiles": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "n_fit": 840,
+      "coverage_nominal": 0.8
+    },
+    "rate": {
+      "target": "recruitment_rate",
+      "transform": "log",
+      "qhat": 0.2805177042457401,
+      "quantiles": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "n_fit": 840,
+      "coverage_nominal": 0.8
+    }
+  },
   "feature_defaults": {
     "Drug_Type": "DRUG",
     "Allocation": "RANDOMIZED",
@@ -9,7 +34,8 @@
     "Primary_Purpose": "TREATMENT",
     "Sex": "ALL",
     "sad_mad": "None",
-    "Enrollment": 34.0,
+    "endpoint_archetype": "PK_PD",
+    "Enrollment": 35.0,
     "site_count": 1.0,
     "country_count": 1.0,
     "total_primary_outcomes": 3.0,
@@ -18,12 +44,22 @@
     "followup_months": 0.92,
     "min_age_years": 18.0,
     "age_span_years": 37.0,
-    "criteria_chars": 2080.5,
+    "criteria_chars": 2106.5,
     "n_inclusion_criteria": 5.0,
     "n_exclusion_criteria": 8.0,
     "n_collaborators": 0.0,
     "enrollment_per_site": 32.0,
     "outcomes_total": 7.0,
+    "endpoint_has_SURVIVAL": 0.0,
+    "endpoint_has_EVENT_COMPOSITE": 0.0,
+    "endpoint_has_EVENT_RATE": 0.0,
+    "endpoint_has_RESPONSE": 0.0,
+    "endpoint_has_IMMUNOGENICITY": 0.0,
+    "endpoint_has_CLINICAL_SCORE": 0.0,
+    "endpoint_has_BIOMARKER": 0.0,
+    "endpoint_has_PRO": 0.0,
+    "endpoint_has_SAFETY": 0.0,
+    "endpoint_has_PK_PD": 1.0,
     "has_collaborators": 0.0,
     "Cardiovascular": 0.0,
     "CNS/Neurology": 0.0,
@@ -60,7 +96,7 @@
   "feature_ranges": {
     "Enrollment": {
       "p01": 6.0,
-      "p99": 276.89999999999964,
+      "p99": 280.10000000000014,
       "min": 6.0,
       "max": 477.30999999999995
     },
@@ -68,35 +104,35 @@
       "p01": 1.0,
       "p99": 6.0,
       "min": 1.0,
-      "max": 24.0
+      "max": 45.0
     },
     "country_count": {
       "p01": 0.0,
       "p99": 2.0,
       "min": 0.0,
-      "max": 3.0
+      "max": 9.0
     },
     "total_primary_outcomes": {
       "p01": 1.0,
-      "p99": 23.289999999999964,
+      "p99": 24.0,
       "min": 1.0,
       "max": 40.0
     },
     "total_secondary_outcomes": {
       "p01": 0.0,
-      "p99": 31.0,
+      "p99": 33.610000000000014,
       "min": 0.0,
-      "max": 48.0
+      "max": 73.0
     },
     "number_of_arms": {
       "p01": 1.0,
-      "p99": 15.289999999999964,
+      "p99": 15.610000000000014,
       "min": 1.0,
       "max": 27.0
     },
     "followup_months": {
       "p01": 0.07,
-      "p99": 14.764999999999972,
+      "p99": 15.120000000000005,
       "min": 0.03,
       "max": 24.0
     },
@@ -113,20 +149,20 @@
       "max": 82.0
     },
     "criteria_chars": {
-      "p01": 201.91,
-      "p99": 8784.459999999994,
+      "p01": 231.60000000000002,
+      "p99": 8840.140000000003,
       "min": 111.0,
       "max": 12583.0
     },
     "n_inclusion_criteria": {
       "p01": 1.0,
-      "p99": 22.0,
+      "p99": 20.0,
       "min": 0.0,
       "max": 36.0
     },
     "n_exclusion_criteria": {
-      "p01": 0.71,
-      "p99": 40.289999999999964,
+      "p01": 0.39000000000000057,
+      "p99": 40.0,
       "min": 0.0,
       "max": 56.0
     },
@@ -138,15 +174,75 @@
     },
     "enrollment_per_site": {
       "p01": 6.0,
-      "p99": 188.57999999999993,
+      "p99": 194.05000000000007,
       "min": 2.0,
-      "max": 320.0
+      "max": 477.30999999999995
     },
     "outcomes_total": {
       "p01": 1.0,
-      "p99": 40.0,
+      "p99": 42.610000000000014,
       "min": 1.0,
-      "max": 61.0
+      "max": 79.0
+    },
+    "endpoint_has_SURVIVAL": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "endpoint_has_EVENT_COMPOSITE": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "endpoint_has_EVENT_RATE": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "endpoint_has_RESPONSE": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "endpoint_has_IMMUNOGENICITY": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "endpoint_has_CLINICAL_SCORE": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "endpoint_has_BIOMARKER": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "endpoint_has_PRO": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "endpoint_has_SAFETY": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "endpoint_has_PK_PD": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
     },
     "has_collaborators": {
       "p01": 0.0,
@@ -230,7 +326,7 @@
       "p01": 0.0,
       "p99": 0.0,
       "min": 0.0,
-      "max": 0.0
+      "max": 1.0
     },
     "Otorhinolaryngology": {
       "p01": 0.0,
@@ -248,7 +344,7 @@
       "p01": 0.0,
       "p99": 0.0,
       "min": 0.0,
-      "max": 0.0
+      "max": 1.0
     },
     "Rheumatology": {
       "p01": 0.0,
@@ -318,7 +414,7 @@
     },
     "Latin America": {
       "p01": 0.0,
-      "p99": 0.0,
+      "p99": 0.6100000000000136,
       "min": 0.0,
       "max": 1.0
     },
@@ -340,5 +436,6 @@
       "min": 0.0,
       "max": 1.0
     }
-  }
+  },
+  "rmse": 231.60429616049873
 }

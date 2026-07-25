@@ -17,12 +17,24 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
 
-from backend.models.trainer import _RF_PARAMS
 from backend.preprocessing.pipeline import build_features, make_preprocessor
 
 log = logging.getLogger(__name__)
 
-_Z_80 = 1.28  # matches backend/models/inference.py
+_Z_80 = 1.28  # v1's 80% z-score
+
+#: v1's RandomForest hyperparameters, frozen here. They no longer live in
+#: backend/models/trainer.py — that module now trains the two LightGBM heads —
+#: but the harness still needs them to reproduce the old recipe as a reference
+#: row. Do not "update" these: their whole purpose is to stay v1.
+_RF_PARAMS = {
+    "n_estimators": 300,
+    "max_depth": 15,
+    "min_samples_leaf": 10,
+    "max_features": 0.5,
+    "random_state": 42,
+    "n_jobs": -1,
+}
 
 
 class V1Recipe:
@@ -79,6 +91,56 @@ class V1Recipe:
         std_used = np.maximum(tree_std, self.rmse * 0.5)
         point = self.pipe.predict(X)
         return (np.maximum(1.0, point - _Z_80 * std_used), point + _Z_80 * std_used)
+
+
+from backend.models.quantile_model import DEFAULT_PARAMS, ConformalQuantileModel
+
+#: Kept as an alias so ledger rows and configs keep their names.
+LGBM_PARAMS = DEFAULT_PARAMS
+
+
+class LGBMQuantile:
+    """Harness wrapper around the SHIPPED model class.
+
+    Deliberately thin: the model itself lives in
+    backend.models.quantile_model so that what the harness measures is
+    literally what production runs. A second copy here would drift.
+    """
+
+    name = "lgbm_quantile"
+
+    def __init__(self, phase_key: str, params: dict | None = None,
+                 ta_target_encoding: bool = True, log_target: bool = True,
+                 conformal: bool = True, calib_frac: float = 0.2,
+                 coverage: float = 0.80, calib_strategy: str = "recent",
+                 transform: str = "log1p"):
+        self.phase_key = phase_key
+        self.model = ConformalQuantileModel(
+            phase_key,
+            transform=transform if log_target else "none",
+            params=params, ta_target_encoding=ta_target_encoding,
+            conformal=conformal, calib_frac=calib_frac,
+            coverage=coverage, calib_strategy=calib_strategy,
+        )
+
+    def fit(self, train: pd.DataFrame, target: str = "duration_days"):
+        self.model.fit(train, target)
+        return self
+
+    def predict(self, test: pd.DataFrame) -> np.ndarray:
+        return self.model.predict(build_features(test, self.phase_key))
+
+    def predict_interval(self, test: pd.DataFrame):
+        return self.model.predict_interval(build_features(test, self.phase_key))
+
+
+class LGBMPoint(LGBMQuantile):
+    """Median-only variant — isolates how much of the gain is the interval setup."""
+
+    name = "lgbm_point"
+
+    def predict_interval(self, test: pd.DataFrame):
+        raise NotImplementedError
 
 
 class ShippedArtifact:

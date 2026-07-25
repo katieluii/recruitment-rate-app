@@ -109,6 +109,28 @@ def clean(df: pd.DataFrame, phase_key: str) -> pd.DataFrame:
     df = winsorise(df, "site_count")
     df = winsorise(df, "duration_days")
 
+    df = compute_recruitment_rate(df)
+
     if len(df) < 10:
         raise ValueError(f"Too few rows after cleaning ({len(df)}) for phase {phase_key}")
+    return df
+
+
+def compute_recruitment_rate(df: pd.DataFrame) -> pd.DataFrame:
+    """Patients enrolled per site per month.
+
+    APPROXIMATION, and it must be labelled as one wherever it is surfaced.
+    The denominator is the full start → primary-completion window because the
+    registry does not publish an enrolment-completion date, so any trial with a
+    long follow-up tail — an oncology survival study above all — has its rate
+    UNDERSTATED. It is a like-for-like comparator across trials of similar
+    endpoint type, not an absolute enrolment speed.
+    """
+    months = df["duration_days"] / 30.44
+    sites = pd.to_numeric(df["site_count"], errors="coerce")
+    enrol = pd.to_numeric(df["Enrollment"], errors="coerce")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        rate = enrol / (sites * months)
+    df["recruitment_rate"] = rate.replace([np.inf, -np.inf], np.nan)
+    df = winsorise(df, "recruitment_rate")
     return df

@@ -40,26 +40,34 @@ def ta_masks(df: pd.DataFrame) -> dict[str, pd.Series]:
 
 # ── Point-accuracy ────────────────────────────────────────────────────────────
 
-def point_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
+def point_metrics(y_true: np.ndarray, y_pred: np.ndarray,
+                  unit: str = "days") -> dict:
+    """Point accuracy. `unit="days"` reports in months; `unit="raw"` reports in
+    the target's own units (used by the recruitment-rate head, whose values are
+    patients per site per month and would be meaningless divided by 30.44)."""
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
     err = y_pred - y_true
     with np.errstate(divide="ignore", invalid="ignore"):
         ape = np.abs(err) / np.where(y_true == 0, np.nan, y_true)
+
+    scale = DAYS_PER_MONTH if unit == "days" else 1.0
+    suffix = "months" if unit == "days" else "raw"
     return {
         "n": int(len(y_true)),
-        "mae_months": round(float(np.mean(np.abs(err))) / DAYS_PER_MONTH, 2),
-        "rmse_days": round(float(np.sqrt(np.mean(err ** 2))), 1),
-        "rmse_months": round(float(np.sqrt(np.mean(err ** 2))) / DAYS_PER_MONTH, 2),
+        f"mae_{suffix}": round(float(np.mean(np.abs(err))) / scale, 4),
+        "rmse_days": round(float(np.sqrt(np.mean(err ** 2))), 4),
+        f"rmse_{suffix}": round(float(np.sqrt(np.mean(err ** 2))) / scale, 4),
         "mape_pct": round(float(np.nanmean(ape)) * 100, 1),
-        "median_ae_months": round(float(np.median(np.abs(err))) / DAYS_PER_MONTH, 2),
-        "bias_months": round(float(np.mean(err)) / DAYS_PER_MONTH, 2),
+        f"median_ae_{suffix}": round(float(np.median(np.abs(err))) / scale, 4),
+        f"bias_{suffix}": round(float(np.mean(err)) / scale, 4),
     }
 
 
 def per_ta_errors(df: pd.DataFrame, y_true: np.ndarray,
-                  y_pred: np.ndarray) -> pd.DataFrame:
+                  y_pred: np.ndarray, unit: str = "days") -> pd.DataFrame:
     """MAE and true-vs-predicted median per therapeutic area."""
+    scale = DAYS_PER_MONTH if unit == "days" else 1.0
     rows = []
     for area, mask in ta_masks(df).items():
         m = mask.to_numpy()
@@ -69,9 +77,9 @@ def per_ta_errors(df: pd.DataFrame, y_true: np.ndarray,
         rows.append({
             "therapeutic_area": area,
             "n": int(m.sum()),
-            "true_median_months": round(float(np.median(t)) / DAYS_PER_MONTH, 1),
-            "pred_median_months": round(float(np.median(p)) / DAYS_PER_MONTH, 1),
-            "mae_months": round(float(np.mean(np.abs(p - t))) / DAYS_PER_MONTH, 2),
+            "true_median_months": round(float(np.median(t)) / scale, 3),
+            "pred_median_months": round(float(np.median(p)) / scale, 3),
+            "mae_months": round(float(np.mean(np.abs(p - t))) / scale, 3),
         })
     if not rows:
         return pd.DataFrame(columns=["therapeutic_area", "n", "true_median_months",
@@ -145,12 +153,14 @@ def skill_score(candidate_mae: float, baseline_mae: float) -> float | None:
 
 
 def evaluate(df_test: pd.DataFrame, y_true, y_pred,
-             lower=None, upper=None) -> dict:
+             lower=None, upper=None, unit: str = "days") -> dict:
     """Full metric bundle for one (phase, config) pair."""
-    per_ta = per_ta_errors(df_test, y_true, y_pred)
-    out = point_metrics(y_true, y_pred)
+    per_ta = per_ta_errors(df_test, y_true, y_pred, unit=unit)
+    out = point_metrics(y_true, y_pred, unit=unit)
     out.update(ta_differentiation(per_ta))
     if lower is not None and upper is not None:
         out.update(interval_calibration(y_true, lower, upper))
+        if unit != "days":
+            out.pop("interval_mean_width_months", None)
     out["_per_ta"] = per_ta.to_dict(orient="records")
     return out

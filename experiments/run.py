@@ -18,7 +18,8 @@ import pandas as pd
 from backend.constants import PHASES
 from experiments import ledger
 from experiments.baselines import ALL_BASELINES, PRIMARY_BASELINE
-from experiments.candidates import ShippedArtifact, V1Recipe
+from experiments.candidates import (LGBMPoint, LGBMQuantile, ShippedArtifact,
+                                    V1Recipe)
 from experiments.dataset import load_clean
 from experiments.metrics import evaluate, skill_score
 from experiments.splits import check_split_viability, get_split
@@ -35,6 +36,13 @@ CONFIGS = {
     "v1_recipe":            (lambda p: V1Recipe(p), False),
     # Isolates the therapeutic-area target encoder's contribution.
     "rf_ta_encoded":        (lambda p: V1Recipe(p, ta_target_encoding=True), False),
+    "lgbm_point":           (lambda p: LGBMPoint(p), False),
+    "lgbm_point_raw":       (lambda p: LGBMPoint(p, log_target=False), False),
+    "lgbm_quantile":        (lambda p: LGBMQuantile(p, conformal=False), False),
+    "lgbm_conformal":       (lambda p: LGBMQuantile(p, calib_strategy="random"), False),
+    "lgbm_conformal_recent": (lambda p: LGBMQuantile(p, calib_strategy="recent"), False),
+    # Rate head: strictly-positive multiplicative target needs plain log.
+    "lgbm_rate":            (lambda p: LGBMQuantile(p, transform="log"), False),
     "v1_shipped":           (lambda p: ShippedArtifact(
         p, artifacts_dir="models/artifacts_v1_baseline"), False),
 }
@@ -42,9 +50,15 @@ CONFIGS = {
 BASELINE_CONFIGS = [n for n, (_, is_b) in CONFIGS.items() if is_b]
 
 
+#: Targets the harness can score. The rate head is reported in its own units;
+#: dividing patients-per-site-per-month by 30.44 would be meaningless.
+TARGET_UNITS = {"duration_days": "days", "recruitment_rate": "raw"}
+
+
 def run_one(config: str, phase_key: str, split: str, cutoff: str,
             target: str = "duration_days") -> dict | None:
     df = load_clean(phase_key)
+    df = df[df[target].notna()].reset_index(drop=True)
     train, test = get_split(df, split, **({"cutoff": cutoff} if split == "temporal" else {}))
 
     warning = check_split_viability(train, test)
@@ -64,7 +78,8 @@ def run_one(config: str, phase_key: str, split: str, cutoff: str,
     except (NotImplementedError, AttributeError):
         lower = upper = None
 
-    metrics = evaluate(test, y_true, y_pred, lower, upper)
+    metrics = evaluate(test, y_true, y_pred, lower, upper,
+                       unit=TARGET_UNITS.get(target, "raw"))
     per_ta = metrics.pop("_per_ta")
 
     return {
@@ -80,23 +95,28 @@ def run_one(config: str, phase_key: str, split: str, cutoff: str,
     }
 
 
+def _mae(row: dict):
+    """MAE regardless of which unit the target was scored in."""
+    return row.get("mae_months", row.get("mae_raw"))
+
+
 def add_skill_scores(rows: list[dict]) -> list[dict]:
     """Attach each row's MAE skill against the primary baseline for its phase."""
     bar = {
-        r["phase"]: r.get("mae_months")
+        r["phase"]: _mae(r)
         for r in rows
         if r.get("config") == PRIMARY_BASELINE.name and not r.get("skipped")
     }
     for r in rows:
-        if r.get("skipped") or r.get("mae_months") is None:
+        if r.get("skipped") or _mae(r) is None:
             continue
         base = bar.get(r["phase"])
-        r["baseline_mae_months"] = base
+        r["baseline_mae"] = base
         r["skill_vs_ta_median"] = (
-            skill_score(r["mae_months"], base) if base else None
+            skill_score(_mae(r), base) if base else None
         )
         r["beats_baseline"] = (
-            None if base is None else bool(r["mae_months"] < base)
+            None if base is None else bool(_mae(r) < base)
         )
     return rows
 
@@ -127,7 +147,7 @@ def write_report(rows: list[dict], name: str, split: str, cutoff: str) -> Path:
         beats_s = "—" if beats is None else ("yes" if beats else "**NO**")
         lines.append(
             f"| {r['config']} | {r['phase']} | {r['n_train']} | {r['n_test']} "
-            f"| {r['mae_months']} | {r['rmse_days']} "
+            f"| {_mae(r)} | {r['rmse_days']} "
             f"| {r.get('skill_vs_ta_median', '—')} | {beats_s} "
             f"| {r.get('ta_spread_ratio', '—')} | {r.get('ta_rank_corr', '—')} "
             f"| {r.get('ta_n_distinct', '—')}/{r.get('ta_n_areas', '—')} "
@@ -159,6 +179,8 @@ def main() -> None:
     ap.add_argument("--split", default="temporal", choices=["temporal", "random"])
     ap.add_argument("--cutoff", default="2021-01-01")
     ap.add_argument("--phases", default=",".join(PHASES))
+    ap.add_argument("--target", default="duration_days",
+                    choices=list(TARGET_UNITS))
     ap.add_argument("--name", default=None, help="report filename stem")
     args = ap.parse_args()
 
@@ -185,11 +207,12 @@ def main() -> None:
     for config in configs:
         for phase_key in phases:
             try:
-                row = run_one(config, phase_key, args.split, args.cutoff)
+                row = run_one(config, phase_key, args.split, args.cutoff,
+                              target=args.target)
             except Exception as exc:
                 log.error("%s/%s failed: %s", config, phase_key, exc, exc_info=True)
                 row = {"config": config, "phase": phase_key, "split": args.split,
-                       "error": str(exc)}
+                       "target": args.target, "error": str(exc)}
             if row:
                 rows.append(row)
 
@@ -202,10 +225,11 @@ def main() -> None:
 
     print("\n" + "=" * 100)
     summary = pd.DataFrame([
-        {k: r.get(k) for k in
-         ("config", "phase", "n_test", "mae_months", "skill_vs_ta_median",
+        {**{k: r.get(k) for k in
+         ("config", "phase", "n_test")}, "mae": _mae(r),
+         **{k: r.get(k) for k in ( "skill_vs_ta_median",
           "beats_baseline", "ta_spread_ratio", "ta_rank_corr",
-          "ta_n_distinct", "interval_coverage")}
+          "ta_n_distinct", "interval_coverage")}}
         for r in rows if not r.get("skipped") and not r.get("error")
     ])
     if not summary.empty:

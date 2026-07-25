@@ -1,5 +1,5 @@
 from __future__ import annotations
-"""Prediction + uncertainty estimation."""
+"""Prediction: duration, recruitment rate, and the enrolment window between them."""
 import logging
 from dataclasses import dataclass, field
 from typing import Optional
@@ -7,7 +7,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from backend.constants import THERAPEUTIC_AREAS, REGIONS, PHASES
+from backend.constants import PHASES, REGIONS, THERAPEUTIC_AREAS
 from backend.models import registry
 from backend.preprocessing.pipeline import build_features
 
@@ -20,6 +20,7 @@ _DAYS_PER_MONTH = 30.44
 class Prediction:
     phase_key: str
     therapeutic_area: str
+    # Head A — total duration, start to primary completion
     predicted_days: float
     lower_days: float
     upper_days: float
@@ -31,29 +32,34 @@ class Prediction:
     n_train: int
     confidence_pct: int = 80
     extrapolation_warnings: list[str] = field(default_factory=list)
+    # Head B — recruitment rate, patients per site per month
+    recruitment_rate: Optional[float] = None
+    recruitment_rate_lower: Optional[float] = None
+    recruitment_rate_upper: Optional[float] = None
+    enrolment_months: Optional[float] = None
+    rate_is_approximate: bool = True
+
+
+def _phase_raw(phase_key: str) -> str:
+    return {"P1HV": "PHASE1", "P1": "PHASE1", "P2": "PHASE2", "P3": "PHASE3"}[phase_key]
 
 
 def _build_input_row(phase_key: str, therapeutic_area: str,
                      enrollment: Optional[int], num_sites: Optional[int],
                      drug_type: str, region: str,
+                     endpoint_archetype: Optional[str] = None,
                      followup_months: Optional[float] = None) -> pd.DataFrame:
-    """Construct a single-row DataFrame that matches build_features output.
+    """Single-row frame matching build_features output.
 
-    Unspecified fields are left NaN so build_features and the fitted imputer
-    fill them from the training distribution. v1 hardcoded them here
-    (Allocation="RANDOMIZED", Masking="DOUBLE", primary_completion_year=2024),
-    which meant the only thing varying between two requests for different
-    therapeutic areas was 22 sparse binary columns.
+    Unspecified fields are left NaN so they fall back to the training-set
+    defaults stored in the artifact. v1 hardcoded them here — Allocation
+    "RANDOMIZED", Masking "DOUBLE", primary_completion_year 2024 — so the only
+    thing that varied between requests for two different therapeutic areas was
+    22 sparse binary columns, and the model barely used them.
     """
-    hv = int(PHASES[phase_key]["hv"])
-
-    # Pipe-separated conditions / countries strings to drive TA + region OHE
-    conditions_str = therapeutic_area  # single area (no pipe)
-    countries_str = region              # single region (no pipe, used in assign_region)
-
     row = {
-        "conditions": conditions_str,
-        "countries": countries_str,
+        "conditions": therapeutic_area,   # already a canonical TA label
+        "countries": region,              # drives the region one-hot
         "brief_summary": "",
         "Phases": _phase_raw(phase_key),
         "Enrollment": enrollment,
@@ -61,15 +67,21 @@ def _build_input_row(phase_key: str, therapeutic_area: str,
         "country_count": 1,
         "followup_months": followup_months,
         "Drug_Type": drug_type,
-        "is_hv": hv,
+        "is_hv": int(PHASES[phase_key]["hv"]),
     }
+    if endpoint_archetype:
+        row["primary_outcome_measures"] = ""
     df = pd.DataFrame([row])
     X = build_features(df, phase_key)
+    if endpoint_archetype:
+        X["endpoint_archetype"] = endpoint_archetype
+        flag = f"endpoint_has_{endpoint_archetype}"
+        if flag in X.columns:
+            X[flag] = 1
     return _apply_defaults(X, phase_key)
 
 
 def _apply_defaults(X: pd.DataFrame, phase_key: str) -> pd.DataFrame:
-    """Fill unspecified features from the training-set defaults in the artifact."""
     entry = registry.load(phase_key) or {}
     defaults = entry.get("feature_defaults") or {}
     if not defaults:
@@ -85,15 +97,15 @@ def _apply_defaults(X: pd.DataFrame, phase_key: str) -> pd.DataFrame:
 
 
 def _check_extrapolation(X: pd.DataFrame, phase_key: str) -> list[str]:
-    """Flag any numeric input outside the range the model was trained on.
+    """Flag numeric inputs outside the range the model was trained on.
 
-    This is the guard for the failure that produced the flat predictions: the
-    model was trained with site_count in 1..20 and served requests at 40+, far
-    outside the trained range, where a forest returns a constant.
+    The guard for the original failure: v1 trained site_count on 1..20 (it was
+    really a country count) and served requests at 40+, where a forest returns
+    a constant and every therapeutic area collapses onto the same answer.
     """
     entry = registry.load(phase_key) or {}
     ranges = entry.get("feature_ranges") or {}
-    warnings: list[str] = []
+    out: list[str] = []
     for col, bounds in ranges.items():
         if col not in X.columns:
             continue
@@ -101,17 +113,12 @@ def _check_extrapolation(X: pd.DataFrame, phase_key: str) -> list[str]:
         if pd.isna(val) or not isinstance(val, (int, float, np.integer, np.floating)):
             continue
         if val < bounds["min"] or val > bounds["max"]:
-            warnings.append(
+            out.append(
                 f"{col}={val:g} is outside the trained range "
-                f"[{bounds['min']:g}, {bounds['max']:g}] — prediction is an "
+                f"[{bounds['min']:g}, {bounds['max']:g}] — this prediction is an "
                 f"extrapolation and should be treated as indicative only"
             )
-    return warnings
-
-
-def _phase_raw(phase_key: str) -> str:
-    mapping = {"P1HV": "PHASE1", "P1": "PHASE1", "P2": "PHASE2", "P3": "PHASE3"}
-    return mapping[phase_key]
+    return out
 
 
 def predict(
@@ -121,6 +128,7 @@ def predict(
     num_sites: Optional[int] = None,
     drug_type: str = "DRUG",
     region: str = "US",
+    endpoint_archetype: Optional[str] = None,
 ) -> Prediction:
     entry = registry.load(phase_key)
     if entry is None:
@@ -128,30 +136,30 @@ def predict(
             f"No trained model found for {phase_key}. "
             "Run scripts/train_models.py first."
         )
+    heads = entry["heads"]
+    if "duration" not in heads:
+        raise FileNotFoundError(f"No duration head trained for {phase_key}.")
 
-    pipeline = entry["pipeline"]
-    rmse = entry["rmse"]
-
-    X = _build_input_row(phase_key, therapeutic_area, enrollment, num_sites, drug_type, region)
+    X = _build_input_row(phase_key, therapeutic_area, enrollment, num_sites,
+                         drug_type, region, endpoint_archetype)
     warnings = _check_extrapolation(X, phase_key)
     for w in warnings:
         log.warning("%s: %s", phase_key, w)
 
-    # Point prediction
-    pred_days = float(pipeline.predict(X)[0])
+    duration = heads["duration"]
+    pred_days = float(duration.predict(X)[0])
+    lo_arr, hi_arr = duration.predict_interval(X)
+    lower, upper = float(lo_arr[0]), float(hi_arr[0])
 
-    # Uncertainty from individual tree predictions (RF tree variance)
-    rf = pipeline.named_steps["model"]
-    pre = pipeline.named_steps["pre"]
-    X_transformed = pre.transform(X)
-    tree_preds = np.array([t.predict(X_transformed)[0] for t in rf.estimators_])
-    tree_std = float(tree_preds.std())
-
-    # Use tree std if meaningful, else fall back to RMSE-based interval
-    std_used = max(tree_std, rmse * 0.5)
-    z = 1.28  # 80% CI
-    lower = max(1.0, pred_days - z * std_used)
-    upper = pred_days + z * std_used
+    rate = rate_lo = rate_hi = enrol_months = None
+    if "rate" in heads:
+        rate = float(heads["rate"].predict(X)[0])
+        r_lo, r_hi = heads["rate"].predict_interval(X)
+        rate_lo, rate_hi = float(r_lo[0]), float(r_hi[0])
+        sites = num_sites or X["site_count"].iloc[0]
+        target_n = enrollment or X["Enrollment"].iloc[0]
+        if rate > 0 and sites and target_n:
+            enrol_months = round(float(target_n) / (float(sites) * rate), 1)
 
     def to_months(d: float) -> float:
         return round(d / _DAYS_PER_MONTH, 1)
@@ -165,8 +173,12 @@ def predict(
         predicted_months=to_months(pred_days),
         lower_months=to_months(lower),
         upper_months=to_months(upper),
-        model_used="RandomForest",
-        rmse_days=round(rmse, 1),
+        model_used="LightGBM conformalised quantile",
+        rmse_days=round(entry.get("rmse", 0.0), 1),
         n_train=entry["n_train"],
         extrapolation_warnings=warnings,
+        recruitment_rate=round(rate, 3) if rate is not None else None,
+        recruitment_rate_lower=round(rate_lo, 3) if rate_lo is not None else None,
+        recruitment_rate_upper=round(rate_hi, 3) if rate_hi is not None else None,
+        enrolment_months=enrol_months,
     )
