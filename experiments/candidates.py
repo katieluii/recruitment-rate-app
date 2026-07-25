@@ -26,22 +26,31 @@ _Z_80 = 1.28  # matches backend/models/inference.py
 
 
 class V1Recipe:
-    """The shipped recipe, refit on whatever fold it is given."""
+    """The shipped recipe, refit on whatever fold it is given.
+
+    `ta_target_encoding` toggles the therapeutic-area target encoder so its
+    contribution can be isolated in the ledger rather than assumed.
+    """
 
     name = "v1_recipe"
 
-    def __init__(self, phase_key: str, params: dict | None = None):
+    def __init__(self, phase_key: str, params: dict | None = None,
+                 ta_target_encoding: bool = False):
         self.phase_key = phase_key
         self.params = dict(params or _RF_PARAMS)
+        self.ta_target_encoding = ta_target_encoding
 
     def _X(self, df: pd.DataFrame) -> pd.DataFrame:
         return build_features(df, self.phase_key)
+
+    def _pre(self):
+        return make_preprocessor(ta_target_encoding=self.ta_target_encoding)
 
     def fit(self, train: pd.DataFrame, target: str = "duration_days"):
         X = self._X(train)
         y = train[target].to_numpy(dtype=float)
         self.pipe = Pipeline([
-            ("pre", make_preprocessor()),
+            ("pre", self._pre()),
             ("model", RandomForestRegressor(**self.params)),
         ])
         self.pipe.fit(X, y)
@@ -51,7 +60,7 @@ class V1Recipe:
         from sklearn.model_selection import train_test_split
         Xa, Xb, ya, yb = train_test_split(X, y, test_size=0.2, random_state=42)
         probe = Pipeline([
-            ("pre", make_preprocessor()),
+            ("pre", self._pre()),
             ("model", RandomForestRegressor(**self.params)),
         ])
         probe.fit(Xa, ya)

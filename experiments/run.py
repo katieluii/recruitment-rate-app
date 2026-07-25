@@ -33,6 +33,8 @@ CONFIGS = {
     "ta_median":            (lambda p: ALL_BASELINES[1](), True),
     "ta_enrollment_median": (lambda p: ALL_BASELINES[2](), True),
     "v1_recipe":            (lambda p: V1Recipe(p), False),
+    # Isolates the therapeutic-area target encoder's contribution.
+    "rf_ta_encoded":        (lambda p: V1Recipe(p, ta_target_encoding=True), False),
     "v1_shipped":           (lambda p: ShippedArtifact(
         p, artifacts_dir="models/artifacts_v1_baseline"), False),
 }

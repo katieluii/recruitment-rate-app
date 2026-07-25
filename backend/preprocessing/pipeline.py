@@ -8,6 +8,8 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.impute import SimpleImputer
 
 from backend.constants import THERAPEUTIC_AREAS, REGIONS
+from backend.preprocessing.endpoints import ARCHETYPES, add_endpoint_features
+from backend.preprocessing.target_encoding import TATargetEncoder
 from backend.preprocessing.features import (
     assign_therapeutic_area,
     assign_region,
@@ -16,7 +18,10 @@ from backend.preprocessing.features import (
 )
 
 _CAT_COLS = ["Drug_Type", "Allocation", "Intervention_Model", "Masking",
-             "Primary_Purpose", "Sex", "sad_mad"]
+             "Primary_Purpose", "Sex", "sad_mad", "endpoint_archetype"]
+
+#: Presence flags per endpoint archetype, e.g. endpoint_has_SURVIVAL.
+_ENDPOINT_FLAGS = [f"endpoint_has_{a}" for a in ARCHETYPES if a != "UNKNOWN"]
 
 # NOTE ON CALENDAR YEAR — deliberately absent.
 # v1 used `primary_completion_year`, which is the label's own endpoint. On a
@@ -63,6 +68,11 @@ def build_features(df: pd.DataFrame, phase_key: str) -> pd.DataFrame:
     ta_ohe = one_hot_pipe_col(df, "Therapeutic_Area", THERAPEUTIC_AREAS)
     re_ohe = one_hot_pipe_col(df, "Region", REGIONS)
 
+    # Endpoint archetype + per-archetype flags. On Phase 3 this spans 29 months
+    # of median duration on its own (immunogenicity 10.6 → survival 39.6), which
+    # is the follow-up half of the target that therapeutic area alone cannot see.
+    df = add_endpoint_features(df)
+
     # SAD/MAD (P1 only — set to "None" for other phases). v1 computed this and
     # then never added it to X; it is a real categorical now.
     if phase_key in ("P1", "P1HV"):
@@ -98,9 +108,14 @@ def build_features(df: pd.DataFrame, phase_key: str) -> pd.DataFrame:
         df["total_primary_outcomes"].fillna(0) + df["total_secondary_outcomes"].fillna(0)
     )
 
+    for col in _ENDPOINT_FLAGS:
+        if col not in df.columns:
+            df[col] = 0
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
+
     X = pd.concat([
-        df[_CAT_COLS + _NUM_COLS + _RATIO_COLS + ["has_collaborators"]]
-        .reset_index(drop=True),
+        df[_CAT_COLS + _NUM_COLS + _RATIO_COLS + _ENDPOINT_FLAGS
+           + ["has_collaborators"]].reset_index(drop=True),
         ta_ohe.reset_index(drop=True),
         re_ohe.reset_index(drop=True),
     ], axis=1)
@@ -108,23 +123,32 @@ def build_features(df: pd.DataFrame, phase_key: str) -> pd.DataFrame:
     return X
 
 
-def make_preprocessor() -> ColumnTransformer:
-    """Return an unfitted sklearn preprocessor matching build_features output."""
+def make_preprocessor(ta_target_encoding: bool = True) -> ColumnTransformer:
+    """Return an unfitted sklearn preprocessor matching build_features output.
+
+    The therapeutic-area block is fed to BOTH the target encoder and the
+    passthrough. The encoder supplies the strong continuous signal the trees
+    will actually split on; the raw binaries stay so the model can still pick
+    out an area whose behaviour is not captured by its median alone.
+    """
     ohe_cols = _CAT_COLS
     num_cols = _NUM_COLS + _RATIO_COLS
-    passthrough_cols = ["has_collaborators"] + _BIN_TA + _BIN_RE
-
-    return ColumnTransformer(
-        transformers=[
-            ("cat", Pipeline([
-                ("impute", SimpleImputer(strategy="most_frequent")),
-                ("ohe", OneHotEncoder(sparse_output=False, handle_unknown="ignore")),
-            ]), ohe_cols),
-            ("num", Pipeline([
-                ("impute", SimpleImputer(strategy="median")),
-                ("scale", StandardScaler()),
-            ]), num_cols),
-            ("bin", "passthrough", passthrough_cols),
-        ],
-        remainder="drop",
+    passthrough_cols = (
+        ["has_collaborators"] + _ENDPOINT_FLAGS + _BIN_TA + _BIN_RE
     )
+
+    transformers = [
+        ("cat", Pipeline([
+            ("impute", SimpleImputer(strategy="most_frequent")),
+            ("ohe", OneHotEncoder(sparse_output=False, handle_unknown="ignore")),
+        ]), ohe_cols),
+        ("num", Pipeline([
+            ("impute", SimpleImputer(strategy="median")),
+            ("scale", StandardScaler()),
+        ]), num_cols),
+        ("bin", "passthrough", passthrough_cols),
+    ]
+    if ta_target_encoding:
+        transformers.append(("ta_target", TATargetEncoder(), _BIN_TA))
+
+    return ColumnTransformer(transformers=transformers, remainder="drop")
