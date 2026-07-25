@@ -81,14 +81,30 @@ def _build_input_row(phase_key: str, therapeutic_area: str,
         flag = f"endpoint_has_{endpoint_archetype}"
         if flag in X.columns:
             X[flag] = 1
-    return _apply_defaults(X, phase_key)
+    return _apply_defaults(X, phase_key, therapeutic_area)
 
 
-def _apply_defaults(X: pd.DataFrame, phase_key: str) -> pd.DataFrame:
+def _apply_defaults(X: pd.DataFrame, phase_key: str,
+                    therapeutic_area: str | None = None) -> pd.DataFrame:
+    """Fill unspecified features, preferring the therapeutic area's own median.
+
+    Asking for "a Phase 3 oncology trial" without giving an enrolment or site
+    count should assume an oncology-shaped trial (median 502 patients across 89
+    sites), not a phase-average one (334 across 32). Falling back to a single
+    phase-wide median flattens two genuinely different trials before the model
+    is consulted.
+    """
     entry = registry.load(phase_key) or {}
-    defaults = entry.get("feature_defaults") or {}
+    defaults = dict(entry.get("feature_defaults") or {})
     if not defaults:
         return X
+
+    ta_defaults = (entry.get("meta", {}).get("feature_defaults_by_ta") or {})
+    if therapeutic_area and therapeutic_area in ta_defaults:
+        for col, val in ta_defaults[therapeutic_area].items():
+            if col != "n":
+                defaults[col] = val
+
     for col in X.columns:
         if col not in defaults or defaults[col] is None:
             continue

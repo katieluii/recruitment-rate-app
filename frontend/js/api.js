@@ -25,6 +25,7 @@ async function apiFetch(path, options = {}) {
 export const api = {
   getPhases: () => apiFetch('/phases'),
   getTherapeuticAreas: () => apiFetch('/therapeutic-areas'),
+  getEndpointArchetypes: () => apiFetch('/endpoint-archetypes').then(r => r.archetypes),
   predict: (payload) =>
     apiFetch('/predict', { method: 'POST', body: JSON.stringify(payload) }),
   getAnalytics: (phase) => apiFetch(`/analytics?phase=${phase}`),

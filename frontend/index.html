@@ -38,6 +38,22 @@
           <option value="" disabled selected>Loading…</option>
         </select>
       </div>
+      <div class="field">
+        <label for="endpoint-select">Primary Endpoint Type</label>
+        <select id="endpoint-select">
+          <option value="" selected>Typical for this area</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="enrollment-input">Target Enrolment <span class="opt">optional</span></label>
+        <input id="enrollment-input" type="number" min="1" max="50000"
+               placeholder="typical for this area">
+      </div>
+      <div class="field">
+        <label for="sites-input">Number of Sites <span class="opt">optional</span></label>
+        <input id="sites-input" type="number" min="1" max="5000"
+               placeholder="typical for this area">
+      </div>
     </div>
     <button class="btn-predict" id="predict-btn" disabled>
       <span class="spinner" aria-hidden="true"></span>
@@ -67,14 +83,29 @@
         <div class="stat-label">Days (point estimate)</div>
       </div>
       <div class="stat-box">
-        <div class="stat-value" id="stat-rmse">—</div>
-        <div class="stat-label">Model RMSE</div>
+        <div class="stat-value" id="stat-interval">—</div>
+        <div class="stat-label">80% interval</div>
       </div>
       <div class="stat-box">
         <div class="stat-value" id="stat-ntrain">—</div>
         <div class="stat-label">Training trials</div>
       </div>
     </div>
+
+    <!-- Recruitment rate -->
+    <div class="rate-panel" id="rate-panel" hidden>
+      <div class="card-title">Recruitment rate</div>
+      <div class="result-header">
+        <span class="result-months" id="rate-value">—</span>
+        <span class="result-unit">patients / site / month</span>
+      </div>
+      <p class="rate-range" id="rate-range">—</p>
+      <p class="caveat" id="rate-note"></p>
+    </div>
+
+    <p class="provenance">
+      <span id="result-model">—</span>
+    </p>
   </section>
 
   <!-- Footer -->
@@ -85,6 +116,6 @@
   </footer>
 
 </div>
-<script type="module" src="/static/js/app.js?v=3"></script>
+<script type="module" src="/static/js/app.js?v=4"></script>
 </body>
 </html>

@@ -80,6 +80,46 @@ def _feature_defaults(X: pd.DataFrame) -> dict:
     return out
 
 
+#: Fields whose typical value differs sharply by therapeutic area. An oncology
+#: Phase 3 runs a median 89 sites and 502 patients; a dermatology Phase 3 runs 33
+#: sites and 380. Falling back to one phase-wide median for every area makes two
+#: very different trials look alike before the model has said anything, which is
+#: part of why predictions clustered even after the model itself was fixed.
+_TA_CONDITIONAL_FIELDS = (
+    "Enrollment", "site_count", "country_count", "followup_months",
+    "number_of_arms", "total_primary_outcomes", "total_secondary_outcomes",
+    "n_inclusion_criteria", "n_exclusion_criteria", "criteria_chars",
+    "enrollment_per_site",
+)
+
+
+def _feature_defaults_by_ta(df: pd.DataFrame, X: pd.DataFrame) -> dict:
+    """Per-therapeutic-area medians for the fields that vary most by area.
+
+    Only areas with enough trials get an entry; everything else falls back to
+    the phase-wide default.
+    """
+    from experiments.metrics import ta_masks
+
+    out: dict[str, dict] = {}
+    for area, mask in ta_masks(df).items():
+        m = mask.to_numpy()
+        if m.sum() < 15:
+            continue
+        sub = X[m]
+        vals = {}
+        for col in _TA_CONDITIONAL_FIELDS:
+            if col not in sub.columns:
+                continue
+            v = pd.to_numeric(sub[col], errors="coerce").median()
+            if not pd.isna(v):
+                vals[col] = float(v)
+        if vals:
+            out[area] = {"n": int(m.sum()), **vals}
+    log.info("TA-conditional defaults for %d areas", len(out))
+    return out
+
+
 def _feature_ranges(X: pd.DataFrame) -> dict:
     """Trained range per numeric feature, for the extrapolation guard.
 
@@ -138,6 +178,7 @@ async def train_phase(phase_key: str) -> None:
     X = build_features(df, phase_key)
     meta["feature_defaults"] = _feature_defaults(X)
     meta["feature_ranges"] = _feature_ranges(X)
+    meta["feature_defaults_by_ta"] = _feature_defaults_by_ta(df, X)
 
     # Kept for backwards compatibility with the v1 metadata contract; the
     # interval no longer derives from it.

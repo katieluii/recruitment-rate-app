@@ -437,5 +437,49 @@
       "max": 1.0
     }
   },
+  "feature_defaults_by_ta": {
+    "Gastroenterology": {
+      "n": 16,
+      "Enrollment": 25.5,
+      "site_count": 2.0,
+      "country_count": 1.0,
+      "followup_months": 0.99,
+      "number_of_arms": 3.5,
+      "total_primary_outcomes": 3.0,
+      "total_secondary_outcomes": 1.0,
+      "n_inclusion_criteria": 9.0,
+      "n_exclusion_criteria": 8.5,
+      "criteria_chars": 1985.5,
+      "enrollment_per_site": 12.833333333333334
+    },
+    "Metabolic": {
+      "n": 18,
+      "Enrollment": 36.0,
+      "site_count": 1.0,
+      "country_count": 1.0,
+      "followup_months": 2.79,
+      "number_of_arms": 2.5,
+      "total_primary_outcomes": 2.0,
+      "total_secondary_outcomes": 5.0,
+      "n_inclusion_criteria": 5.0,
+      "n_exclusion_criteria": 8.0,
+      "criteria_chars": 1536.0,
+      "enrollment_per_site": 28.0
+    },
+    "Other": {
+      "n": 834,
+      "Enrollment": 35.0,
+      "site_count": 1.0,
+      "country_count": 1.0,
+      "followup_months": 0.92,
+      "number_of_arms": 2.0,
+      "total_primary_outcomes": 3.0,
+      "total_secondary_outcomes": 3.0,
+      "n_inclusion_criteria": 5.0,
+      "n_exclusion_criteria": 8.0,
+      "criteria_chars": 2102.5,
+      "enrollment_per_site": 32.0
+    }
+  },
   "rmse": 231.60429616049873
 }
