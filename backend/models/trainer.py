@@ -146,6 +146,12 @@ async def train_phase(phase_key: str) -> None:
 
     (base / "metadata.json").write_text(json.dumps(meta, indent=2))
     (base / "analytics.json").write_text(json.dumps(_build_analytics(df)))
+
+    # Site-level priors are derived from the same cleaned frame, so they are
+    # built here rather than recomputed per request.
+    from backend.analytics.site_rates import build_priors
+    (base / "site_priors.json").write_text(json.dumps(build_priors(df)))
+
     log.info("Saved %s metadata (%d rows)", phase_key, len(df))
 
 

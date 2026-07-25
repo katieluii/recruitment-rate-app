@@ -81,8 +81,12 @@ def load(phase_key: str, force: bool = False) -> Optional[dict]:
         log.warning("No usable heads for %s", phase_key)
         return None
 
+    priors_path = base / "site_priors.json"
+    site_priors = json.loads(priors_path.read_text()) if priors_path.exists() else {}
+
     entry = {
         "heads": heads,
+        "site_priors": site_priors,
         "rmse": meta.get("rmse", 0.0),
         "n_train": meta.get("n_train", 0),
         "analytics": analytics,

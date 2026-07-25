@@ -1,5 +1,5 @@
 from __future__ import annotations
-"""Prediction: duration, recruitment rate, and the enrolment window between them."""
+"""Prediction: duration and recruitment rate."""
 import logging
 from dataclasses import dataclass, field
 from typing import Optional
@@ -36,7 +36,10 @@ class Prediction:
     recruitment_rate: Optional[float] = None
     recruitment_rate_lower: Optional[float] = None
     recruitment_rate_upper: Optional[float] = None
-    enrolment_months: Optional[float] = None
+    # NOT an enrolment window: the rate's denominator is the full
+    # start → primary-completion span, so inverting it reconstructs total
+    # duration for a trial of this size.
+    rate_implied_total_months: Optional[float] = None
     rate_is_approximate: bool = True
 
 
@@ -151,7 +154,7 @@ def predict(
     lo_arr, hi_arr = duration.predict_interval(X)
     lower, upper = float(lo_arr[0]), float(hi_arr[0])
 
-    rate = rate_lo = rate_hi = enrol_months = None
+    rate = rate_lo = rate_hi = implied_months = None
     if "rate" in heads:
         rate = float(heads["rate"].predict(X)[0])
         r_lo, r_hi = heads["rate"].predict_interval(X)
@@ -159,7 +162,7 @@ def predict(
         sites = num_sites or X["site_count"].iloc[0]
         target_n = enrollment or X["Enrollment"].iloc[0]
         if rate > 0 and sites and target_n:
-            enrol_months = round(float(target_n) / (float(sites) * rate), 1)
+            implied_months = round(float(target_n) / (float(sites) * rate), 1)
 
     def to_months(d: float) -> float:
         return round(d / _DAYS_PER_MONTH, 1)
@@ -180,5 +183,5 @@ def predict(
         recruitment_rate=round(rate, 3) if rate is not None else None,
         recruitment_rate_lower=round(rate_lo, 3) if rate_lo is not None else None,
         recruitment_rate_upper=round(rate_hi, 3) if rate_hi is not None else None,
-        enrolment_months=enrol_months,
+        rate_implied_total_months=implied_months,
     )
