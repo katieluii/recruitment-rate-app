@@ -98,7 +98,10 @@ h2{margin:0;font-size:1.06rem;font-weight:750;letter-spacing:-.012em}
 .bars{display:flex;flex-direction:column;gap:.3rem}
 .bar-row{display:grid;grid-template-columns:150px 1fr 74px 60px;align-items:center;
   gap:.7rem;padding:.28rem .3rem;border-radius:6px}
+.bar-row{cursor:pointer}
 .bar-row:hover{background:var(--ground)}
+.bar-row:focus-visible{outline:2px solid var(--fast);outline-offset:-2px}
+.bar-row[aria-current="true"] .bar-name{color:var(--fast)}
 .bar-name{font-size:.87rem;font-weight:600;white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis}
 .track{position:relative;height:19px;background:var(--ground);border-radius:4px;
@@ -113,15 +116,38 @@ h2{margin:0;font-size:1.06rem;font-weight:750;letter-spacing:-.012em}
   padding:0 .3rem .2rem}
 .axis .r{text-align:right}
 
-/* table */
-.scroll{overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-size:.86rem;min-width:520px}
-th,td{padding:.5rem .6rem;text-align:right;border-bottom:1px solid var(--rule)}
-th{font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--mute);
-  font-weight:700}
-th:first-child,td:first-child{text-align:left}
-tbody tr:hover{background:var(--ground)}
-tbody tr:last-child td{border-bottom:none}
+/* drill-down: sites within the selected country */
+.drill-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem .75rem}
+.drill-head h2{margin:0}
+.drill-where{font-size:.82rem;color:var(--mute);font-weight:600}
+.norm{display:flex;align-items:baseline;gap:.45rem;font-size:.8rem;color:var(--ink-2);
+  padding:.5rem .7rem;background:var(--ground);border-radius:6px;align-self:flex-start}
+.norm b{font-size:.95rem;color:var(--ink)}
+
+.site-list{display:flex;flex-direction:column}
+.site-row{display:grid;grid-template-columns:1fr 108px 62px 46px;align-items:center;
+  gap:.75rem;padding:.5rem .35rem;border-bottom:1px solid var(--rule)}
+.site-row:last-child{border-bottom:none}
+.site-row:hover{background:var(--ground)}
+.site-name{font-size:.88rem;font-weight:600;line-height:1.35}
+/* the tick echoes the country chart's encoding, one scale further in */
+.tick{position:relative;height:14px;border-radius:3px;background:var(--ground)}
+.tick i.zero{position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--thin)}
+.tick i.dev{position:absolute;top:3px;bottom:3px;border-radius:2px}
+.tick i.dev.fast{background:var(--fast)} .tick i.dev.slow{background:var(--slow)}
+.site-rate{text-align:right;font-size:.87rem;font-weight:700}
+.site-n{text-align:right;font-size:.76rem;color:var(--mute)}
+.site-head{display:grid;grid-template-columns:1fr 108px 62px 46px;gap:.75rem;
+  font-size:.7rem;color:var(--mute);text-transform:uppercase;letter-spacing:.07em;
+  padding:0 .35rem .35rem}
+.site-head .r{text-align:right}
+.more{align-self:flex-start;background:none;border:1px solid var(--rule);
+  color:var(--ink-2);font:inherit;font-size:.8rem;font-weight:600;
+  padding:.4rem .8rem;border-radius:6px;cursor:pointer}
+.more:hover{border-color:var(--fast);color:var(--fast)}
+.more:focus-visible{outline:2px solid var(--fast);outline-offset:2px}
+.empty-site{padding:1.1rem 0;color:var(--ink-2);font-size:.88rem;max-width:64ch}
+.empty-site b{color:var(--ink)}
 
 /* method */
 .method{display:flex;flex-direction:column;gap:.85rem}
@@ -201,19 +227,20 @@ footer{font-size:.78rem;color:var(--mute);text-align:center;padding-top:.5rem}
   </section>
 
   <section>
-    <h2>Named sites with a track record</h2>
-    <p class="sechelp">Institutions that have run at least five trials in this phase.
-    This is <strong>association, not attribution</strong> — a site that appears in fast
-    trials scores well, which may say more about the trials it is selected for than
-    about the site itself. Most industry sponsors register placeholder names
-    ("Research Site", "GSK Investigational Site"), and those are excluded, so this
-    covers only the minority of sites that are named.</p>
-    <div class="scroll">
-      <table>
-        <thead><tr><th>Institution</th><th>Country</th><th>Rate</th><th>Trials</th></tr></thead>
-        <tbody id="fac-body"></tbody>
-      </table>
+    <div class="drill-head">
+      <h2>Sites within <span id="drill-country">—</span></h2>
+      <span class="drill-where" id="drill-where">—</span>
     </div>
+    <div class="norm" id="site-norm">—</div>
+    <div class="site-head">
+      <span>Institution</span><span>vs country</span>
+      <span class="r">Rate</span><span class="r">Trials</span>
+    </div>
+    <div class="site-list" id="site-list"></div>
+    <button class="more" id="site-more" hidden>Show all</button>
+    <p class="sechelp"><strong>Association, not attribution.</strong> A site inherits
+    the rate of every trial it took part in, so one that appears in fast trials scores
+    well — which may say more about the trials it is chosen for than about the site.</p>
   </section>
 
   <section class="method">
@@ -308,6 +335,7 @@ function rowsFor() {
 }
 
 function onArea() {
+  showAllSites = false;
   const rows = rowsFor().sort((a, b) => b.rate - a.rate);
   const prev = $("sel-country").value;
   $("sel-country").innerHTML = rows
@@ -369,7 +397,9 @@ function render() {
           ? `left:50%;width:${half}%;opacity:${opacity}`
           : `left:${50 - half}%;width:${half}%;opacity:${opacity}`;
         const isSel = r.country === $("sel-country").value;
-        return `<div class="bar-row" style="${isSel ? "background:var(--ground)" : ""}">
+        return `<div class="bar-row" role="button" tabindex="0"
+             data-country="${r.country}" aria-current="${isSel}"
+             style="${isSel ? "background:var(--ground)" : ""}">
           <span class="bar-name" title="${r.country}">${isSel ? "▸ " : ""}${r.country}</span>
           <span class="track"><i class="mid" style="left:50%"></i>
             <i class="fill ${fast ? "fast" : "slow"}" style="${style}"></i></span>
@@ -378,12 +408,74 @@ function render() {
         </div>`;
       }).join("");
 
-  const facs = p.facilities.filter(f => !country || f[3] === country);
-  const show = (facs.length ? facs : p.facilities).slice(0, 18);
-  $("fac-body").innerHTML = show.length === 0
-    ? `<tr><td colspan="4" class="empty">No named sites meet the threshold.</td></tr>`
-    : show.map(f => `<tr><td>${f[0]}</td><td style="text-align:left;color:var(--mute)">${f[3] || "—"}</td>
-        <td class="num">${fmt(f[1])}</td><td class="num">${f[2]}</td></tr>`).join("");
+  bindBars();
+  renderSites(p, country, sel ? sel.rate : null, areaWord, pk);
+}
+
+let showAllSites = false;
+
+function bindBars() {
+  document.querySelectorAll(".bar-row").forEach(el => {
+    const pick = () => {
+      $("sel-country").value = el.dataset.country;
+      showAllSites = false;
+      render();
+    };
+    el.addEventListener("click", pick);
+    el.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); }
+    });
+  });
+}
+
+function renderSites(p, country, countryRate, areaWord, pk) {
+  $("drill-country").textContent = country || "—";
+  $("drill-where").textContent = `${phaseLabel(pk)} · ${areaWord}`;
+
+  // Only sites actually in the selected country. Falling back to the full list
+  // would show sites from elsewhere under a country heading.
+  const facs = p.facilities.filter(f => f[3] === country);
+  const ref = countryRate || p.phase_rate;
+
+  $("site-norm").innerHTML = facs.length
+    ? `Country rate <b class="num">${fmt(ref)}</b> patients / site / month —
+       ticks below show each site against it`
+    : `Country rate <b class="num">${fmt(ref)}</b> patients / site / month`;
+
+  if (!facs.length) {
+    $("site-more").hidden = true;
+    $("site-list").innerHTML = `<p class="empty-site">
+      <b>No named sites in ${country || "this country"} clear the five-trial threshold.</b>
+      Most industry sponsors register placeholder names rather than institutions —
+      "Research Site" alone appears in 9,676 Phase 3 trials — so only a minority of
+      sites can be identified at all. The country rate above still holds; it is built
+      from every trial that ran here, named or not.</p>`;
+    return;
+  }
+
+  const shown = showAllSites ? facs : facs.slice(0, 8);
+  const maxDev = Math.max(...facs.map(f => Math.abs(f[1] - ref)), 1e-6);
+
+  $("site-list").innerHTML = shown.map(f => {
+    const dev = f[1] - ref;
+    const w = (Math.abs(dev) / maxDev) * 46;
+    const fast = dev >= 0;
+    const style = fast ? `left:50%;width:${w}%` : `left:${50 - w}%;width:${w}%`;
+    const pct = ref ? Math.round((f[1] / ref - 1) * 100) : 0;
+    return `<div class="site-row">
+      <span class="site-name">${f[0]}</span>
+      <span class="tick" title="${pct >= 0 ? "+" : ""}${pct}% vs country">
+        <i class="zero"></i><i class="dev ${fast ? "fast" : "slow"}" style="${style}"></i>
+      </span>
+      <span class="site-rate num">${fmt(f[1])}</span>
+      <span class="site-n num">${f[2]}</span>
+    </div>`;
+  }).join("");
+
+  const more = $("site-more");
+  more.hidden = facs.length <= 8;
+  more.textContent = showAllSites ? "Show top 8" : `Show all ${facs.length}`;
+  more.onclick = () => { showAllSites = !showAllSites; render(); };
 }
 
 init();
