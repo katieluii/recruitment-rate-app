@@ -4,26 +4,28 @@
     "duration": {
       "target": "duration_days",
       "transform": "log1p",
-      "qhat": 0.2621017455334478,
+      "qhat": 0.3247346759883456,
       "quantiles": [
         0.1,
         0.5,
         0.9
       ],
       "n_fit": 2163,
-      "coverage_nominal": 0.8
+      "coverage_nominal": 0.8,
+      "ipcw_applied": true
     },
     "rate": {
       "target": "recruitment_rate",
       "transform": "log",
-      "qhat": 0.24467168681965656,
+      "qhat": 0.3124916633103349,
       "quantiles": [
         0.1,
         0.5,
         0.9
       ],
       "n_fit": 2163,
-      "coverage_nominal": 0.8
+      "coverage_nominal": 0.8,
+      "ipcw_applied": false
     }
   },
   "feature_defaults": {

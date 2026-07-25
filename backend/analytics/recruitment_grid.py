@@ -44,17 +44,14 @@ MIN_ENROL_FRACTION = 0.25
 
 
 def enrolment_months(df: pd.DataFrame) -> pd.Series:
-    """Months spent recruiting, with follow-up removed."""
-    from backend.preprocessing.endpoints import add_endpoint_features
+    """Months spent recruiting, with follow-up removed.
 
-    if "endpoint_archetype" not in df.columns:
-        df = add_endpoint_features(df.copy())
+    Delegates to the cleaner so there is exactly one definition of the
+    denominator in the codebase.
+    """
+    from backend.preprocessing.cleaner import recruiting_months
 
-    total = df["duration_days"] / 30.44
-    fu = df.get("followup_months", pd.Series([np.nan] * len(df), index=df.index))
-    by_arch = df.groupby("endpoint_archetype")["followup_months"].median()
-    fu = fu.fillna(df["endpoint_archetype"].map(by_arch)).fillna(fu.median())
-    return (total - fu).clip(lower=MIN_ENROL_FRACTION * total)
+    return recruiting_months(df)
 
 
 def site_month_rate(df: pd.DataFrame) -> pd.Series:

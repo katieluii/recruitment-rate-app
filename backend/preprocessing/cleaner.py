@@ -174,21 +174,55 @@ def clean(df: pd.DataFrame, phase_key: str, censored: bool = False) -> pd.DataFr
     return df
 
 
-def compute_recruitment_rate(df: pd.DataFrame) -> pd.DataFrame:
-    """Patients enrolled per site per month.
+#: Floor on the recruiting window as a fraction of total duration, so a trial
+#: whose follow-up estimate swallows its whole span cannot yield an infinite rate.
+MIN_ENROL_FRACTION = 0.25
 
-    APPROXIMATION, and it must be labelled as one wherever it is surfaced.
-    The denominator is the full start → primary-completion window because the
-    registry does not publish an enrolment-completion date, so any trial with a
-    long follow-up tail — an oncology survival study above all — has its rate
-    UNDERSTATED. It is a like-for-like comparator across trials of similar
-    endpoint type, not an absolute enrolment speed.
+
+def recruiting_months(df: pd.DataFrame) -> pd.Series:
+    """Months actually spent recruiting: total duration minus follow-up.
+
+    THE single definition of the denominator — `recruitment_grid` imports this
+    rather than keeping its own copy, because two drifting definitions of "the
+    rate" is exactly the kind of thing nobody notices until the numbers disagree.
+
+    v2 divided by the full start → primary-completion span, which includes
+    follow-up, so it measured recruitment speed diluted by however long patients
+    were then watched. An oncology trial recruiting in 14 months and following
+    for 24 scored as though recruitment took 38. Correcting this moves the Phase 3
+    median from 0.455 to 0.737 patients/site/month — the old figure understated
+    recruitment by roughly 40%, which would lead a planner to over-provision sites.
+
+    Follow-up comes from the parsed primary-outcome time frame, and where that
+    will not parse (about half of trials) from the median for that endpoint
+    archetype — survival endpoints carry long follow-up, PK endpoints almost none.
     """
-    months = df["duration_days"] / 30.44
+    from backend.preprocessing.endpoints import add_endpoint_features
+
+    if "endpoint_archetype" not in df.columns:
+        df = add_endpoint_features(df.copy())
+
+    total = df["duration_days"] / 30.44
+    fu = df.get("followup_months", pd.Series([np.nan] * len(df), index=df.index))
+    by_arch = df.groupby("endpoint_archetype")["followup_months"].median()
+    fu = fu.fillna(df["endpoint_archetype"].map(by_arch))
+    fu = fu.fillna(fu.median()).fillna(0.0)
+    return (total - fu).clip(lower=MIN_ENROL_FRACTION * total)
+
+
+def compute_recruitment_rate(df: pd.DataFrame) -> pd.DataFrame:
+    """Patients enrolled per site per month over the RECRUITING window.
+
+    Still an approximation and must be labelled as one wherever it is surfaced:
+    the registry publishes no enrolment-completion date, so the recruiting window
+    is inferred by subtracting an estimated follow-up rather than measured.
+    """
+    months = recruiting_months(df)
     sites = pd.to_numeric(df["site_count"], errors="coerce")
     enrol = pd.to_numeric(df["Enrollment"], errors="coerce")
     with np.errstate(divide="ignore", invalid="ignore"):
         rate = enrol / (sites * months)
+    df["recruiting_months"] = months
     df["recruitment_rate"] = rate.replace([np.inf, -np.inf], np.nan)
 
     # A censored row's denominator is "time elapsed so far", not the trial's
