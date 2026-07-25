@@ -1,13 +1,13 @@
 from __future__ import annotations
 """Prediction + uncertainty estimation."""
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 import numpy as np
 import pandas as pd
 
-from backend.constants import THERAPEUTIC_AREAS, REGIONS, PHASES, PHASE_DEFAULTS
+from backend.constants import THERAPEUTIC_AREAS, REGIONS, PHASES
 from backend.models import registry
 from backend.preprocessing.pipeline import build_features
 
@@ -30,13 +30,21 @@ class Prediction:
     rmse_days: float
     n_train: int
     confidence_pct: int = 80
+    extrapolation_warnings: list[str] = field(default_factory=list)
 
 
 def _build_input_row(phase_key: str, therapeutic_area: str,
                      enrollment: Optional[int], num_sites: Optional[int],
-                     drug_type: str, region: str) -> pd.DataFrame:
-    """Construct a single-row DataFrame that matches build_features output."""
-    defaults = PHASE_DEFAULTS[phase_key]
+                     drug_type: str, region: str,
+                     followup_months: Optional[float] = None) -> pd.DataFrame:
+    """Construct a single-row DataFrame that matches build_features output.
+
+    Unspecified fields are left NaN so build_features and the fitted imputer
+    fill them from the training distribution. v1 hardcoded them here
+    (Allocation="RANDOMIZED", Masking="DOUBLE", primary_completion_year=2024),
+    which meant the only thing varying between two requests for different
+    therapeutic areas was 22 sparse binary columns.
+    """
     hv = int(PHASES[phase_key]["hv"])
 
     # Pipe-separated conditions / countries strings to drive TA + region OHE
@@ -48,22 +56,57 @@ def _build_input_row(phase_key: str, therapeutic_area: str,
         "countries": countries_str,
         "brief_summary": "",
         "Phases": _phase_raw(phase_key),
-        "Enrollment": enrollment or defaults["Enrollment"],
-        "site_count": num_sites or defaults["site_count"],
-        "primary_completion_year": 2024,
-        "total_primary_outcomes": defaults["total_primary_outcomes"],
-        "total_secondary_outcomes": defaults["total_secondary_outcomes"],
-        "number_of_arms": defaults["number_of_arms"],
+        "Enrollment": enrollment,
+        "site_count": num_sites,
+        "country_count": 1,
+        "followup_months": followup_months,
         "Drug_Type": drug_type,
-        "Allocation": "RANDOMIZED",
-        "Intervention_Model": "PARALLEL",
-        "Masking": "DOUBLE",
-        "Primary_Purpose": "TREATMENT",
         "is_hv": hv,
-        "has_collaborators": 0,
     }
     df = pd.DataFrame([row])
-    return build_features(df, phase_key)
+    X = build_features(df, phase_key)
+    return _apply_defaults(X, phase_key)
+
+
+def _apply_defaults(X: pd.DataFrame, phase_key: str) -> pd.DataFrame:
+    """Fill unspecified features from the training-set defaults in the artifact."""
+    entry = registry.load(phase_key) or {}
+    defaults = entry.get("feature_defaults") or {}
+    if not defaults:
+        return X
+    for col in X.columns:
+        if col not in defaults or defaults[col] is None:
+            continue
+        if X[col].isna().all():
+            X[col] = defaults[col]
+        elif X[col].dtype == object:
+            X[col] = X[col].replace("UNKNOWN", defaults[col])
+    return X
+
+
+def _check_extrapolation(X: pd.DataFrame, phase_key: str) -> list[str]:
+    """Flag any numeric input outside the range the model was trained on.
+
+    This is the guard for the failure that produced the flat predictions: the
+    model was trained with site_count in 1..20 and served requests at 40+, far
+    outside the trained range, where a forest returns a constant.
+    """
+    entry = registry.load(phase_key) or {}
+    ranges = entry.get("feature_ranges") or {}
+    warnings: list[str] = []
+    for col, bounds in ranges.items():
+        if col not in X.columns:
+            continue
+        val = X[col].iloc[0]
+        if pd.isna(val) or not isinstance(val, (int, float, np.integer, np.floating)):
+            continue
+        if val < bounds["min"] or val > bounds["max"]:
+            warnings.append(
+                f"{col}={val:g} is outside the trained range "
+                f"[{bounds['min']:g}, {bounds['max']:g}] — prediction is an "
+                f"extrapolation and should be treated as indicative only"
+            )
+    return warnings
 
 
 def _phase_raw(phase_key: str) -> str:
@@ -90,6 +133,9 @@ def predict(
     rmse = entry["rmse"]
 
     X = _build_input_row(phase_key, therapeutic_area, enrollment, num_sites, drug_type, region)
+    warnings = _check_extrapolation(X, phase_key)
+    for w in warnings:
+        log.warning("%s: %s", phase_key, w)
 
     # Point prediction
     pred_days = float(pipeline.predict(X)[0])
@@ -122,4 +168,5 @@ def predict(
         model_used="RandomForest",
         rmse_days=round(rmse, 1),
         n_train=entry["n_train"],
+        extrapolation_warnings=warnings,
     )

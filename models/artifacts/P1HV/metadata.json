@@ -1,1 +1,344 @@
-{"rmse": 104.03325905076288, "n_train": 585}
+{
+  "rmse": 205.58688756913108,
+  "n_train": 672,
+  "feature_defaults": {
+    "Drug_Type": "DRUG",
+    "Allocation": "RANDOMIZED",
+    "Intervention_Model": "PARALLEL",
+    "Masking": "NONE",
+    "Primary_Purpose": "TREATMENT",
+    "Sex": "ALL",
+    "sad_mad": "None",
+    "Enrollment": 34.0,
+    "site_count": 1.0,
+    "country_count": 1.0,
+    "total_primary_outcomes": 3.0,
+    "total_secondary_outcomes": 3.0,
+    "number_of_arms": 2.0,
+    "followup_months": 0.92,
+    "min_age_years": 18.0,
+    "age_span_years": 37.0,
+    "criteria_chars": 2080.5,
+    "n_inclusion_criteria": 5.0,
+    "n_exclusion_criteria": 8.0,
+    "n_collaborators": 0.0,
+    "enrollment_per_site": 32.0,
+    "outcomes_total": 7.0,
+    "has_collaborators": 0.0,
+    "Cardiovascular": 0.0,
+    "CNS/Neurology": 0.0,
+    "Chemically-Induced Disorders": 0.0,
+    "Congenital/Hereditary/Rare Diseases": 0.0,
+    "Dermatology/Connective Tissue Diseases": 0.0,
+    "Endocrinology": 0.0,
+    "Gastroenterology": 0.0,
+    "Haematology": 0.0,
+    "Immunology": 0.0,
+    "Infectious Diseases": 0.0,
+    "Metabolic": 0.0,
+    "Oncology/Solid Tumours": 0.0,
+    "Ophthalmology": 0.0,
+    "Otorhinolaryngology": 0.0,
+    "Pathological Conditions, Signs and Symptoms": 0.0,
+    "Respiratory": 0.0,
+    "Rheumatology": 0.0,
+    "Stomatognathic Diseases": 0.0,
+    "Urology/Female Health": 0.0,
+    "Urology/Male": 0.0,
+    "Wounds and Injuries": 0.0,
+    "Other": 1.0,
+    "US": 0.0,
+    "North America (excluding US)": 0.0,
+    "Europe": 0.0,
+    "Asia": 0.0,
+    "Australia/Oceania": 0.0,
+    "Latin America": 0.0,
+    "MENA": 0.0,
+    "Sub-Saharan Africa": 0.0,
+    "ROW": 0.0
+  },
+  "feature_ranges": {
+    "Enrollment": {
+      "p01": 6.0,
+      "p99": 276.89999999999964,
+      "min": 6.0,
+      "max": 477.30999999999995
+    },
+    "site_count": {
+      "p01": 1.0,
+      "p99": 6.0,
+      "min": 1.0,
+      "max": 24.0
+    },
+    "country_count": {
+      "p01": 0.0,
+      "p99": 2.0,
+      "min": 0.0,
+      "max": 3.0
+    },
+    "total_primary_outcomes": {
+      "p01": 1.0,
+      "p99": 23.289999999999964,
+      "min": 1.0,
+      "max": 40.0
+    },
+    "total_secondary_outcomes": {
+      "p01": 0.0,
+      "p99": 31.0,
+      "min": 0.0,
+      "max": 48.0
+    },
+    "number_of_arms": {
+      "p01": 1.0,
+      "p99": 15.289999999999964,
+      "min": 1.0,
+      "max": 27.0
+    },
+    "followup_months": {
+      "p01": 0.07,
+      "p99": 14.764999999999972,
+      "min": 0.03,
+      "max": 24.0
+    },
+    "min_age_years": {
+      "p01": 18.0,
+      "p99": 45.0,
+      "min": 0.5,
+      "max": 60.0
+    },
+    "age_span_years": {
+      "p01": 20.0,
+      "p99": 82.0,
+      "min": 7.0,
+      "max": 82.0
+    },
+    "criteria_chars": {
+      "p01": 201.91,
+      "p99": 8784.459999999994,
+      "min": 111.0,
+      "max": 12583.0
+    },
+    "n_inclusion_criteria": {
+      "p01": 1.0,
+      "p99": 22.0,
+      "min": 0.0,
+      "max": 36.0
+    },
+    "n_exclusion_criteria": {
+      "p01": 0.71,
+      "p99": 40.289999999999964,
+      "min": 0.0,
+      "max": 56.0
+    },
+    "n_collaborators": {
+      "p01": 0.0,
+      "p99": 2.0,
+      "min": 0.0,
+      "max": 4.0
+    },
+    "enrollment_per_site": {
+      "p01": 6.0,
+      "p99": 188.57999999999993,
+      "min": 2.0,
+      "max": 320.0
+    },
+    "outcomes_total": {
+      "p01": 1.0,
+      "p99": 40.0,
+      "min": 1.0,
+      "max": 61.0
+    },
+    "has_collaborators": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Cardiovascular": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "CNS/Neurology": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Chemically-Induced Disorders": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "Congenital/Hereditary/Rare Diseases": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Dermatology/Connective Tissue Diseases": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Endocrinology": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Gastroenterology": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Haematology": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Immunology": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Infectious Diseases": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Metabolic": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Oncology/Solid Tumours": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Ophthalmology": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "Otorhinolaryngology": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "Pathological Conditions, Signs and Symptoms": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "Respiratory": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "Rheumatology": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "Stomatognathic Diseases": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "Urology/Female Health": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "Urology/Male": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Wounds and Injuries": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "Other": {
+      "p01": 1.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "US": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "North America (excluding US)": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Europe": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Asia": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Australia/Oceania": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Latin America": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "MENA": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "Sub-Saharan Africa": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "ROW": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    }
+  }
+}

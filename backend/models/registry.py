@@ -40,6 +40,8 @@ def load(phase_key: str, force: bool = False) -> Optional[dict]:
         "rmse": meta.get("rmse", 0.0),
         "n_train": meta.get("n_train", 0),
         "analytics": analytics,
+        "feature_defaults": meta.get("feature_defaults", {}),
+        "feature_ranges": meta.get("feature_ranges", {}),
     }
     _cache[phase_key] = entry
     log.info("Loaded model for %s (RMSE=%.1f, n=%d)", phase_key, entry["rmse"], entry["n_train"])

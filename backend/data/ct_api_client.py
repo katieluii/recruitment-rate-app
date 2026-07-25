@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from backend.config import settings
+from backend.preprocessing.features import count_criteria
 
 log = logging.getLogger(__name__)
 
@@ -21,8 +22,12 @@ _FIELDS = ",".join([
     "protocolSection.designModule.designInfo",
     "protocolSection.conditionsModule.conditions",
     "protocolSection.armsInterventionsModule.interventions",
+    "protocolSection.armsInterventionsModule.armGroups",
     "protocolSection.eligibilityModule.healthyVolunteers",
     "protocolSection.eligibilityModule.sex",
+    "protocolSection.eligibilityModule.minimumAge",
+    "protocolSection.eligibilityModule.maximumAge",
+    "protocolSection.eligibilityModule.eligibilityCriteria",
     "protocolSection.sponsorCollaboratorsModule.leadSponsor",
     "protocolSection.sponsorCollaboratorsModule.collaborators",
     "protocolSection.outcomesModule.primaryOutcomes",
@@ -105,6 +110,28 @@ def _intervention_type(interventions: list[dict]) -> str:
     return "OTHER"
 
 
+def _encode_locations(locations: list[dict]) -> str:
+    """Serialise sites as 'facility^city^country' records, pipe-separated.
+
+    Retained in full for the site-level layer. v1 collapsed this to a distinct
+    country list and then counted the countries as if they were sites.
+    """
+    out = []
+    for loc in locations:
+        out.append("^".join([
+            (loc.get("facility") or "").replace("|", " ").replace("^", " "),
+            (loc.get("city") or "").replace("|", " ").replace("^", " "),
+            (loc.get("country") or "").replace("|", " ").replace("^", " "),
+        ]))
+    return "|".join(out)
+
+
+def _outcome_field(outcomes: list[dict], key: str) -> str:
+    return "|".join(
+        str(o.get(key, "")).replace("|", " ") for o in outcomes if o.get(key)
+    )
+
+
 def flatten_study(study: dict) -> dict | None:
     """Flatten a raw API study dict to a plain row dict. Returns None if unusable."""
     proto = study.get("protocolSection", {})
@@ -140,6 +167,10 @@ def flatten_study(study: dict) -> dict | None:
     conditions = proto.get("conditionsModule", {}).get("conditions", [])
     is_hv = is_hv or any("healthy" in c.lower() for c in conditions)
 
+    primary_outcomes = outcomes.get("primaryOutcomes", [])
+    criteria = eligibility.get("eligibilityCriteria", "") or ""
+    arm_groups = proto.get("armsInterventionsModule", {}).get("armGroups", [])
+
     return {
         "nct_id": nct_id,
         "Start Date": start_date,
@@ -151,13 +182,33 @@ def flatten_study(study: dict) -> dict | None:
         "Intervention_Model": design_info.get("interventionModel"),
         "Masking": design_info.get("maskingInfo", {}).get("masking"),
         "Primary_Purpose": design_info.get("primaryPurpose"),
-        "number_of_arms": None,  # not exposed in API v2; imputed from phase defaults
+        # Real arm count from armGroups. v1 hardcoded None here, so the feature
+        # imputed to a constant and carried no information.
+        "number_of_arms": len(arm_groups) or None,
         "conditions": "|".join(conditions),
         "countries": "|".join(countries),
+        # site_count is the number of SITES. v1 counted countries instead, which
+        # put training values in 1..20 while inference passed real site counts
+        # (P3 default 40) — far outside the trained range, where a forest is flat.
+        "site_count": len(locations),
+        "country_count": len(countries),
+        "locations": _encode_locations(locations),
         "is_hv": int(is_hv),
         "Sex": eligibility.get("sex", "ALL"),
+        "lead_sponsor": sponsor_mod.get("leadSponsor", {}).get("name", ""),
         "has_collaborators": int(bool(sponsor_mod.get("collaborators"))),
+        "n_collaborators": len(sponsor_mod.get("collaborators", []) or []),
         "brief_summary": proto.get("descriptionModule", {}).get("briefSummary", ""),
-        "total_primary_outcomes": len(outcomes.get("primaryOutcomes", [])),
+        "total_primary_outcomes": len(primary_outcomes),
         "total_secondary_outcomes": len(outcomes.get("secondaryOutcomes", [])),
+        # Endpoint text — the raw material for archetype classification and for
+        # reading follow-up length straight off the protocol.
+        "primary_outcome_measures": _outcome_field(primary_outcomes, "measure"),
+        "primary_outcome_timeframes": _outcome_field(primary_outcomes, "timeFrame"),
+        # Eligibility restrictiveness.
+        "min_age_raw": eligibility.get("minimumAge", ""),
+        "max_age_raw": eligibility.get("maximumAge", ""),
+        "criteria_chars": len(criteria),
+        "n_inclusion_criteria": count_criteria(criteria, "inclusion"),
+        "n_exclusion_criteria": count_criteria(criteria, "exclusion"),
     }
