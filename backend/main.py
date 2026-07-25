@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.config import settings
 from backend.models import registry
-from backend.routes import meta, predict, analytics
+from backend.routes import meta, predict, analytics, site_rates
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -48,6 +48,7 @@ app.add_middleware(
 app.include_router(meta.router, prefix="/api")
 app.include_router(predict.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
+app.include_router(site_rates.router, prefix="/api")
 
 # Serve frontend
 _frontend = settings.frontend_dir

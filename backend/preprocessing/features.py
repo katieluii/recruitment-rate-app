@@ -193,6 +193,86 @@ def classify_sad_mad(summary: str | None) -> str:
     return "None"
 
 
+# ── Eligibility parsing ───────────────────────────────────────────────────────
+
+_AGE_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(year|month|week|day|hour|minute)", re.I)
+_AGE_UNIT_YEARS = {
+    "year": 1.0, "month": 1 / 12, "week": 1 / 52.18,
+    "day": 1 / 365.25, "hour": 1 / 8766, "minute": 1 / 525960,
+}
+
+
+def parse_age_years(raw: str | None) -> float | None:
+    """'18 Years' → 18.0, '6 Months' → 0.5, 'N/A' → None."""
+    if not raw or pd.isna(raw):
+        return None
+    m = _AGE_RE.search(str(raw))
+    if not m:
+        return None
+    return round(float(m.group(1)) * _AGE_UNIT_YEARS[m.group(2).lower()], 4)
+
+
+def count_criteria(criteria: str | None, section: str) -> int:
+    """Count bullets under the inclusion or exclusion heading.
+
+    Eligibility text is free-form, but essentially every industry protocol uses
+    'Inclusion Criteria:' / 'Exclusion Criteria:' headings with one bullet per
+    line. Restrictiveness is a first-order driver of recruitment speed and is
+    absent from the v1 feature set entirely.
+    """
+    if not criteria or pd.isna(criteria):
+        return 0
+    text = str(criteria)
+    lowered = text.lower()
+    start = lowered.find(f"{section.lower()} criteria")
+    if start == -1:
+        return 0
+    other = "exclusion" if section.lower() == "inclusion" else "inclusion"
+    end = lowered.find(f"{other} criteria", start + 1)
+    block = text[start: end if end != -1 else len(text)]
+    bullets = [
+        ln.strip() for ln in block.splitlines()
+        if len(ln.strip()) > 3 and not ln.strip().lower().startswith(f"{section.lower()} criteria")
+    ]
+    return len(bullets)
+
+
+# ── Outcome time-frame parsing ────────────────────────────────────────────────
+
+_TIMEFRAME_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(year|month|week|day)s?", re.I
+)
+_TF_UNIT_MONTHS = {"year": 12.0, "month": 1.0, "week": 1 / 4.345, "day": 1 / 30.44}
+
+
+def parse_followup_months(timeframe: str | None) -> float | None:
+    """Longest follow-up horizon mentioned in an outcome time frame, in months.
+
+    'Up to 60 months' → 60.0; 'Baseline to Week 12' → 2.76. This is close to a
+    direct read on how much of a trial's duration is follow-up rather than
+    recruitment — the thing that makes Oncology Phase 3 run 38 months while
+    Dermatology runs 9.5 — and v1 discarded it.
+    """
+    if not timeframe or pd.isna(timeframe):
+        return None
+    months = [
+        float(v) * _TF_UNIT_MONTHS[u.lower()]
+        for v, u in _TIMEFRAME_RE.findall(str(timeframe))
+    ]
+    return round(max(months), 2) if months else None
+
+
+def max_followup_months(timeframes_str: str | None) -> float | None:
+    """Max follow-up across a pipe-separated set of outcome time frames."""
+    if not timeframes_str or pd.isna(timeframes_str):
+        return None
+    vals = [
+        v for v in (parse_followup_months(t) for t in str(timeframes_str).split("|"))
+        if v is not None
+    ]
+    return max(vals) if vals else None
+
+
 # ── One-hot helpers ───────────────────────────────────────────────────────────
 
 def one_hot_pipe_col(df: pd.DataFrame, col: str, categories: list[str]) -> pd.DataFrame:

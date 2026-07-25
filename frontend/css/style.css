@@ -258,3 +258,51 @@ body {
   margin-top: 1rem;
 }
 .footer a { color: var(--accent); text-decoration: none; }
+
+/* ── v2: recruitment-rate panel, optional-input hints, provenance ───────────── */
+.field .opt {
+  font-weight: 400;
+  font-size: .72rem;
+  color: var(--text-muted);
+}
+
+.field input[type="number"] {
+  width: 100%;
+  padding: .6rem .75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-input, #0d1117);
+  color: var(--text);
+  font-size: .9rem;
+}
+
+.rate-panel {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.rate-range {
+  font-size: .82rem;
+  color: var(--text-muted);
+  margin: .25rem 0 .75rem;
+}
+
+/* The modelling caveat travels with the number rather than sitting in a
+   footnote — this figure is not observed per-site enrolment. */
+.caveat {
+  font-size: .74rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: rgba(255, 200, 0, .06);
+  border-left: 2px solid rgba(255, 200, 0, .35);
+  padding: .6rem .75rem;
+  border-radius: 4px;
+}
+
+.provenance {
+  margin-top: 1.25rem;
+  font-size: .72rem;
+  color: var(--text-muted);
+  text-align: right;
+}

@@ -8,6 +8,15 @@ venv/
 # Model artifacts are committed (files are small ~10MB total)
 # To regenerate: python -m scripts.train_models
 
+# Local-only snapshot of the v1 models, used by experiments/ for regression
+# comparison. Not committed — the durable copy is the v1.0-baseline tag.
+# To recreate: git checkout v1.0-baseline -- models/artifacts && cp -R ...
+models/artifacts_v1_baseline/
+
+# Experiment data cache + generated reports
+data/cache/
+experiments/reports/
+
 # macOS
 .DS_Store
 

@@ -2,9 +2,13 @@
 const RAILWAY_URL = 'https://web-production-e6859b.up.railway.app';
 
 const API_BASE = (() => {
-  const { hostname } = window.location;
+  const { hostname, origin } = window.location;
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return `http://localhost:8000/api`;
+    // Same origin the page was served from. The FastAPI app serves both the
+    // frontend and the API, so hardcoding a port breaks the moment the server
+    // runs anywhere other than 8000 — and silently, because the request then
+    // hits whatever else happens to hold that port and 404s.
+    return `${origin}/api`;
   }
   // When embedded in Bolt or any external page, call Railway directly
   return `${RAILWAY_URL}/api`;
@@ -25,6 +29,7 @@ async function apiFetch(path, options = {}) {
 export const api = {
   getPhases: () => apiFetch('/phases'),
   getTherapeuticAreas: () => apiFetch('/therapeutic-areas'),
+  getEndpointArchetypes: () => apiFetch('/endpoint-archetypes').then(r => r.archetypes),
   predict: (payload) =>
     apiFetch('/predict', { method: 'POST', body: JSON.stringify(payload) }),
   getAnalytics: (phase) => apiFetch(`/analytics?phase=${phase}`),
