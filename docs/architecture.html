@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Site-level recruitment: v2 today vs v3 proposed</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#22201d;--muted:#6d675f;--line:#e2ddd4;--card:#fff;
+--accent:#7a5c3e;--v2:#4a6fa5;--v3:#2f6b4f;--warn:#a33a2c;--dim:#b9b2a6}
+@media(prefers-color-scheme:dark){:root{--bg:#171614;--fg:#eae6df;--muted:#9c958a;
+--line:#332f2a;--card:#1f1d1a;--accent:#c9a77c;--v2:#7fa3d4;--v3:#6fbf95;--warn:#e08472;--dim:#5d564c}}
+:root[data-theme="dark"]{--bg:#171614;--fg:#eae6df;--muted:#9c958a;--line:#332f2a;
+--card:#1f1d1a;--accent:#c9a77c;--v2:#7fa3d4;--v3:#6fbf95;--warn:#e08472;--dim:#5d564c}
+:root[data-theme="light"]{--bg:#fbfaf7;--fg:#22201d;--muted:#6d675f;--line:#e2ddd4;
+--card:#fff;--accent:#7a5c3e;--v2:#4a6fa5;--v3:#2f6b4f;--warn:#a33a2c;--dim:#b9b2a6}
+*{box-sizing:border-box}
+body{margin:0;padding:2.5rem 1.5rem;background:var(--bg);color:var(--fg);
+font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-family:Georgia,serif;font-size:2rem;margin:0 0 .4rem}
+h2{font-family:Georgia,serif;font-size:1.35rem;margin:2.8rem 0 .6rem;
+padding-bottom:.4rem;border-bottom:1px solid var(--line)}
+h3{font-size:1rem;margin:1.8rem 0 .5rem}
+.sub{color:var(--muted);margin:0 0 1.5rem;max-width:70ch}
+.note{background:var(--card);border-left:3px solid var(--accent);padding:.9rem 1.1rem;
+border-radius:5px;margin:1.3rem 0;font-size:.92rem}
+.note.warn{border-left-color:var(--warn)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:1.2rem 0}
+svg{display:block;min-width:820px}
+table{border-collapse:collapse;width:100%;font-size:.88rem;background:var(--card);
+border-radius:6px;overflow:hidden}
+th,td{padding:.55rem .75rem;text-align:left;border-bottom:1px solid var(--line);
+vertical-align:top}
+th{background:rgba(122,92,62,.08);font-weight:600}
+tr:last-child td{border-bottom:none}
+code{background:rgba(122,92,62,.11);padding:.1rem .35rem;border-radius:3px;font-size:.87em}
+.legend{display:flex;gap:1.4rem;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin:.6rem 0 0}
+.legend span{display:flex;align-items:center;gap:.4rem}
+.sw{width:13px;height:13px;border-radius:3px;display:inline-block}
+ul{max-width:75ch}li{margin:.35rem 0}
+.tag{display:inline-block;font-size:.7rem;letter-spacing:.05em;text-transform:uppercase;
+padding:.15rem .45rem;border-radius:3px;font-weight:700;vertical-align:middle}
+.tag.now{background:rgba(74,111,165,.15);color:var(--v2)}
+.tag.next{background:rgba(47,107,79,.15);color:var(--v3)}
+</style></head><body><div class="wrap">
+
+<h1>Where site-level prediction actually sits</h1>
+<p class="sub">Answering the question directly: in v2 the site and country layer is
+<strong>not part of the model</strong>. It is a lookup table built downstream from
+aggregated trial-level rates. The model never predicts a site. v3 changes that.</p>
+
+<div class="note warn"><b>The honest limitation underneath both diagrams.</b>
+Neither ClinicalTrials.gov nor AACT publishes per-site enrolment counts or per-site
+activation dates. No public source tells you that Site 47 enrolled 12 patients between
+March and August. Every site-level number in v2 — and most of what v3 can do — is
+inferred from trial totals, not observed.</div>
+
+<h2>v2 — what ships today</h2>
+<p class="sub">Two independent trial-level models. The site layer hangs off the side:
+it consumes the same training data but does not feed back into either prediction, and
+the country rates are trial-level rates <em>attributed</em> to every country the trial
+ran in.</p>
+
+<div class="scroll">
+<svg viewBox="0 0 900 400" role="img" aria-label="v2 architecture diagram">
+  <defs>
+    <marker id="a2" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,1 L8,4.5 L0,8 z" fill="var(--v2)"/></marker>
+    <marker id="ad" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,1 L8,4.5 L0,8 z" fill="var(--dim)"/></marker>
+  </defs>
+
+  <!-- inputs -->
+  <rect x="10" y="150" width="150" height="96" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="85" y="176" text-anchor="middle" font-size="13" font-weight="700" fill="var(--fg)">Trial inputs</text>
+  <text x="85" y="196" text-anchor="middle" font-size="11" fill="var(--muted)">phase · therapeutic area</text>
+  <text x="85" y="212" text-anchor="middle" font-size="11" fill="var(--muted)">enrolment · site count</text>
+  <text x="85" y="228" text-anchor="middle" font-size="11" fill="var(--muted)">endpoint archetype</text>
+
+  <!-- feature pipeline -->
+  <rect x="200" y="150" width="140" height="96" rx="7" fill="var(--card)" stroke="var(--v2)" stroke-width="1.5"/>
+  <text x="270" y="180" text-anchor="middle" font-size="13" font-weight="700" fill="var(--v2)">Feature pipeline</text>
+  <text x="270" y="200" text-anchor="middle" font-size="11" fill="var(--muted)">TA target encoding</text>
+  <text x="270" y="216" text-anchor="middle" font-size="11" fill="var(--muted)">endpoint flags</text>
+  <text x="270" y="232" text-anchor="middle" font-size="11" fill="var(--muted)">eligibility features</text>
+
+  <!-- head A -->
+  <rect x="395" y="78" width="185" height="76" rx="7" fill="var(--card)" stroke="var(--v2)" stroke-width="1.5"/>
+  <text x="487" y="104" text-anchor="middle" font-size="13" font-weight="700" fill="var(--v2)">Head A — duration</text>
+  <text x="487" y="123" text-anchor="middle" font-size="11" fill="var(--muted)">3 LightGBM quantiles, log1p</text>
+  <text x="487" y="139" text-anchor="middle" font-size="11" fill="var(--muted)">+ conformal widening</text>
+
+  <!-- head B -->
+  <rect x="395" y="242" width="185" height="76" rx="7" fill="var(--card)" stroke="var(--v2)" stroke-width="1.5"/>
+  <text x="487" y="268" text-anchor="middle" font-size="13" font-weight="700" fill="var(--v2)">Head B — rate</text>
+  <text x="487" y="287" text-anchor="middle" font-size="11" fill="var(--muted)">3 LightGBM quantiles, log</text>
+  <text x="487" y="303" text-anchor="middle" font-size="11" fill="var(--muted)">TRIAL-level pts/site/month</text>
+
+  <!-- outputs -->
+  <rect x="628" y="86" width="150" height="60" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="703" y="110" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)">Total duration</text>
+  <text x="703" y="130" text-anchor="middle" font-size="11" fill="var(--muted)">+ 80% interval</text>
+
+  <rect x="628" y="250" width="150" height="60" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="703" y="274" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)">One blended rate</text>
+  <text x="703" y="294" text-anchor="middle" font-size="11" fill="var(--muted)">for the whole trial</text>
+
+  <!-- site layer, detached -->
+  <rect x="200" y="318" width="380" height="70" rx="7" fill="none" stroke="var(--dim)"
+        stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="390" y="343" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--dim)">
+    Site layer — a LOOKUP, not a model</text>
+  <text x="390" y="361" text-anchor="middle" font-size="11" fill="var(--muted)">
+    country × TA median of trial-level rates, shrunk</text>
+  <text x="390" y="377" text-anchor="middle" font-size="11" fill="var(--muted)">
+    facility index · site-mix simulator</text>
+
+  <rect x="628" y="330" width="150" height="46" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="703" y="349" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)">Country ranking</text>
+  <text x="703" y="366" text-anchor="middle" font-size="11" fill="var(--muted)">marginal site value</text>
+
+  <!-- arrows -->
+  <line x1="162" y1="198" x2="196" y2="198" stroke="var(--v2)" stroke-width="1.6" marker-end="url(#a2)"/>
+  <path d="M342,180 C368,180 368,116 391,116" stroke="var(--v2)" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
+  <path d="M342,216 C368,216 368,280 391,280" stroke="var(--v2)" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
+  <line x1="582" y1="116" x2="624" y2="116" stroke="var(--v2)" stroke-width="1.6" marker-end="url(#a2)"/>
+  <line x1="582" y1="280" x2="624" y2="280" stroke="var(--v2)" stroke-width="1.6" marker-end="url(#a2)"/>
+  <line x1="582" y1="353" x2="624" y2="353" stroke="var(--dim)" stroke-width="1.6" marker-end="url(#ad)"/>
+
+  <!-- training data feed to site layer -->
+  <path d="M85,250 C85,353 150,353 196,353" stroke="var(--dim)" stroke-width="1.4"
+        stroke-dasharray="4 3" fill="none" marker-end="url(#ad)"/>
+  <text x="120" y="300" font-size="10.5" fill="var(--dim)">training data</text>
+
+  <!-- the missing link -->
+  <path d="M390,318 L390,300" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="4 3" fill="none"/>
+  <text x="398" y="312" font-size="10.5" fill="var(--warn)" font-weight="600">no feedback ✗</text>
+</svg>
+</div>
+<div class="legend">
+  <span><i class="sw" style="background:var(--v2)"></i>learned model</span>
+  <span><i class="sw" style="background:var(--dim)"></i>lookup / aggregation, not learned</span>
+  <span><i class="sw" style="background:var(--warn)"></i>the gap</span>
+</div>
+
+<div class="note"><b>What this means in practice.</b> Ask v2 for a Phase 3 oncology trial
+with 40 US sites and 20 Polish sites and it gives you one trial-level rate from the model,
+then separately tells you Poland's historical median is higher than the US. It never
+combines them: the duration prediction is identical whether you put the sites in Poland or
+Japan. The site mix changes the simulator's output but not the model's.</div>
+
+<h2>v3 — hierarchical enrolment process</h2>
+<p class="sub">The literature standard for this problem is a Poisson-Gamma process:
+each site enrols as a Poisson process with its own rate, and rates across sites are drawn
+from a Gamma distribution. That gives per-site prediction, principled uncertainty, and —
+critically — makes site mix an <em>input to the duration</em>, not a separate report.</p>
+
+<div class="scroll">
+<svg viewBox="0 0 900 430" role="img" aria-label="v3 proposed architecture diagram">
+  <defs>
+    <marker id="a3" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,1 L8,4.5 L0,8 z" fill="var(--v3)"/></marker>
+  </defs>
+
+  <rect x="10" y="170" width="140" height="90" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="80" y="196" text-anchor="middle" font-size="13" font-weight="700" fill="var(--fg)">Trial + site plan</text>
+  <text x="80" y="216" text-anchor="middle" font-size="11" fill="var(--muted)">protocol features</text>
+  <text x="80" y="232" text-anchor="middle" font-size="11" fill="var(--muted)">country → site counts</text>
+  <text x="80" y="248" text-anchor="middle" font-size="11" fill="var(--muted)">planned start dates</text>
+
+  <!-- three sequential stages -->
+  <rect x="190" y="60" width="170" height="72" rx="7" fill="var(--card)" stroke="var(--v3)" stroke-width="1.5"/>
+  <text x="275" y="84" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--v3)">1. Country initiation</text>
+  <text x="275" y="103" text-anchor="middle" font-size="11" fill="var(--muted)">time to first site open,</text>
+  <text x="275" y="119" text-anchor="middle" font-size="11" fill="var(--muted)">per country · regulatory lag</text>
+
+  <rect x="190" y="178" width="170" height="72" rx="7" fill="var(--card)" stroke="var(--v3)" stroke-width="1.5"/>
+  <text x="275" y="202" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--v3)">2. Site activation</text>
+  <text x="275" y="221" text-anchor="middle" font-size="11" fill="var(--muted)">non-homogeneous Poisson</text>
+  <text x="275" y="237" text-anchor="middle" font-size="11" fill="var(--muted)">time-varying, not flat</text>
+
+  <rect x="190" y="296" width="170" height="72" rx="7" fill="var(--card)" stroke="var(--v3)" stroke-width="1.5"/>
+  <text x="275" y="320" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--v3)">3. Per-site enrolment</text>
+  <text x="275" y="339" text-anchor="middle" font-size="11" fill="var(--muted)">Nᵢ(t) ~ Poisson(λᵢt)</text>
+  <text x="275" y="355" text-anchor="middle" font-size="11" fill="var(--muted)">λᵢ ~ Gamma(α, β | covariates)</text>
+
+  <!-- simulation -->
+  <rect x="410" y="150" width="165" height="130" rx="7" fill="var(--card)" stroke="var(--v3)" stroke-width="2"/>
+  <text x="492" y="180" text-anchor="middle" font-size="13" font-weight="700" fill="var(--v3)">Monte Carlo</text>
+  <text x="492" y="200" text-anchor="middle" font-size="11" fill="var(--muted)">simulate the network</text>
+  <text x="492" y="216" text-anchor="middle" font-size="11" fill="var(--muted)">forward in time</text>
+  <text x="492" y="240" text-anchor="middle" font-size="11" fill="var(--muted)">enrolment curve with</text>
+  <text x="492" y="256" text-anchor="middle" font-size="11" fill="var(--muted)">credible bands</text>
+
+  <!-- follow-up -->
+  <rect x="410" y="310" width="165" height="66" rx="7" fill="var(--card)" stroke="var(--v3)" stroke-width="1.5"/>
+  <text x="492" y="334" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--v3)">Follow-up model</text>
+  <text x="492" y="353" text-anchor="middle" font-size="11" fill="var(--muted)">from endpoint archetype</text>
+  <text x="492" y="369" text-anchor="middle" font-size="11" fill="var(--muted)">+ parsed time frame</text>
+
+  <!-- outputs -->
+  <rect x="625" y="60" width="165" height="62" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="707" y="84" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)">Enrolment window</text>
+  <text x="707" y="103" text-anchor="middle" font-size="11" fill="var(--muted)">separately from follow-up</text>
+
+  <rect x="625" y="140" width="165" height="62" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="707" y="164" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)">Per-site forecast</text>
+  <text x="707" y="183" text-anchor="middle" font-size="11" fill="var(--muted)">patients per site, per month</text>
+
+  <rect x="625" y="220" width="165" height="62" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="707" y="244" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)">Site-mix optimiser</text>
+  <text x="707" y="263" text-anchor="middle" font-size="11" fill="var(--muted)">mix now CHANGES duration</text>
+
+  <rect x="625" y="300" width="165" height="62" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="707" y="324" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)">Total duration</text>
+  <text x="707" y="343" text-anchor="middle" font-size="11" fill="var(--muted)">enrolment + follow-up</text>
+
+  <!-- arrows -->
+  <path d="M152,200 C170,200 172,96 186,96" stroke="var(--v3)" stroke-width="1.6" fill="none" marker-end="url(#a3)"/>
+  <line x1="152" y1="214" x2="186" y2="214" stroke="var(--v3)" stroke-width="1.6" marker-end="url(#a3)"/>
+  <path d="M152,230 C170,230 172,332 186,332" stroke="var(--v3)" stroke-width="1.6" fill="none" marker-end="url(#a3)"/>
+
+  <line x1="275" y1="134" x2="275" y2="174" stroke="var(--v3)" stroke-width="1.6" marker-end="url(#a3)"/>
+  <line x1="275" y1="252" x2="275" y2="292" stroke="var(--v3)" stroke-width="1.6" marker-end="url(#a3)"/>
+
+  <path d="M362,96 C390,96 388,175 406,175" stroke="var(--v3)" stroke-width="1.6" fill="none" marker-end="url(#a3)"/>
+  <line x1="362" y1="214" x2="406" y2="214" stroke="var(--v3)" stroke-width="1.6" marker-end="url(#a3)"/>
+  <path d="M362,332 C390,332 388,255 406,255" stroke="var(--v3)" stroke-width="1.6" fill="none" marker-end="url(#a3)"/>
+
+  <path d="M577,180 C600,180 604,91 621,91" stroke="var(--v3)" stroke-width="1.6" fill="none" marker-end="url(#a3)"/>
+  <line x1="577" y1="205" x2="621" y2="171" stroke="var(--v3)" stroke-width="1.6" marker-end="url(#a3)"/>
+  <line x1="577" y1="240" x2="621" y2="251" stroke="var(--v3)" stroke-width="1.6" marker-end="url(#a3)"/>
+  <path d="M577,343 C600,343 604,331 621,331" stroke="var(--v3)" stroke-width="1.6" fill="none" marker-end="url(#a3)"/>
+</svg>
+</div>
+
+<h2>The difference in one table</h2>
+<div class="scroll"><table>
+<thead><tr><th>Question</th><th>v2 answer</th><th>v3 answer</th></tr></thead>
+<tbody>
+<tr><td>How fast will <em>this site</em> enrol?</td>
+    <td>Cannot answer. Only a trial-wide blended rate.</td>
+    <td>Per-site rate λᵢ with a credible interval.</td></tr>
+<tr><td>Does moving 20 sites from the US to Poland change the predicted duration?</td>
+    <td><b>No.</b> Duration is unchanged; only the separate simulator moves.</td>
+    <td><b>Yes.</b> Site mix enters the enrolment process directly.</td></tr>
+<tr><td>When does enrolment finish, as opposed to the trial?</td>
+    <td>Not separable — one blended target.</td>
+    <td>Enrolment window and follow-up are distinct stages.</td></tr>
+<tr><td>What about sites that open late?</td>
+    <td>Ignored. Every site is assumed live from day one.</td>
+    <td>Country initiation and site activation are modelled stages.</td></tr>
+<tr><td>Where does the uncertainty come from?</td>
+    <td>Conformal calibration on residuals — honest but post-hoc.</td>
+    <td>The Gamma spread over site rates, propagated by simulation.</td></tr>
+<tr><td>Can it learn from trials still running?</td>
+    <td>No — completed trials only, which biases recent history fast.</td>
+    <td>Yes, via right-censored survival likelihood.</td></tr>
+</tbody></table></div>
+
+<h2>What the literature says we should do</h2>
+<div class="scroll"><table>
+<thead><tr><th>Finding</th><th>Source</th><th>Implication for v3</th></tr></thead>
+<tbody>
+<tr><td>Poisson-Gamma is the standard for multi-site enrolment; site rates are heterogeneous and Gamma-distributed.</td>
+    <td>Anisimov &amp; Fedorov lineage; Zhong et al. 2024 <i>Pharm. Stat.</i></td>
+    <td>Adopt as the v3 core. It is the field's default for a reason.</td></tr>
+<tr><td>Flat site-activation rates fail; country initiation → site activation → enrolment should be modelled sequentially as non-homogeneous Poisson processes in a Bayesian frame. Validated on 25 studies, four therapeutic areas.</td>
+    <td>Zhong et al. 2024</td>
+    <td>Three-stage structure, not a single rate. Gives correct interval coverage.</td></tr>
+<tr><td>Recent trial durations appear to drop steeply — but this is <b>selection bias</b>: long trials started recently are still ongoing and absent from completed-only datasets.</td>
+    <td>Predicting clinical trial duration via statistical and ML models, 2025</td>
+    <td><b>Independently confirms what our own harness found.</b> Fix with right-censored survival modelling that includes ongoing trials.</td></tr>
+<tr><td>Survival models on 20+ trial features reach C-index 0.777 (DeepSurv), 0.762 (random survival forest), 0.754 (Cox / Weibull AFT). Top drivers: oncology indication, sponsor type, phase, long-follow-up endpoints.</td>
+    <td>Same, 2025</td>
+    <td>Our endpoint-archetype feature already captures their #4 driver. Sponsor type we collect but do not yet use.</td></tr>
+<tr><td>Language models over eligibility criteria + drug/disease context improve enrolment-success prediction (PR-AUC 0.700 over GBDT baselines) on 31k trials.</td>
+    <td>TrialEnroll, 2024</td>
+    <td>Our eligibility features are counts only. Embedding the criteria text is the obvious upgrade.</td></tr>
+<tr><td>PLM document embeddings + a Gamma probabilistic layer predict per-site enrolment with range estimates.</td>
+    <td>arXiv 2507.23607, 2025</td>
+    <td>Closest published analogue to the v3 target. Confirms text + Poisson-Gamma is the current frontier.</td></tr>
+</tbody></table></div>
+
+<h2>Proposed v3 scope</h2>
+<h3><span class="tag next">V3.1</span> Right-censored duration — fixes a known bias</h3>
+<ul>
+<li>Pull <b>ongoing</b> trials (recruiting / active-not-recruiting), not just completed ones.</li>
+<li>Refit duration as a survival problem: Weibull AFT and random survival forest first, DeepSurv only if it earns it. Score with C-index alongside our existing MAE.</li>
+<li>This is the single highest-confidence improvement — we found the bias empirically and the literature names it independently.</li>
+</ul>
+
+<h3><span class="tag next">V3.2</span> Poisson-Gamma site layer — makes site mix matter</h3>
+<ul>
+<li>Fit Gamma(α, β) over site rates per phase × therapeutic area × country, with shrinkage where sites are few.</li>
+<li>Sequential stages: country initiation → site activation → per-site enrolment.</li>
+<li>Monte Carlo forward simulation for the enrolment curve and its bands.</li>
+<li>Calibrate against trials where we know total enrolment and site count — we can validate the aggregate even without per-site truth.</li>
+</ul>
+
+<h3><span class="tag next">V3.3</span> Separate enrolment from follow-up</h3>
+<ul>
+<li>Duration = enrolment window + follow-up. Follow-up is largely readable from the parsed endpoint time frame, which we already extract but only use as one feature.</li>
+<li>Removes the approximation that currently understates oncology recruitment rates.</li>
+</ul>
+
+<h3><span class="tag next">V3.4</span> Text features over eligibility criteria</h3>
+<ul>
+<li>We use criteria counts. TrialEnroll shows the criteria <em>text</em> carries real signal.</li>
+<li>Sentence embeddings, not a fine-tuned LLM — cheaper, deterministic, and testable in our existing harness.</li>
+<li>Add sponsor identity, which the 2025 survival paper ranks as its #2 driver and which we already collect.</li>
+</ul>
+
+<div class="note"><b>Sequencing.</b> V3.1 and V3.3 are corrections to known defects and should
+go first — they are cheap and we can already measure them. V3.2 is the real capability jump
+and the biggest build. V3.4 is the smallest expected gain per unit of work; do it last, and
+only if the harness says the ceiling has not already been reached.</div>
+
+<p class="sub" style="margin-top:2.5rem">Generated 2026-07-25 ·
+<code>docs/architecture.html</code> · every claim reproducible from
+<code>experiments/ledger.jsonl</code></p>
+</div></body></html>
