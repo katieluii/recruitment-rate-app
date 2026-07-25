@@ -1,5 +1,5 @@
-import { api } from './api.js';
-import { renderErrorBar } from './charts.js';
+import { api } from './api.js?v=5';
+import { renderErrorBar } from './charts.js?v=5';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const phaseSelect = document.getElementById('phase-select');
