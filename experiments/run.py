@@ -43,7 +43,8 @@ CONFIGS = {
     "lgbm_conformal_recent": (lambda p: LGBMQuantile(p, calib_strategy="recent"), False),
     # Rate head: strictly-positive multiplicative target needs plain log.
     "lgbm_rate":            (lambda p: LGBMQuantile(p, transform="log"), False),
-    "two_stage":            (lambda p: TwoStageDuration(p), False),
+    "two_stage":            (lambda p: TwoStageDuration(p, country_mix=False), False),
+    "two_stage_geo":        (lambda p: TwoStageDuration(p, country_mix=True), False),
     "v1_shipped":           (lambda p: ShippedArtifact(
         p, artifacts_dir="models/artifacts_v1_baseline"), False),
 }

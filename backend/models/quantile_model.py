@@ -62,7 +62,7 @@ class ConformalQuantileModel:
                  conformal: bool = True, calib_frac: float = 0.2,
                  coverage: float = 0.80, calib_strategy: str = "recent",
                  censoring_frame: pd.DataFrame | None = None,
-                 weight_cap: float = 10.0):
+                 weight_cap: float = 10.0, country_mix: bool = True):
         if transform not in TRANSFORMS:
             raise ValueError(f"Unknown transform {transform!r}")
         self.phase_key = phase_key
@@ -75,6 +75,7 @@ class ConformalQuantileModel:
         self.calib_strategy = calib_strategy
         self.censoring_frame = censoring_frame
         self.weight_cap = weight_cap
+        self.country_mix = country_mix
         self.qhat_ = 0.0
 
     # ── transforms ───────────────────────────────────────────────────────────
@@ -98,7 +99,9 @@ class ConformalQuantileModel:
         models = {}
         for alpha in QUANTILES:
             pipe = Pipeline([
-                ("pre", make_preprocessor(ta_target_encoding=self.ta_target_encoding)),
+                ("pre", make_preprocessor(
+                    ta_target_encoding=self.ta_target_encoding,
+                    country_mix=self.country_mix)),
                 ("model", lgb.LGBMRegressor(objective="quantile", alpha=alpha,
                                             **self.params)),
             ])
@@ -241,7 +244,8 @@ class TwoStageDuration:
 
     def __init__(self, phase_key: str, params: dict | None = None,
                  calib_frac: float = 0.2, coverage: float = 0.80,
-                 censoring_frame: pd.DataFrame | None = None):
+                 censoring_frame: pd.DataFrame | None = None,
+                 country_mix: bool = True):
         self.phase_key = phase_key
         self.coverage = coverage
         self.calib_frac = calib_frac
@@ -249,9 +253,12 @@ class TwoStageDuration:
         # assembled from both spreads and scaled once to hit nominal coverage.
         self.enrol = ConformalQuantileModel(
             phase_key, transform="log1p", params=params, conformal=False,
-            censoring_frame=censoring_frame)
+            censoring_frame=censoring_frame, country_mix=country_mix)
+        # Follow-up is set by the protocol's endpoint, not by geography, so the
+        # site mix is deliberately withheld from that stage.
         self.fu = ConformalQuantileModel(
-            phase_key, transform="log1p", params=params, conformal=False)
+            phase_key, transform="log1p", params=params, conformal=False,
+            country_mix=False)
         self.scale_ = 1.0
 
     @staticmethod

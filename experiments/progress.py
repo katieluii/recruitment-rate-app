@@ -41,6 +41,9 @@ MILESTONES = [
     ("two_stage", "+ enrolment / follow-up split (v3.3)",
      "Duration modelled as two near-independent processes rather than one "
      "blended number."),
+    ("two_stage_geo", "+ country site-mix effect (v3.2) — NOT SHIPPED",
+     "Adds the geography lever the tool was missing, but costs accuracy on 3 of "
+     "4 phases. Recorded, not merged; see the note below."),
 ]
 
 RATE_MILESTONES = [

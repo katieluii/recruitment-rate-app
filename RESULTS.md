@@ -15,6 +15,7 @@ Protocol: train on trials starting before 2021-01-01, test on those starting aft
 | **+ LightGBM on a log target** | 2.94 | 6.13 | 7.55 | 7.94 |
 | **+ conformal intervals (v2 shipped)** | 2.82 | 5.70 | 7.23 | 7.29 |
 | **+ enrolment / follow-up split (v3.3)** | 2.86 | 5.32 | 7.05 | 6.90 |
+| **+ country site-mix effect (v3.2) — NOT SHIPPED** | 2.86 | 5.43 | 7.24 | 7.19 |
 
 ## Duration — skill against the baseline
 
@@ -27,6 +28,7 @@ Protocol: train on trials starting before 2021-01-01, test on those starting aft
 | **+ LightGBM on a log target** | +0.254 | +0.360 | +0.176 | +0.208 |
 | **+ conformal intervals (v2 shipped)** | +0.283 | +0.404 | +0.211 | +0.273 |
 | **+ enrolment / follow-up split (v3.3)** | +0.273 | +0.445 | +0.230 | +0.312 |
+| **+ country site-mix effect (v3.2) — NOT SHIPPED** | +0.274 | +0.433 | +0.210 | +0.283 |
 
 ## Interval calibration — share of actuals inside the 80% band
 
@@ -37,7 +39,8 @@ Protocol: train on trials starting before 2021-01-01, test on those starting aft
 | **+ data-layer fixes (real site count, no leaked year)** | 0.853 | 0.844 | 0.710 | 0.661 |
 | **+ therapeutic-area target encoding** | 0.863 | 0.862 | 0.719 | 0.693 |
 | **+ conformal intervals (v2 shipped)** | 0.853 | 0.818 | 0.838 | 0.821 |
-| **+ enrolment / follow-up split (v3.3)** | 0.799 | 0.901 | 0.879 | 0.890 |
+| **+ enrolment / follow-up split (v3.3)** | 0.842 | 0.879 | 0.816 | 0.888 |
+| **+ country site-mix effect (v3.2) — NOT SHIPPED** | 0.820 | 0.885 | 0.827 | 0.888 |
 
 ## Therapeutic-area differentiation
 
@@ -52,6 +55,7 @@ Distinct predicted medians out of the areas with enough test trials — the metr
 | **+ LightGBM on a log target** | 4 | 13 | 14 | 14 |
 | **+ conformal intervals (v2 shipped)** | 4 | 13 | 15 | 14 |
 | **+ enrolment / follow-up split (v3.3)** | 4 | 13 | 15 | 13 |
+| **+ country site-mix effect (v3.2) — NOT SHIPPED** | 4 | 13 | 14 | 12 |
 
 ## Recruitment rate — MAE, patients per site per month
 
@@ -70,6 +74,7 @@ Distinct predicted medians out of the areas with enough test trials — the metr
 - **+ LightGBM on a log target** — Gradient boosting and a log target for the right-skewed duration.
 - **+ conformal intervals (v2 shipped)** — Real quantile intervals widened on the most recent training slice, replacing an interval pinned at rmse*0.5 for every input.
 - **+ enrolment / follow-up split (v3.3)** — Duration modelled as two near-independent processes rather than one blended number.
+- **+ country site-mix effect (v3.2) — NOT SHIPPED** — Adds the geography lever the tool was missing, but costs accuracy on 3 of 4 phases. Recorded, not merged; see the note below.
 
 ## Findings that changed the work
 
@@ -78,6 +83,32 @@ Distinct predicted medians out of the areas with enough test trials — the metr
 - **Completed-trials-only data is survivorship-biased.** At a 2018 vantage, Phase 3 duration looked 20.9 months when it was truly 24.6. Corrected by inverse-probability-of-censoring weighting.
 - **Survival models lost.** Weibull AFT, random survival forest and gradient-boosted survival all cut the bias but lost more on scatter. Recorded rather than quietly dropped.
 - **Duration is two processes.** Enrolment window and follow-up are near-uncorrelated (r = +0.03). A Phase 3 survival endpoint follows up for 26.0 months against 5.5 for a biomarker endpoint.
+
+## V3.2 — the geography lever, and why it is not shipped
+
+Adding a country site-mix effect gives the tool something it never had: moving
+sites between countries changes the prediction. It also costs accuracy.
+
+| | P1HV | P1 | P2 | P3 |
+|---|---|---|---|---|
+| without country mix | 2.86 | **5.32** | **7.05** | **6.90** |
+| with country mix | **2.86** | 5.43 | 7.24 | 7.19 |
+
+Two things had to be fixed along the way, and one remains open.
+
+- **The per-site rate was the wrong target.** log(rate) on log(site_count) has a
+  slope near −1, so the rate is largely arithmetic. The enrolment window
+  correlates with site count at only +0.20 to +0.31 and its country ranking is
+  stable at rank correlation +0.75, against 0.29 for the rate.
+- **The encoder amplified geography.** Fitting raw target means gave an 86%
+  counterfactual spread across countries when the size-controlled data supports
+  about 30%. Residualising on trial size before attributing anything to a
+  country cut that to 43% — closer, still generous.
+- **Open: the direction is not corroborated.** The model puts the United States
+  fastest and China slowest, which runs against the usual industry expectation
+  that Eastern Europe recruits quickly and the US slowly. That may be real for
+  registered industry trials, or residual confounding by trial type. It needs a
+  domain check before anyone plans sites on it.
 
 ## Open
 

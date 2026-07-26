@@ -9,6 +9,9 @@ from sklearn.impute import SimpleImputer
 
 from backend.constants import THERAPEUTIC_AREAS, REGIONS
 from backend.preprocessing.endpoints import ARCHETYPES, add_endpoint_features
+from backend.preprocessing.country_mix import (ENCODER_COLUMNS,
+                                              CountryMixEncoder,
+                                              site_share_frame)
 from backend.preprocessing.target_encoding import TATargetEncoder
 from backend.preprocessing.features import (
     assign_therapeutic_area,
@@ -108,6 +111,11 @@ def build_features(df: pd.DataFrame, phase_key: str) -> pd.DataFrame:
         df["total_primary_outcomes"].fillna(0) + df["total_secondary_outcomes"].fillna(0)
     )
 
+    # Per-country site shares. Half of trials run in more than one country and
+    # the mix is recoverable for 92.9% of them, so geography enters the model as
+    # data rather than as a lookup bolted on afterwards.
+    shares = site_share_frame(df)
+
     for col in _ENDPOINT_FLAGS:
         if col not in df.columns:
             df[col] = 0
@@ -118,12 +126,14 @@ def build_features(df: pd.DataFrame, phase_key: str) -> pd.DataFrame:
            + ["has_collaborators"]].reset_index(drop=True),
         ta_ohe.reset_index(drop=True),
         re_ohe.reset_index(drop=True),
+        shares.reset_index(drop=True),
     ], axis=1)
 
     return X
 
 
-def make_preprocessor(ta_target_encoding: bool = True) -> ColumnTransformer:
+def make_preprocessor(ta_target_encoding: bool = True,
+                      country_mix: bool = True) -> ColumnTransformer:
     """Return an unfitted sklearn preprocessor matching build_features output.
 
     The therapeutic-area block is fed to BOTH the target encoder and the
@@ -150,5 +160,10 @@ def make_preprocessor(ta_target_encoding: bool = True) -> ColumnTransformer:
     ]
     if ta_target_encoding:
         transformers.append(("ta_target", TATargetEncoder(), _BIN_TA))
+    if country_mix:
+        # The site-share block feeds the encoder only. Passing 58 raw share
+        # columns through as well would hand the trees a wide sparse block of
+        # exactly the kind that drowned the therapeutic-area one-hots in v1.
+        transformers.append(("country_mix", CountryMixEncoder(), ENCODER_COLUMNS))
 
     return ColumnTransformer(transformers=transformers, remainder="drop")
