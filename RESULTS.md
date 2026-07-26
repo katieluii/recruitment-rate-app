@@ -1,6 +1,6 @@
 # Results log
 
-Generated 2026-07-26 from `experiments/ledger.jsonl` — every figure traces to a recorded run.
+Generated 2026-07-27 from `experiments/ledger.jsonl` — every figure traces to a recorded run.
 
 Protocol: train on trials starting before 2021-01-01, test on those starting after. `skill` is the fraction of the per-therapeutic-area median baseline's error removed; **negative means worse than a lookup table**.
 
@@ -10,11 +10,11 @@ Protocol: train on trials starting before 2021-01-01, test on those starting aft
 |---|---|---|---|---|
 | **Baseline — per-therapeutic-area median lookup** | 3.82 | 8.53 | 8.95 | 9.72 |
 | **v1 as it actually shipped** | 2.66 | 5.75 | 25.41 | 26.89 |
-| **+ data-layer fixes (real site count, no leaked year)** | 2.78 | 6.44 | 9.00 | 8.96 |
+| **+ data-layer fixes (real site count, no leaked year)** | 2.78 | 6.44 | 8.30 | 8.75 |
 | **+ therapeutic-area target encoding** | 2.76 | 7.21 | 8.88 | 8.49 |
 | **+ LightGBM on a log target** | 2.94 | 6.13 | 7.55 | 7.94 |
-| **+ conformal intervals (v2 shipped)** | 2.87 | 5.40 | 7.28 | 7.28 |
-| **+ enrolment / follow-up split (v3.3)** | 2.63 | 5.29 | 7.02 | 7.03 |
+| **+ conformal intervals (v2 shipped)** | 2.87 | 5.40 | 7.16 | 7.06 |
+| **+ enrolment / follow-up split (v3.3)** | 2.63 | 5.29 | 7.01 | 6.99 |
 | **+ country site-mix effect (v3.2) — NOT SHIPPED** | 2.86 | 5.43 | 7.24 | 7.19 |
 
 ## Duration — skill against the baseline
@@ -23,11 +23,11 @@ Protocol: train on trials starting before 2021-01-01, test on those starting aft
 |---|---|---|---|---|
 | **Baseline — per-therapeutic-area median lookup** | +0.000 | +0.000 | +0.000 | +0.000 |
 | **v1 as it actually shipped** | +0.199 | **-0.301** | **-1.868** | **-1.722** |
-| **+ data-layer fixes (real site count, no leaked year)** | +0.294 | +0.327 | +0.017 | +0.107 |
+| **+ data-layer fixes (real site count, no leaked year)** | +0.294 | +0.327 | +0.072 | +0.100 |
 | **+ therapeutic-area target encoding** | +0.299 | +0.247 | +0.031 | +0.154 |
 | **+ LightGBM on a log target** | +0.254 | +0.360 | +0.176 | +0.208 |
-| **+ conformal intervals (v2 shipped)** | +0.271 | +0.436 | +0.205 | +0.274 |
-| **+ enrolment / follow-up split (v3.3)** | +0.312 | +0.380 | +0.215 | +0.277 |
+| **+ conformal intervals (v2 shipped)** | +0.271 | +0.436 | +0.200 | +0.273 |
+| **+ enrolment / follow-up split (v3.3)** | +0.312 | +0.380 | +0.217 | +0.281 |
 | **+ country site-mix effect (v3.2) — NOT SHIPPED** | +0.274 | +0.433 | +0.210 | +0.283 |
 
 ## Interval calibration — share of actuals inside the 80% band
@@ -36,10 +36,10 @@ Protocol: train on trials starting before 2021-01-01, test on those starting aft
 |---|---|---|---|---|
 | **Baseline — per-therapeutic-area median lookup** | 0.833 | 0.820 | 0.850 | 0.817 |
 | **v1 as it actually shipped** | 0.667 | 0.252 | 0.084 | 0.083 |
-| **+ data-layer fixes (real site count, no leaked year)** | 0.877 | 0.867 | 0.740 | 0.724 |
+| **+ data-layer fixes (real site count, no leaked year)** | 0.877 | 0.867 | 0.755 | 0.732 |
 | **+ therapeutic-area target encoding** | 0.863 | 0.862 | 0.719 | 0.693 |
-| **+ conformal intervals (v2 shipped)** | 0.879 | 0.815 | 0.839 | 0.812 |
-| **+ enrolment / follow-up split (v3.3)** | 0.886 | 0.819 | 0.836 | 0.825 |
+| **+ conformal intervals (v2 shipped)** | 0.879 | 0.815 | 0.830 | 0.821 |
+| **+ enrolment / follow-up split (v3.3)** | 0.886 | 0.819 | 0.839 | 0.825 |
 | **+ country site-mix effect (v3.2) — NOT SHIPPED** | 0.820 | 0.885 | 0.827 | 0.888 |
 
 ## Therapeutic-area differentiation
@@ -50,11 +50,11 @@ Distinct predicted medians out of the areas with enough test trials — the metr
 |---|---|---|---|---|
 | **Baseline — per-therapeutic-area median lookup** | 9 | 17 | 17 | 17 |
 | **v1 as it actually shipped** | 3 | 8 | 13 | 10 |
-| **+ data-layer fixes (real site count, no leaked year)** | 4 | 13 | 15 | 14 |
+| **+ data-layer fixes (real site count, no leaked year)** | 4 | 13 | 16 | 17 |
 | **+ therapeutic-area target encoding** | 4 | 13 | 15 | 14 |
 | **+ LightGBM on a log target** | 4 | 13 | 14 | 14 |
-| **+ conformal intervals (v2 shipped)** | 4 | 12 | 13 | 13 |
-| **+ enrolment / follow-up split (v3.3)** | 11 | 18 | 16 | 17 |
+| **+ conformal intervals (v2 shipped)** | 4 | 12 | 17 | 17 |
+| **+ enrolment / follow-up split (v3.3)** | 11 | 18 | 17 | 16 |
 | **+ country site-mix effect (v3.2) — NOT SHIPPED** | 4 | 13 | 14 | 12 |
 
 ## Recruitment rate — MAE, patients per site per month
@@ -85,9 +85,9 @@ model.
 | step | P2 R2 | P3 R2 | P2 RMSE (d) | P3 RMSE (d) |
 |---|---|---|---|---|
 | **Baseline — per-therapeutic-area median lookup** | 0.003 | -0.086 | 346 | 366 |
-| **+ data-layer fixes (real site count, no leaked year)** | 0.003 | 0.108 | 334 | 329 |
-| **+ conformal intervals (v2 shipped)** | 0.237 | 0.330 | 292 | 285 |
-| **+ enrolment / follow-up split (v3.3)** | 0.341 | 0.336 | 281 | 286 |
+| **+ data-layer fixes (real site count, no leaked year)** | 0.193 | 0.127 | 311 | 328 |
+| **+ conformal intervals (v2 shipped)** | 0.330 | 0.337 | 284 | 286 |
+| **+ enrolment / follow-up split (v3.3)** | 0.343 | 0.345 | 281 | 284 |
 
 ## What each step was
 

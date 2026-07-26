@@ -25,7 +25,13 @@ from backend.preprocessing.features import (
 
 _CAT_COLS = ["Drug_Type", "Allocation", "Intervention_Model", "Masking",
              "Primary_Purpose", "Sex", "sad_mad", "endpoint_archetype",
-             "sponsor_tier"]
+             "sponsor_tier", "Phases"]
+
+# `Phases` is a feature because the cohorts are NOT phase-pure. AREA[Phase]PHASE2
+# also matches combination trials, so the Phase 2 cohort is 21.3% PHASE1|PHASE2 or
+# PHASE2|PHASE3 (P1 14.7%, P3 5.1%). Without this the model cannot tell a pure
+# Phase 2 trial from one that straddles two phases, and Phase 2 is both the most
+# contaminated cohort and the weakest.
 
 #: Populated by the trainer from the training fold, so the "large cap" set is
 #: not silently defined by data the model has not seen.
