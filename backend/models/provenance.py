@@ -277,6 +277,11 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
     gaps = [
         "Per-site enrolment is not published by ClinicalTrials.gov or AACT, so no "
         "figure here is an observed site performance.",
+        "Enrolment supplied here is a TARGET. The model largely learned on ACHIEVED "
+        "enrolment, which 88% of completed trials report and which runs about 4% "
+        "higher than the original registered target. The two correlate closely "
+        "(0.95 in logs) so the effect is small, but a plan that is missed by more "
+        "than about 10% sits outside what the training data represents.",
         "Country recruitment speed is not identifiable from this data: a "
         "multi-country trial reports one enrolment window shared by every "
         "participating country, and countries that never run domestic-only trials "

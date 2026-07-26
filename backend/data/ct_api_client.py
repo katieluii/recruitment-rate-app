@@ -213,6 +213,14 @@ def flatten_study(study: dict) -> dict | None:
         "primary_completion_type": _date_type(status.get("primaryCompletionDateStruct")),
         "Phases": "|".join(design.get("phases", [])),
         "Enrollment": design.get("enrollmentInfo", {}).get("count"),
+        # ACTUAL (what the trial achieved) or ESTIMATED (what it planned). 88% of
+        # completed trials report ACTUAL, so the model largely learns on achieved
+        # enrolment while a user at design time can only supply a target. The
+        # original registered target is recoverable from the record-history
+        # endpoint but that rate-limits hard (30 of 300 resolved), so the type is
+        # captured here instead and surfaced in provenance rather than silently
+        # mixing two different quantities.
+        "enrollment_type": design.get("enrollmentInfo", {}).get("type", "UNKNOWN"),
         "Drug_Type": drug_type,
         "Allocation": design_info.get("allocation"),
         "Intervention_Model": design_info.get("interventionModel"),
