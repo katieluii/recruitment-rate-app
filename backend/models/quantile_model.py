@@ -39,15 +39,22 @@ TRANSFORMS = {
     "none": (lambda y: y, lambda y: y, 0.0),
 }
 
+#: Found by random search on a validation slice of the training fold
+#: (experiments/tune.py), not hand-picked. The search moved P3 test R2 from 0.319
+#: to 0.358 and RMSE from 290 to 281 days. It converged on a SLOWER, SMALLER
+#: learner than the defaults - more trees at a third the learning rate, 15 leaves
+#: rather than 31 - which is the signature of a modest signal that a larger model
+#: overfits rather than extracts.
 DEFAULT_PARAMS = {
-    "n_estimators": 600,
-    "learning_rate": 0.05,
-    "num_leaves": 31,
-    "min_child_samples": 20,
-    "subsample": 0.8,
+    "n_estimators": 900,
+    "learning_rate": 0.015,
+    "num_leaves": 15,
+    "min_child_samples": 5,
+    "subsample": 0.6,
     "subsample_freq": 1,
     "colsample_bytree": 0.8,
     "reg_lambda": 1.0,
+    "reg_alpha": 0.1,
     "random_state": 42,
     "n_jobs": -1,
     "verbose": -1,
