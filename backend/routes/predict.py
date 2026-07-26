@@ -55,6 +55,8 @@ class PredictResponse(BaseModel):
     rmse_days: float
     n_train: int
     extrapolation_warnings: list[str] = []
+    # Full working: sources, per-value derivation, input origins, gaps.
+    provenance: Optional[dict] = None
 
 
 _RATE_NOTE = (
@@ -116,6 +118,7 @@ def post_predict(req: PredictRequest):
         rmse_days=result.rmse_days,
         n_train=result.n_train,
         extrapolation_warnings=result.extrapolation_warnings,
+        provenance=result.provenance,
     )
 
 

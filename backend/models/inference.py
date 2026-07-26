@@ -46,6 +46,8 @@ class Prediction:
     # processes, and only the first is something a site strategy can move.
     enrolment_months: Optional[float] = None
     followup_months: Optional[float] = None
+    # How every number above was produced — see backend/models/provenance.py
+    provenance: Optional[dict] = None
 
 
 def _phase_raw(phase_key: str) -> str:
@@ -194,7 +196,7 @@ def predict(
     def to_months(d: float) -> float:
         return round(d / _DAYS_PER_MONTH, 1)
 
-    return Prediction(
+    result = Prediction(
         phase_key=phase_key,
         therapeutic_area=therapeutic_area,
         predicted_days=round(pred_days, 1),
@@ -214,3 +216,14 @@ def predict(
         enrolment_months=enrol_m,
         followup_months=fu_m,
     )
+
+    from backend.models import provenance as _prov
+
+    result.provenance = _prov.build(
+        phase_key, result,
+        supplied={"enrollment": enrollment, "num_sites": num_sites,
+                  "drug_type": drug_type, "region": region,
+                  "endpoint_archetype": endpoint_archetype},
+        therapeutic_area=therapeutic_area,
+    )
+    return result
