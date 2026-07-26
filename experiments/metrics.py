@@ -53,6 +53,17 @@ def point_metrics(y_true: np.ndarray, y_pred: np.ndarray,
 
     scale = DAYS_PER_MONTH if unit == "days" else 1.0
     suffix = "months" if unit == "days" else "raw"
+
+    # R-squared against predicting the mean. Reported for continuity with the
+    # original project, NOT used as a gate: the reference it scores against is
+    # the mean, which is a weak bar for a right-skewed target. `skill_vs_ta_median`
+    # is the same idea against a much harder reference, and it is what decides
+    # whether a change ships. A model can post a respectable R2 while losing to a
+    # per-therapeutic-area median lookup, which is exactly what v1 did.
+    ss_res = float(np.sum(err ** 2))
+    ss_tot = float(np.sum((y_true - y_true.mean()) ** 2))
+    r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else None
+
     return {
         "n": int(len(y_true)),
         f"mae_{suffix}": round(float(np.mean(np.abs(err))) / scale, 4),
@@ -61,6 +72,8 @@ def point_metrics(y_true: np.ndarray, y_pred: np.ndarray,
         "mape_pct": round(float(np.nanmean(ape)) * 100, 1),
         f"median_ae_{suffix}": round(float(np.median(np.abs(err))) / scale, 4),
         f"bias_{suffix}": round(float(np.mean(err)) / scale, 4),
+        "mse": round(float(np.mean(err ** 2)), 2),
+        "r2": round(r2, 4) if r2 is not None else None,
     }
 
 

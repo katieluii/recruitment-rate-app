@@ -99,6 +99,8 @@ def table(rows: dict, milestones, metric: str = "mae"):
                 "cov": r.get("interval_coverage"),
                 "distinct": r.get("ta_n_distinct"),
                 "rank": r.get("ta_rank_corr"),
+                "r2": r.get("r2"),
+                "rmse": r.get("rmse_days"),
             }
         if cells:
             out.append((cfg, label, rest[0] if rest else "", cells))
@@ -182,6 +184,34 @@ def render_md() -> str:
                 c = cells.get(ph)
                 row.append(f"{c['mae']:.3f}" if c and c["mae"] is not None else "—")
             L.append("| " + " | ".join(row) + " |")
+
+    L += ["", "## R-squared and RMSE",
+          "",
+          "Reported for continuity with the original project. Neither is the gate.",
+          "",
+          "R-squared scores against predicting the MEAN, which is a weak reference for",
+          "a right-skewed target: the per-therapeutic-area median lookup posts a NEGATIVE",
+          "R-squared (-0.12 on P2, -0.14 on P3) while being the harder bar on MAE. A model",
+          "can therefore look respectable on R-squared while losing to a lookup table,",
+          "which is exactly what v1 did. `skill_vs_ta_median` is the same fraction-of-error-",
+          "removed idea measured against that harder reference, and it is what decides",
+          "whether a change ships.",
+          "",
+          "RMSE squares the error, so a handful of eight-year trials dominate it. MAE is",
+          "the headline because the median quantile model minimises absolute error by",
+          "construction, and a metric that disagrees with the loss will reward the wrong",
+          "model.",
+          "",
+          "| step | P2 R2 | P3 R2 | P2 RMSE (d) | P3 RMSE (d) |",
+          "|---|---|---|---|---|"]
+    for _cfg, label, _note, cells in dur:
+        p2, p3 = cells.get("P2") or {}, cells.get("P3") or {}
+        if p2.get("r2") is None and p3.get("r2") is None:
+            continue
+        def _f(v, nd=3):
+            return "—" if v is None else f"{v:.{nd}f}"
+        L.append(f"| **{label}** | {_f(p2.get('r2'))} | {_f(p3.get('r2'))} "
+                 f"| {_f(p2.get('rmse'), 0)} | {_f(p3.get('rmse'), 0)} |")
 
     L += ["", "## What each step was", ""]
     for _cfg, label, note, _cells in dur:

@@ -10,10 +10,10 @@ Protocol: train on trials starting before 2021-01-01, test on those starting aft
 |---|---|---|---|---|
 | **Baseline — per-therapeutic-area median lookup** | 3.94 | 9.58 | 9.16 | 10.03 |
 | **v1 as it actually shipped** | 2.66 | 5.75 | 25.41 | 26.89 |
-| **+ data-layer fixes (real site count, no leaked year)** | 2.76 | 7.19 | 9.03 | 8.81 |
+| **+ data-layer fixes (real site count, no leaked year)** | 2.78 | 6.44 | 9.00 | 8.96 |
 | **+ therapeutic-area target encoding** | 2.76 | 7.21 | 8.88 | 8.49 |
 | **+ LightGBM on a log target** | 2.94 | 6.13 | 7.55 | 7.94 |
-| **+ conformal intervals (v2 shipped)** | 2.82 | 5.70 | 7.23 | 7.29 |
+| **+ conformal intervals (v2 shipped)** | 2.87 | 5.40 | 7.28 | 7.28 |
 | **+ enrolment / follow-up split (v3.3)** | 2.86 | 5.37 | 7.06 | 7.08 |
 | **+ country site-mix effect (v3.2) — NOT SHIPPED** | 2.86 | 5.43 | 7.24 | 7.19 |
 
@@ -23,10 +23,10 @@ Protocol: train on trials starting before 2021-01-01, test on those starting aft
 |---|---|---|---|---|
 | **Baseline — per-therapeutic-area median lookup** | +0.000 | +0.000 | +0.000 | +0.000 |
 | **v1 as it actually shipped** | +0.199 | **-0.301** | **-1.868** | **-1.722** |
-| **+ data-layer fixes (real site count, no leaked year)** | +0.298 | +0.249 | +0.014 | +0.121 |
+| **+ data-layer fixes (real site count, no leaked year)** | +0.294 | +0.327 | +0.017 | +0.107 |
 | **+ therapeutic-area target encoding** | +0.299 | +0.247 | +0.031 | +0.154 |
 | **+ LightGBM on a log target** | +0.254 | +0.360 | +0.176 | +0.208 |
-| **+ conformal intervals (v2 shipped)** | +0.283 | +0.404 | +0.211 | +0.273 |
+| **+ conformal intervals (v2 shipped)** | +0.271 | +0.436 | +0.205 | +0.274 |
 | **+ enrolment / follow-up split (v3.3)** | +0.274 | +0.439 | +0.229 | +0.294 |
 | **+ country site-mix effect (v3.2) — NOT SHIPPED** | +0.274 | +0.433 | +0.210 | +0.283 |
 
@@ -36,9 +36,9 @@ Protocol: train on trials starting before 2021-01-01, test on those starting aft
 |---|---|---|---|---|
 | **Baseline — per-therapeutic-area median lookup** | 0.804 | 0.799 | 0.841 | 0.780 |
 | **v1 as it actually shipped** | 0.667 | 0.252 | 0.084 | 0.083 |
-| **+ data-layer fixes (real site count, no leaked year)** | 0.853 | 0.844 | 0.710 | 0.661 |
+| **+ data-layer fixes (real site count, no leaked year)** | 0.877 | 0.867 | 0.740 | 0.724 |
 | **+ therapeutic-area target encoding** | 0.863 | 0.862 | 0.719 | 0.693 |
-| **+ conformal intervals (v2 shipped)** | 0.853 | 0.818 | 0.838 | 0.821 |
+| **+ conformal intervals (v2 shipped)** | 0.879 | 0.815 | 0.839 | 0.812 |
 | **+ enrolment / follow-up split (v3.3)** | 0.849 | 0.858 | 0.864 | 0.842 |
 | **+ country site-mix effect (v3.2) — NOT SHIPPED** | 0.820 | 0.885 | 0.827 | 0.888 |
 
@@ -50,10 +50,10 @@ Distinct predicted medians out of the areas with enough test trials — the metr
 |---|---|---|---|---|
 | **Baseline — per-therapeutic-area median lookup** | 2 | 13 | 14 | 12 |
 | **v1 as it actually shipped** | 3 | 8 | 13 | 10 |
-| **+ data-layer fixes (real site count, no leaked year)** | 4 | 13 | 14 | 12 |
+| **+ data-layer fixes (real site count, no leaked year)** | 4 | 13 | 15 | 14 |
 | **+ therapeutic-area target encoding** | 4 | 13 | 15 | 14 |
 | **+ LightGBM on a log target** | 4 | 13 | 14 | 14 |
-| **+ conformal intervals (v2 shipped)** | 4 | 13 | 15 | 14 |
+| **+ conformal intervals (v2 shipped)** | 4 | 12 | 13 | 13 |
 | **+ enrolment / follow-up split (v3.3)** | 4 | 12 | 15 | 14 |
 | **+ country site-mix effect (v3.2) — NOT SHIPPED** | 4 | 13 | 14 | 12 |
 
@@ -64,6 +64,30 @@ Distinct predicted medians out of the areas with enough test trials — the metr
 | **Baseline — per-area median rate** | 8.534 | 9.038 | 4.117 | 11.765 |
 | **LightGBM, log1p target** | 7.430 | 6.479 | 2.469 | 5.672 |
 | **LightGBM, plain log target** | 7.540 | 6.469 | 2.172 | 5.388 |
+
+## R-squared and RMSE
+
+Reported for continuity with the original project. Neither is the gate.
+
+R-squared scores against predicting the MEAN, which is a weak reference for
+a right-skewed target: the per-therapeutic-area median lookup posts a NEGATIVE
+R-squared (-0.12 on P2, -0.14 on P3) while being the harder bar on MAE. A model
+can therefore look respectable on R-squared while losing to a lookup table,
+which is exactly what v1 did. `skill_vs_ta_median` is the same fraction-of-error-
+removed idea measured against that harder reference, and it is what decides
+whether a change ships.
+
+RMSE squares the error, so a handful of eight-year trials dominate it. MAE is
+the headline because the median quantile model minimises absolute error by
+construction, and a metric that disagrees with the loss will reward the wrong
+model.
+
+| step | P2 R2 | P3 R2 | P2 RMSE (d) | P3 RMSE (d) |
+|---|---|---|---|---|
+| **Baseline — per-therapeutic-area median lookup** | -0.119 | -0.136 | 354 | 372 |
+| **+ data-layer fixes (real site count, no leaked year)** | 0.003 | 0.108 | 334 | 329 |
+| **+ conformal intervals (v2 shipped)** | 0.237 | 0.330 | 292 | 285 |
+| **+ enrolment / follow-up split (v3.3)** | 0.252 | 0.369 | 290 | 277 |
 
 ## What each step was
 
