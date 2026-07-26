@@ -19,7 +19,8 @@ from backend.constants import PHASES
 from experiments import ledger
 from experiments.baselines import ALL_BASELINES, PRIMARY_BASELINE
 from experiments.candidates import (LGBMPoint, LGBMQuantile, ShippedArtifact,
-                                    TwoStageDuration, V1Recipe)
+                                    StratifiedTwoStage, TwoStageDuration,
+                                    V1Recipe)
 from experiments.dataset import load_clean
 from experiments.metrics import GATES, check_gates, evaluate, skill_score
 from experiments.splits import check_split_viability, get_split
@@ -46,6 +47,7 @@ CONFIGS = {
     "two_stage":            (lambda p: TwoStageDuration(
         p, country_mix=False, criteria_text=False), False),
     "two_stage_geo":        (lambda p: TwoStageDuration(p, country_mix=True), False),
+    "stratified":           (lambda p: StratifiedTwoStage(p), False),
     "two_stage_text":       (lambda p: TwoStageDuration(
         p, country_mix=False, criteria_text=True), False),
     "v1_shipped":           (lambda p: ShippedArtifact(

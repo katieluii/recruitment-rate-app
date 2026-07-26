@@ -401,3 +401,102 @@ class IPCWLGBMQuantile(LGBMQuantile):
 # V3.3 two-stage duration now lives in backend.models.quantile_model so the
 # harness measures exactly what ships.
 from backend.models.quantile_model import TwoStageDuration  # noqa: E402,F401
+
+
+class StratifiedTwoStage:
+    """One model per (phase x therapeutic area) instead of one per phase.
+
+    The architecture question: does giving each indication its own model let it
+    learn structure a pooled model has to compromise on, or does splitting the
+    data cost more in variance than it wins in specificity?
+
+    Pooling already gets the area signal through TATargetEncoder and the area
+    one-hots. Stratifying goes further: separate trees, separate splits, separate
+    calibration per cell. It also cuts each model's training set by roughly an
+    order of magnitude, which is the whole risk.
+
+    A trial can map to several areas, so each is assigned its RAREST qualifying
+    area as its primary. Rare beats common because it is the more specific claim:
+    a trial tagged both Oncology and Other is an oncology trial.
+
+    Cells below `min_cell` fall back to the pooled model rather than fitting a
+    model on 40 rows.
+    """
+
+    name = "stratified_two_stage"
+
+    def __init__(self, phase_key: str, min_cell: int = 150,
+                 params: dict | None = None):
+        self.phase_key = phase_key
+        self.min_cell = min_cell
+        self.params = params
+
+    @staticmethod
+    def _primary_area(df: pd.DataFrame, eligible: set) -> pd.Series:
+        from experiments.metrics import ta_masks
+
+        masks = ta_masks(df)
+        sizes = {a: int(m.sum()) for a, m in masks.items()}
+        out = []
+        for i in range(len(df)):
+            areas = [a for a, m in masks.items() if m.iloc[i] and a in eligible]
+            areas = [a for a in areas if a != "Other"] or areas
+            out.append(min(areas, key=lambda a: sizes[a]) if areas else None)
+        return pd.Series(out, index=df.index)
+
+    def fit(self, train: pd.DataFrame, target: str = "duration_days"):
+        from backend.models.quantile_model import TwoStageDuration
+        from experiments.metrics import ta_masks
+
+        train = train.reset_index(drop=True)
+        masks = ta_masks(train)
+        self.eligible_ = {a for a, m in masks.items() if m.sum() >= self.min_cell}
+
+        # The pooled model is both the fallback and the honest control: if no cell
+        # beats it, stratifying bought nothing.
+        self.pooled_ = TwoStageDuration(self.phase_key, params=self.params)
+        self.pooled_.fit(train, target)
+
+        self.models_ = {}
+        primary = self._primary_area(train, self.eligible_)
+        for area in sorted(self.eligible_):
+            sub = train[primary == area]
+            if len(sub) < self.min_cell:
+                continue
+            try:
+                m = TwoStageDuration(self.phase_key, params=self.params)
+                m.fit(sub.reset_index(drop=True), target)
+                self.models_[area] = m
+            except Exception as exc:
+                log.warning("%s/%s cell failed (%d rows): %s",
+                            self.phase_key, area, len(sub), exc)
+        log.info("%s: %d cell models fitted (min_cell=%d), pooled fallback ready",
+                 self.phase_key, len(self.models_), self.min_cell)
+        return self
+
+    def _route(self, test: pd.DataFrame) -> pd.Series:
+        return self._primary_area(test.reset_index(drop=True), set(self.models_))
+
+    def predict(self, test: pd.DataFrame) -> np.ndarray:
+        test = test.reset_index(drop=True)
+        out = self.pooled_.predict(test)
+        route = self._route(test)
+        for area, m in self.models_.items():
+            sel = (route == area).to_numpy()
+            if sel.any():
+                out[sel] = m.predict(test[sel].reset_index(drop=True))
+        return out
+
+    def predict_interval(self, test: pd.DataFrame):
+        test = test.reset_index(drop=True)
+        lo, hi = self.pooled_.predict_interval(test)
+        route = self._route(test)
+        for area, m in self.models_.items():
+            sel = (route == area).to_numpy()
+            if sel.any():
+                l, h = m.predict_interval(test[sel].reset_index(drop=True))
+                lo[sel], hi[sel] = l, h
+        return lo, hi
+
+    def routing_report(self, test: pd.DataFrame) -> pd.Series:
+        return self._route(test).fillna("(pooled)").value_counts()
