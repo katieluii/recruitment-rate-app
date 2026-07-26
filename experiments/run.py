@@ -19,7 +19,7 @@ from backend.constants import PHASES
 from experiments import ledger
 from experiments.baselines import ALL_BASELINES, PRIMARY_BASELINE
 from experiments.candidates import (LGBMPoint, LGBMQuantile, ShippedArtifact,
-                                    V1Recipe)
+                                    TwoStageDuration, V1Recipe)
 from experiments.dataset import load_clean
 from experiments.metrics import evaluate, skill_score
 from experiments.splits import check_split_viability, get_split
@@ -43,6 +43,7 @@ CONFIGS = {
     "lgbm_conformal_recent": (lambda p: LGBMQuantile(p, calib_strategy="recent"), False),
     # Rate head: strictly-positive multiplicative target needs plain log.
     "lgbm_rate":            (lambda p: LGBMQuantile(p, transform="log"), False),
+    "two_stage":            (lambda p: TwoStageDuration(p), False),
     "v1_shipped":           (lambda p: ShippedArtifact(
         p, artifacts_dir="models/artifacts_v1_baseline"), False),
 }
