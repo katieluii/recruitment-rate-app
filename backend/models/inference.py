@@ -41,6 +41,8 @@ class Prediction:
     # duration for a trial of this size.
     rate_implied_total_months: Optional[float] = None
     rate_is_approximate: bool = True
+    #: The separately fitted rate model's answer, kept as a visible cross-check.
+    recruitment_rate_crosscheck: Optional[float] = None
     # The V3.3 split. Enrolment window is when the last patient is in; follow-up
     # is how long the endpoint then takes to read out. They are near-independent
     # processes, and only the first is something a site strategy can move.
@@ -183,15 +185,38 @@ def predict(
         enrol_m = round(float(e[0]) / _DAYS_PER_MONTH, 1)
         fu_m = round(float(f[0]) / _DAYS_PER_MONTH, 1)
 
+    # The recruitment rate is DERIVED from the enrolment window rather than
+    # predicted separately. Two independently fitted models produced two answers
+    # to the same question, and in the all-defaults case they disagreed badly
+    # (P3 infectious disease: 21.1 months from the enrolment head against 13.0
+    # implied by the rate) because medians do not compose — the median of a ratio
+    # is not the ratio of medians. On real trials the two agree closely (log
+    # correlation +0.82 to +0.97) and are equally accurate, so nothing is lost by
+    # collapsing them, and consistency becomes structural rather than hoped for.
     rate = rate_lo = rate_hi = implied_months = None
-    if "rate" in heads:
-        rate = float(heads["rate"].predict(X)[0])
+    rate_crosscheck = None
+    sites = num_sites or X["site_count"].iloc[0]
+    target_n = enrollment or X["Enrollment"].iloc[0]
+
+    if enrol_m and sites and target_n and enrol_m > 0:
+        denom = float(sites) * enrol_m
+        rate = round(float(target_n) / denom, 3)
+        # Bounds invert: a longer window means a slower rate.
+        e_lo = max(float(lo_arr[0]) / _DAYS_PER_MONTH - fu_m, 0.1) if fu_m is not None else None
+        e_hi = max(float(hi_arr[0]) / _DAYS_PER_MONTH - fu_m, 0.1) if fu_m is not None else None
+        if e_lo and e_hi:
+            rate_lo = round(float(target_n) / (float(sites) * max(e_hi, 0.1)), 3)
+            rate_hi = round(float(target_n) / (float(sites) * max(e_lo, 0.1)), 3)
+        implied_months = round(enrol_m, 1)
+
+        # Keep the independently fitted head as a visible cross-check rather than
+        # discarding it: a large gap is information, not something to hide.
+        if "rate" in heads:
+            rate_crosscheck = round(float(heads["rate"].predict(X)[0]), 3)
+    elif "rate" in heads:
+        rate = round(float(heads["rate"].predict(X)[0]), 3)
         r_lo, r_hi = heads["rate"].predict_interval(X)
-        rate_lo, rate_hi = float(r_lo[0]), float(r_hi[0])
-        sites = num_sites or X["site_count"].iloc[0]
-        target_n = enrollment or X["Enrollment"].iloc[0]
-        if rate > 0 and sites and target_n:
-            implied_months = round(float(target_n) / (float(sites) * rate), 1)
+        rate_lo, rate_hi = round(float(r_lo[0]), 3), round(float(r_hi[0]), 3)
 
     def to_months(d: float) -> float:
         return round(d / _DAYS_PER_MONTH, 1)
@@ -209,9 +234,10 @@ def predict(
         rmse_days=round(entry.get("rmse", 0.0), 1),
         n_train=entry["n_train"],
         extrapolation_warnings=warnings,
-        recruitment_rate=round(rate, 3) if rate is not None else None,
-        recruitment_rate_lower=round(rate_lo, 3) if rate_lo is not None else None,
-        recruitment_rate_upper=round(rate_hi, 3) if rate_hi is not None else None,
+        recruitment_rate=rate,
+        recruitment_rate_lower=rate_lo,
+        recruitment_rate_upper=rate_hi,
+        recruitment_rate_crosscheck=rate_crosscheck,
         rate_implied_total_months=implied_months,
         enrolment_months=enrol_m,
         followup_months=fu_m,

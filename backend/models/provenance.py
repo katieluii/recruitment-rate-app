@@ -240,19 +240,39 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
     }
 
     if prediction.recruitment_rate is not None:
-        values["recruitment_rate"] = {
+        entry = {
             "value": prediction.recruitment_rate,
             "unit": "patients per site per month",
             "verification": "inference",
             "value_verified": False,
-            "source_id": [rate_src],
-            "derivation": ("median of the rate model. Training target was "
-                           "enrolment / (sites x recruiting months), where "
-                           "recruiting months is total duration minus follow-up"),
+            "source_id": [dur_src],
+            "derivation": (
+                f"{_fmt('enrollment')} patients / ({_fmt('num_sites')} sites x "
+                f"{prediction.enrolment_months} recruiting months) "
+                f"= {prediction.recruitment_rate}"),
+            "note": ("Derived from the enrolment window rather than predicted "
+                     "separately, so the two can never contradict each other. "
+                     "Two independent models used to answer this same question "
+                     "and disagreed by up to 62% on default inputs, because the "
+                     "median of a ratio is not the ratio of medians."),
             "caveat": ("Largely determined by how many sites the sponsor chose — "
                        "regressing it on site count gives a slope near -1. Use it "
                        "to compare trials of similar size, not as a site metric."),
         }
+        cross = prediction.recruitment_rate_crosscheck
+        if cross:
+            gap = abs(cross - prediction.recruitment_rate) / max(
+                prediction.recruitment_rate, 1e-6)
+            entry["crosscheck"] = {
+                "independent_rate_model": cross,
+                "source_id": [rate_src],
+                "relative_gap": round(gap, 3),
+                "interpretation": (
+                    "close agreement" if gap < 0.25 else
+                    "the two approaches disagree materially here — treat the rate "
+                    "as indicative and prefer the enrolment window"),
+            }
+        values["recruitment_rate"] = entry
 
     gaps = [
         "Per-site enrolment is not published by ClinicalTrials.gov or AACT, so no "
