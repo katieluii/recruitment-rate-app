@@ -41,6 +41,13 @@ class Prediction:
     # duration for a trial of this size.
     rate_implied_total_months: Optional[float] = None
     rate_is_approximate: bool = True
+    # The V3.3 split. Enrolment window is when the last patient is in; follow-up
+    # is how long the endpoint then takes to read out. They are near-independent
+    # processes, and only the first is something a site strategy can move.
+    enrolment_months: Optional[float] = None
+    followup_months: Optional[float] = None
+    # How every number above was produced — see backend/models/provenance.py
+    provenance: Optional[dict] = None
 
 
 def _phase_raw(phase_key: str) -> str:
@@ -170,6 +177,12 @@ def predict(
     lo_arr, hi_arr = duration.predict_interval(X)
     lower, upper = float(lo_arr[0]), float(hi_arr[0])
 
+    enrol_m = fu_m = None
+    if hasattr(duration, "predict_components"):
+        e, f = duration.predict_components(X)
+        enrol_m = round(float(e[0]) / _DAYS_PER_MONTH, 1)
+        fu_m = round(float(f[0]) / _DAYS_PER_MONTH, 1)
+
     rate = rate_lo = rate_hi = implied_months = None
     if "rate" in heads:
         rate = float(heads["rate"].predict(X)[0])
@@ -183,7 +196,7 @@ def predict(
     def to_months(d: float) -> float:
         return round(d / _DAYS_PER_MONTH, 1)
 
-    return Prediction(
+    result = Prediction(
         phase_key=phase_key,
         therapeutic_area=therapeutic_area,
         predicted_days=round(pred_days, 1),
@@ -200,4 +213,17 @@ def predict(
         recruitment_rate_lower=round(rate_lo, 3) if rate_lo is not None else None,
         recruitment_rate_upper=round(rate_hi, 3) if rate_hi is not None else None,
         rate_implied_total_months=implied_months,
+        enrolment_months=enrol_m,
+        followup_months=fu_m,
     )
+
+    from backend.models import provenance as _prov
+
+    result.provenance = _prov.build(
+        phase_key, result,
+        supplied={"enrollment": enrollment, "num_sites": num_sites,
+                  "drug_type": drug_type, "region": region,
+                  "endpoint_archetype": endpoint_archetype},
+        therapeutic_area=therapeutic_area,
+    )
+    return result

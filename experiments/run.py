@@ -19,7 +19,7 @@ from backend.constants import PHASES
 from experiments import ledger
 from experiments.baselines import ALL_BASELINES, PRIMARY_BASELINE
 from experiments.candidates import (LGBMPoint, LGBMQuantile, ShippedArtifact,
-                                    V1Recipe)
+                                    TwoStageDuration, V1Recipe)
 from experiments.dataset import load_clean
 from experiments.metrics import evaluate, skill_score
 from experiments.splits import check_split_viability, get_split
@@ -43,6 +43,11 @@ CONFIGS = {
     "lgbm_conformal_recent": (lambda p: LGBMQuantile(p, calib_strategy="recent"), False),
     # Rate head: strictly-positive multiplicative target needs plain log.
     "lgbm_rate":            (lambda p: LGBMQuantile(p, transform="log"), False),
+    "two_stage":            (lambda p: TwoStageDuration(
+        p, country_mix=False, criteria_text=False), False),
+    "two_stage_geo":        (lambda p: TwoStageDuration(p, country_mix=True), False),
+    "two_stage_text":       (lambda p: TwoStageDuration(
+        p, country_mix=False, criteria_text=True), False),
     "v1_shipped":           (lambda p: ShippedArtifact(
         p, artifacts_dir="models/artifacts_v1_baseline"), False),
 }
@@ -67,6 +72,11 @@ def run_one(config: str, phase_key: str, split: str, cutoff: str,
         return {"config": config, "phase": phase_key, "split": split,
                 "cutoff": cutoff if split == "temporal" else None,
                 "target": target, "skipped": warning}
+
+    # The "large cap" sponsor set must come from the training fold only.
+    from backend.preprocessing.pipeline import set_top_sponsors
+    from backend.preprocessing.text_features import top_sponsors
+    set_top_sponsors(top_sponsors(train))
 
     factory, _ = CONFIGS[config]
     model = factory(phase_key).fit(train, target)

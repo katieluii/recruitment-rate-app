@@ -396,3 +396,8 @@ class IPCWLGBMQuantile(LGBMQuantile):
         level = min(1.0, np.ceil((len(scores) + 1) * m.coverage) / len(scores))
         m.qhat_ = float(np.quantile(scores, level, method="higher"))
         return self
+
+
+# V3.3 two-stage duration now lives in backend.models.quantile_model so the
+# harness measures exactly what ships.
+from backend.models.quantile_model import TwoStageDuration  # noqa: E402,F401

@@ -9,7 +9,13 @@ from sklearn.impute import SimpleImputer
 
 from backend.constants import THERAPEUTIC_AREAS, REGIONS
 from backend.preprocessing.endpoints import ARCHETYPES, add_endpoint_features
+from backend.preprocessing.country_mix import (ENCODER_COLUMNS,
+                                              CountryMixEncoder,
+                                              site_share_frame)
 from backend.preprocessing.target_encoding import TATargetEncoder
+from backend.preprocessing.text_features import (CRITERIA_MARKERS,
+                                                 CriteriaTextEncoder,
+                                                 marker_frame, sponsor_tier)
 from backend.preprocessing.features import (
     assign_therapeutic_area,
     assign_region,
@@ -18,7 +24,17 @@ from backend.preprocessing.features import (
 )
 
 _CAT_COLS = ["Drug_Type", "Allocation", "Intervention_Model", "Masking",
-             "Primary_Purpose", "Sex", "sad_mad", "endpoint_archetype"]
+             "Primary_Purpose", "Sex", "sad_mad", "endpoint_archetype",
+             "sponsor_tier"]
+
+#: Populated by the trainer from the training fold, so the "large cap" set is
+#: not silently defined by data the model has not seen.
+_TOP_SPONSORS: set[str] = set()
+
+
+def set_top_sponsors(sponsors) -> None:
+    global _TOP_SPONSORS
+    _TOP_SPONSORS = set(sponsors or [])
 
 #: Presence flags per endpoint archetype, e.g. endpoint_has_SURVIVAL.
 _ENDPOINT_FLAGS = [f"endpoint_has_{a}" for a in ARCHETYPES if a != "UNKNOWN"]
@@ -49,6 +65,10 @@ _NUM_COLS = [
 
 # Derived ratios — the tree has to spend splits to discover these otherwise.
 _RATIO_COLS = ["enrollment_per_site", "outcomes_total"]
+
+#: v3.4 — eligibility restrictiveness markers and sponsor tier.
+_MARKER_COLS = [f"crit_{name}" for name in CRITERIA_MARKERS]
+_TEXT_COL = "criteria_text"
 
 _BIN_TA = THERAPEUTIC_AREAS
 _BIN_RE = REGIONS
@@ -108,22 +128,43 @@ def build_features(df: pd.DataFrame, phase_key: str) -> pd.DataFrame:
         df["total_primary_outcomes"].fillna(0) + df["total_secondary_outcomes"].fillna(0)
     )
 
+    # Per-country site shares. Half of trials run in more than one country and
+    # the mix is recoverable for 92.9% of them, so geography enters the model as
+    # data rather than as a lookup bolted on afterwards.
+    shares = site_share_frame(df)
+
+    # v3.4: criteria wording and sponsor. Counts of bullets cannot tell
+    # "treatment-naive, ECOG 0-1, no prior systemic therapy" from ten permissive
+    # lines, and sponsor is the 2025 survey's second strongest duration driver.
+    markers = marker_frame(df.get(_TEXT_COL, pd.Series([""] * len(df), index=df.index)))
+    for col in _MARKER_COLS:
+        df[col] = markers[col] if col in markers.columns else 0
+    df["sponsor_tier"] = sponsor_tier(
+        df.get("lead_sponsor", pd.Series([""] * len(df), index=df.index)),
+        top=_TOP_SPONSORS or None)
+    if _TEXT_COL not in df.columns:
+        df[_TEXT_COL] = ""
+    df[_TEXT_COL] = df[_TEXT_COL].fillna("").astype(str)
+
     for col in _ENDPOINT_FLAGS:
         if col not in df.columns:
             df[col] = 0
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
 
     X = pd.concat([
-        df[_CAT_COLS + _NUM_COLS + _RATIO_COLS + _ENDPOINT_FLAGS
-           + ["has_collaborators"]].reset_index(drop=True),
+        df[_CAT_COLS + _NUM_COLS + _RATIO_COLS + _ENDPOINT_FLAGS + _MARKER_COLS
+           + ["has_collaborators", _TEXT_COL]].reset_index(drop=True),
         ta_ohe.reset_index(drop=True),
         re_ohe.reset_index(drop=True),
+        shares.reset_index(drop=True),
     ], axis=1)
 
     return X
 
 
-def make_preprocessor(ta_target_encoding: bool = True) -> ColumnTransformer:
+def make_preprocessor(ta_target_encoding: bool = True,
+                      country_mix: bool = True,
+                      criteria_text: bool = True) -> ColumnTransformer:
     """Return an unfitted sklearn preprocessor matching build_features output.
 
     The therapeutic-area block is fed to BOTH the target encoder and the
@@ -134,7 +175,7 @@ def make_preprocessor(ta_target_encoding: bool = True) -> ColumnTransformer:
     ohe_cols = _CAT_COLS
     num_cols = _NUM_COLS + _RATIO_COLS
     passthrough_cols = (
-        ["has_collaborators"] + _ENDPOINT_FLAGS + _BIN_TA + _BIN_RE
+        ["has_collaborators"] + _ENDPOINT_FLAGS + _MARKER_COLS + _BIN_TA + _BIN_RE
     )
 
     transformers = [
@@ -150,5 +191,12 @@ def make_preprocessor(ta_target_encoding: bool = True) -> ColumnTransformer:
     ]
     if ta_target_encoding:
         transformers.append(("ta_target", TATargetEncoder(), _BIN_TA))
+    if criteria_text:
+        transformers.append(("crit_text", CriteriaTextEncoder(), [_TEXT_COL]))
+    if country_mix:
+        # The site-share block feeds the encoder only. Passing 58 raw share
+        # columns through as well would hand the trees a wide sparse block of
+        # exactly the kind that drowned the therapeutic-area one-hots in v1.
+        transformers.append(("country_mix", CountryMixEncoder(), ENCODER_COLUMNS))
 
     return ColumnTransformer(transformers=transformers, remainder="drop")

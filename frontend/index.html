@@ -103,6 +103,39 @@
       <p class="caveat" id="rate-note"></p>
     </div>
 
+    <!-- Duration split into its two stages -->
+    <div class="split" id="split-panel" hidden>
+      <div class="split-row">
+        <span class="split-label">Recruiting</span>
+        <span class="split-bar"><i id="split-enrol-bar"></i></span>
+        <span class="split-val num" id="split-enrol">—</span>
+      </div>
+      <div class="split-row">
+        <span class="split-label">Follow-up</span>
+        <span class="split-bar"><i id="split-fu-bar" class="fu"></i></span>
+        <span class="split-val num" id="split-fu">—</span>
+      </div>
+      <p class="split-note">Only the recruiting stage responds to site and
+      geography decisions. Follow-up is set by the endpoint.</p>
+    </div>
+
+    <details class="working" id="working">
+      <summary>Show the working</summary>
+      <div class="working-body">
+        <h4>How each number was produced</h4>
+        <dl id="prov-values"></dl>
+
+        <h4>What went in</h4>
+        <table class="prov-inputs"><tbody id="prov-inputs"></tbody></table>
+
+        <h4>Sources</h4>
+        <ul id="prov-sources"></ul>
+
+        <h4>What this cannot tell you</h4>
+        <ul class="gaps" id="prov-gaps"></ul>
+      </div>
+    </details>
+
     <p class="provenance">
       <span id="result-model">—</span>
     </p>
@@ -116,6 +149,6 @@
   </footer>
 
 </div>
-<script type="module" src="/static/js/app.js?v=5"></script>
+<script type="module" src="/static/js/app.js?v=6"></script>
 </body>
 </html>

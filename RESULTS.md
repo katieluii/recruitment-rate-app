@@ -1,0 +1,115 @@
+# Results log
+
+Generated 2026-07-26 from `experiments/ledger.jsonl` — every figure traces to a recorded run.
+
+Protocol: train on trials starting before 2021-01-01, test on those starting after. `skill` is the fraction of the per-therapeutic-area median baseline's error removed; **negative means worse than a lookup table**.
+
+## Duration — mean absolute error, months
+
+| step | P1HV | P1 | P2 | P3 |
+|---|---|---|---|---|
+| **Baseline — per-therapeutic-area median lookup** | 3.94 | 9.58 | 9.16 | 10.03 |
+| **v1 as it actually shipped** | 2.66 | 5.75 | 25.41 | 26.89 |
+| **+ data-layer fixes (real site count, no leaked year)** | 2.76 | 7.19 | 9.03 | 8.81 |
+| **+ therapeutic-area target encoding** | 2.76 | 7.21 | 8.88 | 8.49 |
+| **+ LightGBM on a log target** | 2.94 | 6.13 | 7.55 | 7.94 |
+| **+ conformal intervals (v2 shipped)** | 2.82 | 5.70 | 7.23 | 7.29 |
+| **+ enrolment / follow-up split (v3.3)** | 2.86 | 5.32 | 7.05 | 6.90 |
+| **+ country site-mix effect (v3.2) — NOT SHIPPED** | 2.86 | 5.43 | 7.24 | 7.19 |
+
+## Duration — skill against the baseline
+
+| step | P1HV | P1 | P2 | P3 |
+|---|---|---|---|---|
+| **Baseline — per-therapeutic-area median lookup** | +0.000 | +0.000 | +0.000 | +0.000 |
+| **v1 as it actually shipped** | +0.199 | **-0.301** | **-1.868** | **-1.722** |
+| **+ data-layer fixes (real site count, no leaked year)** | +0.298 | +0.249 | +0.014 | +0.121 |
+| **+ therapeutic-area target encoding** | +0.299 | +0.247 | +0.031 | +0.154 |
+| **+ LightGBM on a log target** | +0.254 | +0.360 | +0.176 | +0.208 |
+| **+ conformal intervals (v2 shipped)** | +0.283 | +0.404 | +0.211 | +0.273 |
+| **+ enrolment / follow-up split (v3.3)** | +0.273 | +0.445 | +0.230 | +0.312 |
+| **+ country site-mix effect (v3.2) — NOT SHIPPED** | +0.274 | +0.433 | +0.210 | +0.283 |
+
+## Interval calibration — share of actuals inside the 80% band
+
+| step | P1HV | P1 | P2 | P3 |
+|---|---|---|---|---|
+| **Baseline — per-therapeutic-area median lookup** | 0.804 | 0.799 | 0.841 | 0.780 |
+| **v1 as it actually shipped** | 0.667 | 0.252 | 0.084 | 0.083 |
+| **+ data-layer fixes (real site count, no leaked year)** | 0.853 | 0.844 | 0.710 | 0.661 |
+| **+ therapeutic-area target encoding** | 0.863 | 0.862 | 0.719 | 0.693 |
+| **+ conformal intervals (v2 shipped)** | 0.853 | 0.818 | 0.838 | 0.821 |
+| **+ enrolment / follow-up split (v3.3)** | 0.842 | 0.879 | 0.816 | 0.888 |
+| **+ country site-mix effect (v3.2) — NOT SHIPPED** | 0.820 | 0.885 | 0.827 | 0.888 |
+
+## Therapeutic-area differentiation
+
+Distinct predicted medians out of the areas with enough test trials — the metric that caught the original failure, where 17 of 22 Phase 1 areas returned the identical 10.9 months.
+
+| step | P1HV | P1 | P2 | P3 |
+|---|---|---|---|---|
+| **Baseline — per-therapeutic-area median lookup** | 2 | 13 | 14 | 12 |
+| **v1 as it actually shipped** | 3 | 8 | 13 | 10 |
+| **+ data-layer fixes (real site count, no leaked year)** | 4 | 13 | 14 | 12 |
+| **+ therapeutic-area target encoding** | 4 | 13 | 15 | 14 |
+| **+ LightGBM on a log target** | 4 | 13 | 14 | 14 |
+| **+ conformal intervals (v2 shipped)** | 4 | 13 | 15 | 14 |
+| **+ enrolment / follow-up split (v3.3)** | 4 | 13 | 15 | 13 |
+| **+ country site-mix effect (v3.2) — NOT SHIPPED** | 4 | 13 | 14 | 12 |
+
+## Recruitment rate — MAE, patients per site per month
+
+| step | P1HV | P1 | P2 | P3 |
+|---|---|---|---|---|
+| **Baseline — per-area median rate** | 8.534 | 9.038 | 4.117 | 11.765 |
+| **LightGBM, log1p target** | 7.430 | 6.479 | 2.469 | 5.672 |
+| **LightGBM, plain log target** | 7.540 | 6.469 | 2.172 | 5.388 |
+
+## What each step was
+
+- **Baseline — per-therapeutic-area median lookup** — The bar every model must clear. A learned model that loses to this is a lookup table with worse latency.
+- **v1 as it actually shipped** — The RandomForest recipe with its original feature set, refit on a temporal fold. v1 was never compared to a baseline, so nobody knew it lost to one.
+- **+ data-layer fixes (real site count, no leaked year)** — Same RandomForest, repaired inputs. `primary_completion_year` leaked the label's endpoint and `site_count` counted countries.
+- **+ therapeutic-area target encoding** — Replaces 22 sparse binaries with one smoothed continuous signal the trees will actually split on.
+- **+ LightGBM on a log target** — Gradient boosting and a log target for the right-skewed duration.
+- **+ conformal intervals (v2 shipped)** — Real quantile intervals widened on the most recent training slice, replacing an interval pinned at rmse*0.5 for every input.
+- **+ enrolment / follow-up split (v3.3)** — Duration modelled as two near-independent processes rather than one blended number.
+- **+ country site-mix effect (v3.2) — NOT SHIPPED** — Adds the geography lever the tool was missing, but costs accuracy on 3 of 4 phases. Recorded, not merged; see the note below.
+
+## Findings that changed the work
+
+- **`primary_completion_year` leaked the label's own endpoint.** Removing it took Phase 2 MAE from 25.41 to 8.88 months.
+- **`site_count` counted countries, not sites.** Training values sat in 1–20 while inference passed real site counts of 40+, outside the trained range where a forest returns a constant.
+- **Completed-trials-only data is survivorship-biased.** At a 2018 vantage, Phase 3 duration looked 20.9 months when it was truly 24.6. Corrected by inverse-probability-of-censoring weighting.
+- **Survival models lost.** Weibull AFT, random survival forest and gradient-boosted survival all cut the bias but lost more on scatter. Recorded rather than quietly dropped.
+- **Duration is two processes.** Enrolment window and follow-up are near-uncorrelated (r = +0.03). A Phase 3 survival endpoint follows up for 26.0 months against 5.5 for a biomarker endpoint.
+
+## V3.2 — the geography lever, and why it is not shipped
+
+Adding a country site-mix effect gives the tool something it never had: moving
+sites between countries changes the prediction. It also costs accuracy.
+
+| | P1HV | P1 | P2 | P3 |
+|---|---|---|---|---|
+| without country mix | 2.86 | **5.32** | **7.05** | **6.90** |
+| with country mix | **2.86** | 5.43 | 7.24 | 7.19 |
+
+Two things had to be fixed along the way, and one remains open.
+
+- **The per-site rate was the wrong target.** log(rate) on log(site_count) has a
+  slope near −1, so the rate is largely arithmetic. The enrolment window
+  correlates with site count at only +0.20 to +0.31 and its country ranking is
+  stable at rank correlation +0.75, against 0.29 for the rate.
+- **The encoder amplified geography.** Fitting raw target means gave an 86%
+  counterfactual spread across countries when the size-controlled data supports
+  about 30%. Residualising on trial size before attributing anything to a
+  country cut that to 43% — closer, still generous.
+- **Open: the direction is not corroborated.** The model puts the United States
+  fastest and China slowest, which runs against the usual industry expectation
+  that Eastern Europe recruits quickly and the US slowly. That may be real for
+  registered industry trials, or residual confounding by trial type. It needs a
+  domain check before anyone plans sites on it.
+
+## Open
+
+- The enrolment head and `N / (sites × rate)` disagree for some areas (P3 infectious disease 21.1 vs 13.0 months). Medians do not compose and the heads are fitted independently. V3.2 dissolves this by deriving the window from per-site rates.
