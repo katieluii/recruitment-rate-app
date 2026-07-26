@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     ct_api_base: str = "https://clinicaltrials.gov/api/v2"
     ct_api_page_size: int = 1000
-    ct_api_max_pages: int = 10
+    ct_api_max_pages: int = 40
 
     # "api" or "postgres"
     data_source: str = "api"

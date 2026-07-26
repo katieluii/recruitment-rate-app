@@ -184,6 +184,48 @@ def concordance(y_true: np.ndarray, y_pred: np.ndarray,
         return None
 
 
+#: Gates a change must clear before it can ship. R2 is a TARGET, not a
+#: description of where the model is: best on P3 today is 0.369, so this fails
+#: deliberately until the accuracy work closes the gap.
+GATES = {
+    "r2_min": 0.70,
+    "skill_vs_ta_median_min": 0.0,
+    "interval_coverage_min": 0.75,
+    "interval_coverage_max": 0.90,
+}
+
+
+def check_gates(metrics: dict) -> dict:
+    """Pass/fail each shipping gate, with the shortfall stated."""
+    out: dict[str, dict] = {}
+
+    r2 = metrics.get("r2")
+    out["r2"] = {
+        "value": r2,
+        "threshold": GATES["r2_min"],
+        "pass": bool(r2 is not None and r2 >= GATES["r2_min"]),
+        "shortfall": None if r2 is None else round(GATES["r2_min"] - r2, 4),
+    }
+
+    skill = metrics.get("skill_vs_ta_median")
+    out["skill_vs_ta_median"] = {
+        "value": skill,
+        "threshold": GATES["skill_vs_ta_median_min"],
+        "pass": bool(skill is not None and skill > GATES["skill_vs_ta_median_min"]),
+    }
+
+    cov = metrics.get("interval_coverage")
+    out["interval_coverage"] = {
+        "value": cov,
+        "threshold": [GATES["interval_coverage_min"], GATES["interval_coverage_max"]],
+        "pass": bool(cov is not None
+                     and GATES["interval_coverage_min"] <= cov <= GATES["interval_coverage_max"]),
+    }
+
+    out["all_pass"] = all(v.get("pass") for k, v in out.items() if isinstance(v, dict))
+    return out
+
+
 def skill_score(candidate_mae: float, baseline_mae: float) -> float | None:
     """Fraction of the baseline's error removed. Negative = worse than baseline."""
     if not baseline_mae:

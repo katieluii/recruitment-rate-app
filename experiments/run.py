@@ -21,7 +21,7 @@ from experiments.baselines import ALL_BASELINES, PRIMARY_BASELINE
 from experiments.candidates import (LGBMPoint, LGBMQuantile, ShippedArtifact,
                                     TwoStageDuration, V1Recipe)
 from experiments.dataset import load_clean
-from experiments.metrics import evaluate, skill_score
+from experiments.metrics import GATES, check_gates, evaluate, skill_score
 from experiments.splits import check_split_viability, get_split
 
 log = logging.getLogger(__name__)
@@ -128,6 +128,9 @@ def add_skill_scores(rows: list[dict]) -> list[dict]:
         r["beats_baseline"] = (
             None if base is None else bool(_mae(r) < base)
         )
+        gates = check_gates(r)
+        r["gates"] = gates
+        r["gate_pass"] = gates["all_pass"]
     return rows
 
 
@@ -235,11 +238,11 @@ def main() -> None:
 
     print("\n" + "=" * 100)
     summary = pd.DataFrame([
-        {**{k: r.get(k) for k in
-         ("config", "phase", "n_test")}, "mae": _mae(r),
-         **{k: r.get(k) for k in ( "skill_vs_ta_median",
-          "beats_baseline", "ta_spread_ratio", "ta_rank_corr",
-          "ta_n_distinct", "interval_coverage")}}
+        {**{k: r.get(k) for k in ("config", "phase", "n_test")},
+         "mae": _mae(r),
+         **{k: r.get(k) for k in
+            ("skill_vs_ta_median", "r2", "rmse_days",
+             "interval_coverage", "gate_pass")}}
         for r in rows if not r.get("skipped") and not r.get("error")
     ])
     if not summary.empty:

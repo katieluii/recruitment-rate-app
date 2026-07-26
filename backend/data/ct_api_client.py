@@ -51,7 +51,10 @@ ONGOING_STATUSES = ["RECRUITING", "ACTIVE_NOT_RECRUITING", "ENROLLING_BY_INVITAT
 
 async def fetch_studies(
     phases: list[str],
-    max_records: int = 5000,
+    # Was 5000, which silently discarded ~88% of the corpus: 17,092 completed
+    # industry Phase 3 trials exist and the cap left 2,024 after cleaning. More
+    # training data is the most reliable accuracy lever available here.
+    max_records: int = 30000,
     statuses: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Return raw study dicts from the ClinicalTrials.gov v2 API.
