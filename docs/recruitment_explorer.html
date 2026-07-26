@@ -217,7 +217,7 @@ footer{font-size:.78rem;color:var(--mute);text-align:center;padding-top:.5rem}
   </div>
 
   <section>
-    <h2>Country comparison</h2>
+    <h2>Country context <span style="font-weight:400;font-size:.78rem;color:var(--warn)">— not a speed ranking</span></h2>
     <p class="sechelp" id="rank-help">—</p>
     <div class="axis">
       <span>Country</span><span>Slower ← like-for-like → faster</span>
@@ -225,13 +225,19 @@ footer{font-size:.78rem;color:var(--mute);text-align:center;padding-top:.5rem}
     </div>
     <div class="bars" id="bars"></div>
     <p class="caveat" style="margin-top:.9rem">
-      <b>Why the two columns disagree.</b> The raw rate is enrolment divided by
-      sites, so it falls almost exactly in step with site count — regressing it on
-      site count gives a slope near −1. Sponsors also add sites precisely because
-      sites are slow, so the two are chosen together. An unadjusted league table
-      therefore partly ranks which countries happen to appear in small trials:
-      China leads the raw Phase 3 table but sits below average once trial size is
-      controlled. Rank the adjusted column; read the raw one as context.
+      <b>Read this as trial-portfolio mix, not recruitment speed.</b> A trial
+      reports one enrolment window, and a trial running in 20 countries reports
+      that same number for all 20 — no registry publishes a per-country split. So
+      the only clean evidence is single-country trials, and countries divide
+      sharply on whether they ever run one: 43.6% of US appearances are
+      single-country and 73.2% of China's, against 0.4% for Poland and <b>zero</b>
+      for Latvia, Ireland, Norway, Croatia and Lithuania. The comparison a planner
+      most wants — Eastern Europe against the US — has no evidence path here.
+      A model fitted on this puts the US fastest and China slowest, which clinical
+      operations leads recognise as wrong: it has learned that the US runs many
+      small domestic trials, not that US sites recruit faster. Use the figures
+      below to see which geographies appear in which kinds of trial. Do not use
+      them to choose between countries.
     </p>
   </section>
 
