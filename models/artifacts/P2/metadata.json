@@ -1,5 +1,5 @@
 {
-  "n_train": 2163,
+  "n_train": 7713,
   "heads": {
     "duration": {
       "target": "duration_days",
@@ -9,13 +9,13 @@
         "followup"
       ],
       "transform": "log1p",
-      "band_scale": 1.3597989949748746,
+      "band_scale": 1.0251256281407035,
       "quantiles": [
         0.1,
         0.5,
         0.9
       ],
-      "n_fit": 2163,
+      "n_fit": 7713,
       "coverage_nominal": 0.8,
       "ipcw_applied": true
     },
@@ -23,13 +23,13 @@
       "target": "recruitment_rate",
       "kind": "single",
       "transform": "log",
-      "qhat": 0.3124916633103349,
+      "qhat": 0.00662625552059648,
       "quantiles": [
         0.1,
         0.5,
         0.9
       ],
-      "n_fit": 2163,
+      "n_fit": 7713,
       "coverage_nominal": 0.8,
       "ipcw_applied": false
     }
@@ -43,8 +43,9 @@
     "Sex": "ALL",
     "sad_mad": "None",
     "endpoint_archetype": "SAFETY",
-    "Enrollment": 92.0,
-    "site_count": 11.0,
+    "sponsor_tier": "OTHER",
+    "Enrollment": 91.0,
+    "site_count": 12.0,
     "country_count": 1.0,
     "total_primary_outcomes": 1.0,
     "total_secondary_outcomes": 6.0,
@@ -52,9 +53,9 @@
     "followup_months": 6.0,
     "min_age_years": 18.0,
     "age_span_years": 62.0,
-    "criteria_chars": 2339.0,
+    "criteria_chars": 2333.0,
     "n_inclusion_criteria": 7.0,
-    "n_exclusion_criteria": 12.0,
+    "n_exclusion_criteria": 11.0,
     "n_collaborators": 0.0,
     "enrollment_per_site": 6.625,
     "outcomes_total": 8.0,
@@ -68,7 +69,18 @@
     "endpoint_has_PRO": 0.0,
     "endpoint_has_SAFETY": 0.0,
     "endpoint_has_PK_PD": 0.0,
+    "crit_prior_therapy": 0.0,
+    "crit_treatment_naive": 0.0,
+    "crit_washout": 0.0,
+    "crit_biomarker_required": 0.0,
+    "crit_performance_status": 0.0,
+    "crit_organ_function": 0.0,
+    "crit_contraception": 0.0,
+    "crit_pregnancy_excluded": 1.0,
+    "crit_comorbidity_excluded": 1.0,
+    "crit_hospitalised": 0.0,
     "has_collaborators": 0.0,
+    "criteria_text": "For more information regarding BMS clinical trial participation, please visit www.BMSStudyConnect.com\n\nInclusion Criteria:\n\n* Male or female between 21 and 75 years old\n* Body Mass Index (BMI) of 25 or more\n\nExclusion Criteria:\n\n* Chronic Liver disease other than NASH\n* Uncontrolled diabetes\n* Any major surgery within 6 weeks of screening\n* Unable to self-administer under the skin injections\n* Any bone trauma, fracture or bone surgery within 8 weeks of screening",
     "Cardiovascular": 0.0,
     "CNS/Neurology": 0.0,
     "Chemically-Induced Disorders": 0.0,
@@ -99,78 +111,136 @@
     "Latin America": 0.0,
     "MENA": 0.0,
     "Sub-Saharan Africa": 0.0,
-    "ROW": 0.0
+    "ROW": 0.0,
+    "csite_United States": 0.28,
+    "csite_Japan": 0.0,
+    "csite_Germany": 0.0,
+    "csite_China": 0.0,
+    "csite_Spain": 0.0,
+    "csite_France": 0.0,
+    "csite_Canada": 0.0,
+    "csite_Poland": 0.0,
+    "csite_United Kingdom": 0.0,
+    "csite_Italy": 0.0,
+    "csite_Russia": 0.0,
+    "csite_Australia": 0.0,
+    "csite_South Korea": 0.0,
+    "csite_Hungary": 0.0,
+    "csite_Czechia": 0.0,
+    "csite_Brazil": 0.0,
+    "csite_Belgium": 0.0,
+    "csite_Ukraine": 0.0,
+    "csite_Argentina": 0.0,
+    "csite_Bulgaria": 0.0,
+    "csite_Taiwan": 0.0,
+    "csite_Netherlands": 0.0,
+    "csite_Israel": 0.0,
+    "csite_India": 0.0,
+    "csite_Turkey (T\u00fcrkiye)": 0.0,
+    "csite_Mexico": 0.0,
+    "csite_Romania": 0.0,
+    "csite_South Africa": 0.0,
+    "csite_Sweden": 0.0,
+    "csite_Austria": 0.0,
+    "csite_Greece": 0.0,
+    "csite_Slovakia": 0.0,
+    "csite_Denmark": 0.0,
+    "csite_Thailand": 0.0,
+    "csite_Portugal": 0.0,
+    "csite_Chile": 0.0,
+    "csite_Finland": 0.0,
+    "csite_New Zealand": 0.0,
+    "csite_Serbia": 0.0,
+    "csite_Colombia": 0.0,
+    "csite_Switzerland": 0.0,
+    "csite_Malaysia": 0.0,
+    "csite_Philippines": 0.0,
+    "csite_Georgia": 0.0,
+    "csite_Peru": 0.0,
+    "csite_Norway": 0.0,
+    "csite_Puerto Rico": 0.0,
+    "csite_Latvia": 0.0,
+    "csite_Lithuania": 0.0,
+    "csite_Croatia": 0.0,
+    "csite_Ireland": 0.0,
+    "csite_Singapore": 0.0,
+    "csite_Hong Kong": 0.0,
+    "csite_Estonia": 0.0,
+    "csite_Belarus": 0.0,
+    "csite_Vietnam": 0.0,
+    "csite_Slovenia": 0.0,
+    "csite_Moldova": 0.0
   },
   "feature_ranges": {
     "Enrollment": {
-      "p01": 5.9316,
-      "p99": 1417.1368,
-      "min": 5.82,
-      "max": 1417.3599999999997
+      "p01": 6.0,
+      "p99": 1393.2000000000016,
+      "min": 6.0,
+      "max": 1413.2999999999993
     },
     "site_count": {
       "p01": 1.0,
-      "p99": 144.27359999999982,
+      "p99": 154.1319999999997,
       "min": 1.0,
-      "max": 144.71999999999935
+      "max": 154.14999999999964
     },
     "country_count": {
       "p01": 0.0,
-      "p99": 20.0,
+      "p99": 21.0,
       "min": 0.0,
-      "max": 28.0
+      "max": 46.0
     },
     "total_primary_outcomes": {
       "p01": 1.0,
-      "p99": 30.0,
+      "p99": 27.88000000000011,
       "min": 0.0,
-      "max": 65.0
+      "max": 98.0
     },
     "total_secondary_outcomes": {
       "p01": 0.0,
-      "p99": 45.0,
+      "p99": 47.0,
       "min": 0.0,
-      "max": 113.0
+      "max": 139.0
     },
     "number_of_arms": {
       "p01": 1.0,
       "p99": 13.0,
       "min": 1.0,
-      "max": 28.0
+      "max": 37.0
     },
     "followup_months": {
-      "p01": 0.11740000000000006,
-      "p99": 82.86240000000005,
+      "p01": 0.13,
+      "p99": 86.30399999999935,
       "min": 0.03,
-      "max": 216.0
+      "max": 240.0
     },
     "min_age_years": {
-      "p01": 0.158526,
+      "p01": 0.115,
       "p99": 55.0,
       "min": 0.0,
       "max": 70.0
     },
     "age_span_years": {
-      "p01": 0.9679120000000001,
+      "p01": 1.0,
       "p99": 100.0,
-      "min": 0.0027,
-      "max": 112.0
+      "min": 0.0,
+      "max": 132.0
     },
     "criteria_chars": {
-      "p01": 266.16,
-      "p99": 10589.340000000015,
+      "p01": 271.0,
+      "p99": 10775.28,
       "min": 83.0,
       "max": 18234.0
     },
     "n_inclusion_criteria": {
       "p01": 1.0,
-      "p99": 31.38000000000011,
+      "p99": 31.0,
       "min": 0.0,
-      "max": 84.0
+      "max": 106.0
     },
     "n_exclusion_criteria": {
       "p01": 0.0,
-      "p99": 42.38000000000011,
+      "p99": 43.0,
       "min": 0.0,
       "max": 75.0
     },
@@ -178,19 +248,19 @@
       "p01": 0.0,
       "p99": 3.0,
       "min": 0.0,
-      "max": 11.0
+      "max": 12.0
     },
     "enrollment_per_site": {
-      "p01": 0.8235938223938225,
-      "p99": 324.70000000000164,
-      "min": 0.0819718309859155,
-      "max": 1320.0
+      "p01": 0.8543178170144462,
+      "p99": 390.6400000000003,
+      "min": 0.08450704225352113,
+      "max": 1413.2999999999993
     },
     "outcomes_total": {
       "p01": 1.0,
       "p99": 57.0,
       "min": 0.0,
-      "max": 139.0
+      "max": 140.0
     },
     "endpoint_has_SURVIVAL": {
       "p01": 0.0,
@@ -247,6 +317,66 @@
       "max": 1.0
     },
     "endpoint_has_PK_PD": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "crit_prior_therapy": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "crit_treatment_naive": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "crit_washout": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "crit_biomarker_required": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "crit_performance_status": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "crit_organ_function": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "crit_contraception": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "crit_pregnancy_excluded": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "crit_comorbidity_excluded": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "crit_hospitalised": {
       "p01": 0.0,
       "p99": 1.0,
       "min": 0.0,
@@ -340,7 +470,7 @@
       "p01": 0.0,
       "p99": 0.0,
       "min": 0.0,
-      "max": 0.0
+      "max": 1.0
     },
     "Pathological Conditions, Signs and Symptoms": {
       "p01": 0.0,
@@ -364,7 +494,7 @@
       "p01": 0.0,
       "p99": 0.0,
       "min": 0.0,
-      "max": 0.0
+      "max": 1.0
     },
     "Urology/Female Health": {
       "p01": 0.0,
@@ -443,125 +573,515 @@
       "p99": 1.0,
       "min": 0.0,
       "max": 1.0
+    },
+    "csite_United States": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Japan": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Germany": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_China": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Spain": {
+      "p01": 0.0,
+      "p99": 0.4573333333333342,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_France": {
+      "p01": 0.0,
+      "p99": 0.36363636363636365,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Canada": {
+      "p01": 0.0,
+      "p99": 0.6616666666666712,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Poland": {
+      "p01": 0.0,
+      "p99": 0.2960348583877998,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_United Kingdom": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Italy": {
+      "p01": 0.0,
+      "p99": 0.2847619047619056,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Russia": {
+      "p01": 0.0,
+      "p99": 0.27200000000000063,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Australia": {
+      "p01": 0.0,
+      "p99": 0.6666666666666666,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_South Korea": {
+      "p01": 0.0,
+      "p99": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Hungary": {
+      "p01": 0.0,
+      "p99": 0.14285714285714285,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Czechia": {
+      "p01": 0.0,
+      "p99": 0.14547619047619081,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Brazil": {
+      "p01": 0.0,
+      "p99": 0.11755538579067999,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Belgium": {
+      "p01": 0.0,
+      "p99": 0.25,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Ukraine": {
+      "p01": 0.0,
+      "p99": 0.1588870703764327,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Argentina": {
+      "p01": 0.0,
+      "p99": 0.0967741935483871,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Bulgaria": {
+      "p01": 0.0,
+      "p99": 0.12485714285714299,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Taiwan": {
+      "p01": 0.0,
+      "p99": 0.329333333333337,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Netherlands": {
+      "p01": 0.0,
+      "p99": 0.1814285714285718,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Israel": {
+      "p01": 0.0,
+      "p99": 0.19032175032175044,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_India": {
+      "p01": 0.0,
+      "p99": 0.09776387150604948,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Turkey (T\u00fcrkiye)": {
+      "p01": 0.0,
+      "p99": 0.08928571428571429,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Mexico": {
+      "p01": 0.0,
+      "p99": 0.08333333333333333,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Romania": {
+      "p01": 0.0,
+      "p99": 0.07142857142857142,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_South Africa": {
+      "p01": 0.0,
+      "p99": 0.10580804953560378,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Sweden": {
+      "p01": 0.0,
+      "p99": 0.125,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Austria": {
+      "p01": 0.0,
+      "p99": 0.07375661375661405,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Greece": {
+      "p01": 0.0,
+      "p99": 0.06198105081826015,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Slovakia": {
+      "p01": 0.0,
+      "p99": 0.05151467089611422,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Denmark": {
+      "p01": 0.0,
+      "p99": 0.1111111111111111,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Thailand": {
+      "p01": 0.0,
+      "p99": 0.048641114982578525,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Portugal": {
+      "p01": 0.0,
+      "p99": 0.037444444444444495,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Chile": {
+      "p01": 0.0,
+      "p99": 0.0425172310458496,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Finland": {
+      "p01": 0.0,
+      "p99": 0.05263157894736842,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_New Zealand": {
+      "p01": 0.0,
+      "p99": 0.07142857142857142,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Serbia": {
+      "p01": 0.0,
+      "p99": 0.03571428571428571,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Colombia": {
+      "p01": 0.0,
+      "p99": 0.028173674189218782,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Switzerland": {
+      "p01": 0.0,
+      "p99": 0.05868778280542999,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Malaysia": {
+      "p01": 0.0,
+      "p99": 0.015543414634146758,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Philippines": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Georgia": {
+      "p01": 0.0,
+      "p99": 0.026157894736842248,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Peru": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Norway": {
+      "p01": 0.0,
+      "p99": 0.030095238095238286,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Puerto Rico": {
+      "p01": 0.0,
+      "p99": 0.03912518853695333,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Latvia": {
+      "p01": 0.0,
+      "p99": 0.015596153846153872,
+      "min": 0.0,
+      "max": 0.35714285714285715
+    },
+    "csite_Lithuania": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Croatia": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 0.3333333333333333
+    },
+    "csite_Ireland": {
+      "p01": 0.0,
+      "p99": 0.010047438330170808,
+      "min": 0.0,
+      "max": 0.5
+    },
+    "csite_Singapore": {
+      "p01": 0.0,
+      "p99": 0.02702702702702703,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Hong Kong": {
+      "p01": 0.0,
+      "p99": 0.02979806848112384,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Estonia": {
+      "p01": 0.0,
+      "p99": 0.009803780378037892,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Belarus": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 0.35714285714285715
+    },
+    "csite_Vietnam": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Slovenia": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "csite_Moldova": {
+      "p01": 0.0,
+      "p99": 0.0,
+      "min": 0.0,
+      "max": 1.0
     }
   },
   "feature_defaults_by_ta": {
     "Cardiovascular": {
-      "n": 59,
-      "Enrollment": 102.0,
-      "site_count": 14.0,
-      "country_count": 2.0,
-      "followup_months": 6.0,
+      "n": 263,
+      "Enrollment": 105.0,
+      "site_count": 13.0,
+      "country_count": 1.0,
+      "followup_months": 2.96,
       "number_of_arms": 3.0,
       "total_primary_outcomes": 1.0,
-      "total_secondary_outcomes": 6.0,
+      "total_secondary_outcomes": 5.0,
       "n_inclusion_criteria": 5.0,
-      "n_exclusion_criteria": 10.0,
-      "criteria_chars": 1548.0,
-      "enrollment_per_site": 5.82
+      "n_exclusion_criteria": 11.0,
+      "criteria_chars": 1987.0,
+      "enrollment_per_site": 6.0
     },
     "CNS/Neurology": {
-      "n": 194,
-      "Enrollment": 99.0,
+      "n": 709,
+      "Enrollment": 102.0,
       "site_count": 15.0,
       "country_count": 1.0,
-      "followup_months": 3.0,
+      "followup_months": 3.68,
       "number_of_arms": 2.0,
       "total_primary_outcomes": 1.0,
       "total_secondary_outcomes": 5.0,
+      "n_inclusion_criteria": 7.0,
+      "n_exclusion_criteria": 11.0,
+      "criteria_chars": 2444.0,
+      "enrollment_per_site": 6.333333333333333
+    },
+    "Chemically-Induced Disorders": {
+      "n": 22,
+      "Enrollment": 71.5,
+      "site_count": 2.5,
+      "country_count": 1.0,
+      "followup_months": 2.76,
+      "number_of_arms": 2.0,
+      "total_primary_outcomes": 1.0,
+      "total_secondary_outcomes": 3.0,
+      "n_inclusion_criteria": 7.0,
+      "n_exclusion_criteria": 9.5,
+      "criteria_chars": 2526.0,
+      "enrollment_per_site": 27.42857142857143
+    },
+    "Congenital/Hereditary/Rare Diseases": {
+      "n": 56,
+      "Enrollment": 20.0,
+      "site_count": 7.5,
+      "country_count": 2.5,
+      "followup_months": 11.05,
+      "number_of_arms": 2.0,
+      "total_primary_outcomes": 2.0,
+      "total_secondary_outcomes": 4.0,
       "n_inclusion_criteria": 6.0,
-      "n_exclusion_criteria": 10.0,
-      "criteria_chars": 2198.0,
-      "enrollment_per_site": 6.241975308641976
+      "n_exclusion_criteria": 9.0,
+      "criteria_chars": 2103.0,
+      "enrollment_per_site": 3.5
     },
     "Dermatology/Connective Tissue Diseases": {
-      "n": 115,
-      "Enrollment": 129.0,
-      "site_count": 14.0,
+      "n": 440,
+      "Enrollment": 108.5,
+      "site_count": 12.0,
       "country_count": 1.0,
       "followup_months": 2.76,
       "number_of_arms": 3.0,
       "total_primary_outcomes": 1.0,
       "total_secondary_outcomes": 5.0,
       "n_inclusion_criteria": 6.0,
-      "n_exclusion_criteria": 13.0,
-      "criteria_chars": 2359.0,
-      "enrollment_per_site": 8.096774193548388
+      "n_exclusion_criteria": 10.0,
+      "criteria_chars": 1943.0,
+      "enrollment_per_site": 6.653044871794872
+    },
+    "Endocrinology": {
+      "n": 55,
+      "Enrollment": 50.0,
+      "site_count": 10.0,
+      "country_count": 1.0,
+      "followup_months": 2.88,
+      "number_of_arms": 2.0,
+      "total_primary_outcomes": 1.0,
+      "total_secondary_outcomes": 4.0,
+      "n_inclusion_criteria": 5.0,
+      "n_exclusion_criteria": 8.0,
+      "criteria_chars": 1880.0,
+      "enrollment_per_site": 5.0
     },
     "Gastroenterology": {
-      "n": 68,
-      "Enrollment": 97.5,
+      "n": 305,
+      "Enrollment": 90.0,
       "site_count": 16.0,
       "country_count": 2.0,
       "followup_months": 3.6950000000000003,
       "number_of_arms": 3.0,
       "total_primary_outcomes": 1.0,
-      "total_secondary_outcomes": 9.0,
+      "total_secondary_outcomes": 7.0,
       "n_inclusion_criteria": 6.0,
-      "n_exclusion_criteria": 11.5,
-      "criteria_chars": 2372.5,
-      "enrollment_per_site": 4.757352941176471
+      "n_exclusion_criteria": 12.0,
+      "criteria_chars": 2228.0,
+      "enrollment_per_site": 4.428571428571429
     },
     "Haematology": {
-      "n": 147,
-      "Enrollment": 66.0,
-      "site_count": 17.0,
+      "n": 551,
+      "Enrollment": 67.0,
+      "site_count": 19.0,
       "country_count": 2.0,
-      "followup_months": 23.0,
+      "followup_months": 22.09,
       "number_of_arms": 2.0,
       "total_primary_outcomes": 1.0,
-      "total_secondary_outcomes": 8.0,
+      "total_secondary_outcomes": 9.0,
       "n_inclusion_criteria": 8.0,
       "n_exclusion_criteria": 12.0,
-      "criteria_chars": 2514.0,
-      "enrollment_per_site": 3.5
+      "criteria_chars": 2486.0,
+      "enrollment_per_site": 3.4285714285714284
     },
     "Immunology": {
-      "n": 91,
+      "n": 341,
       "Enrollment": 105.0,
-      "site_count": 16.0,
-      "country_count": 1.0,
+      "site_count": 19.0,
+      "country_count": 2.0,
       "followup_months": 2.76,
       "number_of_arms": 3.0,
       "total_primary_outcomes": 1.0,
       "total_secondary_outcomes": 6.0,
-      "n_inclusion_criteria": 6.0,
+      "n_inclusion_criteria": 5.0,
       "n_exclusion_criteria": 9.0,
-      "criteria_chars": 1953.0,
-      "enrollment_per_site": 4.714285714285714
+      "criteria_chars": 1858.0,
+      "enrollment_per_site": 4.368421052631579
     },
     "Infectious Diseases": {
-      "n": 254,
-      "Enrollment": 151.5,
-      "site_count": 9.0,
+      "n": 901,
+      "Enrollment": 156.0,
+      "site_count": 8.0,
       "country_count": 1.0,
-      "followup_months": 1.5099999999999998,
+      "followup_months": 1.38,
       "number_of_arms": 3.0,
       "total_primary_outcomes": 2.0,
-      "total_secondary_outcomes": 8.0,
+      "total_secondary_outcomes": 7.0,
       "n_inclusion_criteria": 6.0,
       "n_exclusion_criteria": 14.0,
-      "criteria_chars": 3007.0,
-      "enrollment_per_site": 23.25
+      "criteria_chars": 2873.0,
+      "enrollment_per_site": 25.0
     },
     "Metabolic": {
-      "n": 149,
-      "Enrollment": 142.0,
-      "site_count": 11.0,
+      "n": 457,
+      "Enrollment": 124.0,
+      "site_count": 12.0,
       "country_count": 1.0,
-      "followup_months": 2.76,
-      "number_of_arms": 4.0,
+      "followup_months": 3.22,
+      "number_of_arms": 3.0,
       "total_primary_outcomes": 1.0,
       "total_secondary_outcomes": 7.0,
       "n_inclusion_criteria": 6.0,
       "n_exclusion_criteria": 10.0,
-      "criteria_chars": 1959.0,
-      "enrollment_per_site": 10.0
+      "criteria_chars": 1858.0,
+      "enrollment_per_site": 8.5
     },
     "Oncology/Solid Tumours": {
-      "n": 421,
-      "Enrollment": 79.0,
-      "site_count": 16.0,
+      "n": 1347,
+      "Enrollment": 81.0,
+      "site_count": 15.0,
       "country_count": 2.0,
       "followup_months": 24.0,
       "number_of_arms": 2.0,
@@ -569,93 +1089,93 @@
       "total_secondary_outcomes": 7.0,
       "n_inclusion_criteria": 9.0,
       "n_exclusion_criteria": 12.0,
-      "criteria_chars": 2705.0,
-      "enrollment_per_site": 4.703703703703703
+      "criteria_chars": 2704.0,
+      "enrollment_per_site": 4.769230769230769
     },
     "Ophthalmology": {
-      "n": 68,
-      "Enrollment": 105.0,
-      "site_count": 7.5,
+      "n": 260,
+      "Enrollment": 103.5,
+      "site_count": 6.5,
       "country_count": 1.0,
-      "followup_months": 5.12,
-      "number_of_arms": 2.0,
-      "total_primary_outcomes": 1.0,
-      "total_secondary_outcomes": 4.0,
-      "n_inclusion_criteria": 5.0,
-      "n_exclusion_criteria": 9.0,
-      "criteria_chars": 1365.0,
-      "enrollment_per_site": 10.1
-    },
-    "Pathological Conditions, Signs and Symptoms": {
-      "n": 16,
-      "Enrollment": 66.0,
-      "site_count": 5.5,
-      "country_count": 1.0,
-      "followup_months": 0.23,
+      "followup_months": 2.76,
       "number_of_arms": 3.0,
       "total_primary_outcomes": 1.0,
-      "total_secondary_outcomes": 4.0,
-      "n_inclusion_criteria": 5.0,
-      "n_exclusion_criteria": 8.5,
-      "criteria_chars": 1681.0,
-      "enrollment_per_site": 9.825581395348838
+      "total_secondary_outcomes": 3.0,
+      "n_inclusion_criteria": 4.0,
+      "n_exclusion_criteria": 9.0,
+      "criteria_chars": 1504.0,
+      "enrollment_per_site": 11.947368421052632
     },
-    "Respiratory": {
-      "n": 109,
-      "Enrollment": 81.0,
-      "site_count": 11.0,
-      "country_count": 2.0,
-      "followup_months": 2.76,
-      "number_of_arms": 2.0,
-      "total_primary_outcomes": 1.0,
-      "total_secondary_outcomes": 8.0,
-      "n_inclusion_criteria": 8.0,
-      "n_exclusion_criteria": 14.0,
-      "criteria_chars": 2671.0,
-      "enrollment_per_site": 7.25
-    },
-    "Rheumatology": {
-      "n": 39,
-      "Enrollment": 183.0,
-      "site_count": 11.0,
+    "Pathological Conditions, Signs and Symptoms": {
+      "n": 40,
+      "Enrollment": 69.5,
+      "site_count": 2.0,
       "country_count": 1.0,
-      "followup_months": 3.68,
+      "followup_months": 0.9199999999999999,
       "number_of_arms": 3.0,
       "total_primary_outcomes": 1.0,
       "total_secondary_outcomes": 5.0,
-      "n_inclusion_criteria": 6.0,
-      "n_exclusion_criteria": 13.0,
-      "criteria_chars": 2258.0,
-      "enrollment_per_site": 9.261904761904763
+      "n_inclusion_criteria": 5.0,
+      "n_exclusion_criteria": 12.0,
+      "criteria_chars": 2450.0,
+      "enrollment_per_site": 15.5
     },
-    "Urology/Male": {
-      "n": 17,
-      "Enrollment": 103.0,
-      "site_count": 13.0,
-      "country_count": 1.0,
-      "followup_months": 8.08,
+    "Respiratory": {
+      "n": 396,
+      "Enrollment": 85.0,
+      "site_count": 15.0,
+      "country_count": 2.0,
+      "followup_months": 2.53,
       "number_of_arms": 3.0,
       "total_primary_outcomes": 1.0,
-      "total_secondary_outcomes": 4.0,
+      "total_secondary_outcomes": 8.0,
+      "n_inclusion_criteria": 8.0,
+      "n_exclusion_criteria": 14.5,
+      "criteria_chars": 2935.5,
+      "enrollment_per_site": 6.0
+    },
+    "Rheumatology": {
+      "n": 131,
+      "Enrollment": 149.0,
+      "site_count": 12.0,
+      "country_count": 1.0,
+      "followup_months": 5.52,
+      "number_of_arms": 3.0,
+      "total_primary_outcomes": 1.0,
+      "total_secondary_outcomes": 8.0,
+      "n_inclusion_criteria": 7.0,
+      "n_exclusion_criteria": 13.0,
+      "criteria_chars": 2622.0,
+      "enrollment_per_site": 9.7
+    },
+    "Urology/Male": {
+      "n": 62,
+      "Enrollment": 93.5,
+      "site_count": 16.5,
+      "country_count": 1.0,
+      "followup_months": 3.0,
+      "number_of_arms": 2.0,
+      "total_primary_outcomes": 1.0,
+      "total_secondary_outcomes": 6.0,
       "n_inclusion_criteria": 6.0,
-      "n_exclusion_criteria": 10.0,
-      "criteria_chars": 1250.0,
-      "enrollment_per_site": 6.4375
+      "n_exclusion_criteria": 9.0,
+      "criteria_chars": 1670.5,
+      "enrollment_per_site": 5.046511627906977
     },
     "Other": {
-      "n": 617,
-      "Enrollment": 66.0,
+      "n": 2183,
+      "Enrollment": 69.0,
       "site_count": 8.0,
       "country_count": 1.0,
-      "followup_months": 2.76,
+      "followup_months": 3.0,
       "number_of_arms": 2.0,
       "total_primary_outcomes": 1.0,
       "total_secondary_outcomes": 5.0,
       "n_inclusion_criteria": 6.0,
       "n_exclusion_criteria": 11.0,
-      "criteria_chars": 2200.0,
-      "enrollment_per_site": 7.631578947368421
+      "criteria_chars": 2167.0,
+      "enrollment_per_site": 7.380952380952381
     }
   },
-  "rmse": 608.8938783181773
+  "rmse": 613.729507560146
 }
