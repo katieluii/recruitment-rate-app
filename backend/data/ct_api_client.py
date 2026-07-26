@@ -242,6 +242,11 @@ def flatten_study(study: dict) -> dict | None:
         "min_age_raw": eligibility.get("minimumAge", ""),
         "max_age_raw": eligibility.get("maximumAge", ""),
         "criteria_chars": len(criteria),
+        # Retain the text itself, not just its length. TrialEnroll (2024, 31k
+        # trials) shows the criteria WORDING carries signal that counts do not —
+        # "prior systemic therapy" and "washout" restrict a population in ways a
+        # bullet count cannot see. Truncated to keep the cache compact.
+        "criteria_text": criteria[:4000],
         "n_inclusion_criteria": count_criteria(criteria, "inclusion"),
         "n_exclusion_criteria": count_criteria(criteria, "exclusion"),
     }
