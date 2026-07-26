@@ -1,5 +1,5 @@
-import { api } from './api.js?v=5';
-import { renderErrorBar } from './charts.js?v=5';
+import { api } from './api.js?v=6';
+import { renderErrorBar } from './charts.js?v=6';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const phaseSelect = document.getElementById('phase-select');
@@ -91,6 +91,8 @@ function displayResult(r) {
 
   renderErrorBar(r.lower_months, r.predicted_months, r.upper_months, 'error-bar-container');
   displayRate(r);
+  displaySplit(r);
+  displayProvenance(r.provenance);
 
   if (r.extrapolation_warnings && r.extrapolation_warnings.length) {
     showWarn('Outside the trained range — treat as indicative only:<br>' +
@@ -99,6 +101,74 @@ function displayResult(r) {
 
   resultCard.classList.add('visible');
   resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── Duration split: recruiting vs follow-up ───────────────────────────────────
+function displaySplit(r) {
+  const panel = document.getElementById('split-panel');
+  if (r.enrolment_months == null || r.followup_months == null) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  const total = Math.max(r.enrolment_months + r.followup_months, 0.01);
+  document.getElementById('split-enrol').textContent = `${r.enrolment_months.toFixed(1)} mo`;
+  document.getElementById('split-fu').textContent = `${r.followup_months.toFixed(1)} mo`;
+  document.getElementById('split-enrol-bar').style.width =
+    `${(r.enrolment_months / total) * 100}%`;
+  document.getElementById('split-fu-bar').style.width =
+    `${(r.followup_months / total) * 100}%`;
+}
+
+// ── Provenance: the working behind every number ───────────────────────────────
+function displayProvenance(p) {
+  const box = document.getElementById('working');
+  if (!p) { box.hidden = true; return; }
+  box.hidden = false;
+
+  document.getElementById('prov-values').innerHTML =
+    Object.entries(p.values || {}).map(([key, v]) => {
+      const val = Array.isArray(v.value) ? v.value.join(' to ') : v.value;
+      return `<div><dt>${labelFor(key)} — ${val} ${escapeHtml(v.unit || '')}</dt>
+              <dd>${escapeHtml(v.derivation || '')}</dd></div>`;
+    }).join('');
+
+  // Origin is the point of this table: a number the user gave and a number
+  // filled from an area median are not the same kind of input.
+  document.getElementById('prov-inputs').innerHTML =
+    Object.entries(p.inputs || {}).map(([key, v]) => {
+      const n = v.evidence_n_trials ? ` from ${v.evidence_n_trials} trials` : '';
+      return `<tr><td>${labelFor(key)}</td>
+        <td>${v.value == null ? '—' : escapeHtml(String(v.value))}</td>
+        <td><span class="origin ${v.origin}">${v.origin.replace('_', ' ')}</span>${n}</td></tr>`;
+    }).join('');
+
+  document.getElementById('prov-sources').innerHTML =
+    (p.sources || []).map(s => {
+      const n = s.n_trials || s.n_fit;
+      const extra = n ? ` — ${n.toLocaleString()} trials` : '';
+      const built = s.built ? ` · built ${s.built}` : '';
+      return `<li><b>${escapeHtml(s.label)}</b>${extra}${built}
+        ${s.selection ? `<br><span style="font-size:.75rem">${escapeHtml(s.selection)}</span>` : ''}</li>`;
+    }).join('');
+
+  document.getElementById('prov-gaps').innerHTML =
+    (p.gaps || []).map(g => `<li>${escapeHtml(g)}</li>`).join('');
+}
+
+function labelFor(key) {
+  return ({
+    predicted_months: 'Total duration',
+    enrolment_months: 'Recruiting window',
+    followup_months: 'Follow-up',
+    interval: 'Prediction interval',
+    recruitment_rate: 'Recruitment rate',
+    enrollment: 'Target enrolment',
+    num_sites: 'Number of sites',
+    drug_type: 'Intervention type',
+    region: 'Region',
+    endpoint_archetype: 'Primary endpoint type',
+  })[key] || key.replace(/_/g, ' ');
 }
 
 // ── Recruitment rate ──────────────────────────────────────────────────────────
