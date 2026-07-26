@@ -3,8 +3,13 @@
   "heads": {
     "duration": {
       "target": "duration_days",
+      "kind": "two_stage",
+      "stages": [
+        "enrolment",
+        "followup"
+      ],
       "transform": "log1p",
-      "qhat": 0.324801722218222,
+      "band_scale": 1.4155778894472364,
       "quantiles": [
         0.1,
         0.5,
@@ -16,6 +21,7 @@
     },
     "rate": {
       "target": "recruitment_rate",
+      "kind": "single",
       "transform": "log",
       "qhat": 0.4451239422236173,
       "quantiles": [

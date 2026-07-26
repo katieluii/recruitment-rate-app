@@ -47,6 +47,9 @@ class PredictResponse(BaseModel):
     recruitment_rate_upper: Optional[float] = None
     rate_implied_total_months: Optional[float] = None
     rate_note: Optional[str] = None
+    # Duration split into its two stages
+    enrolment_months: Optional[float] = None
+    followup_months: Optional[float] = None
     # Provenance
     model_used: str
     rmse_days: float
@@ -106,6 +109,8 @@ def post_predict(req: PredictRequest):
         recruitment_rate_lower=result.recruitment_rate_lower,
         recruitment_rate_upper=result.recruitment_rate_upper,
         rate_implied_total_months=result.rate_implied_total_months,
+        enrolment_months=result.enrolment_months,
+        followup_months=result.followup_months,
         rate_note=_RATE_NOTE if result.recruitment_rate is not None else None,
         model_used=result.model_used,
         rmse_days=result.rmse_days,

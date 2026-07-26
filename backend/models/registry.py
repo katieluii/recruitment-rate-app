@@ -23,6 +23,43 @@ _cache: dict[str, dict] = {}
 HEAD_NAMES = ("duration", "rate")
 
 
+class LoadedTwoStage:
+    """Duration reassembled from its two stages.
+
+    Presents the same predict/predict_interval surface as a single head, so
+    inference does not have to know which shape it was handed.
+    """
+
+    def __init__(self, enrol: "LoadedHead", fu: "LoadedHead", band_scale: float):
+        self.enrol = enrol
+        self.fu = fu
+        self.scale_ = band_scale
+
+    def _raw_band(self, X):
+        import numpy as np
+        e_lo, e_hi = self.enrol.predict_interval(X)
+        f_lo, f_hi = self.fu.predict_interval(X)
+        e_mid, f_mid = self.enrol.predict(X), self.fu.predict(X)
+        point = e_mid + f_mid
+        # Quadrature, not addition: the stages are near-independent.
+        lo_w = np.sqrt((e_mid - e_lo) ** 2 + (f_mid - f_lo) ** 2)
+        hi_w = np.sqrt((e_hi - e_mid) ** 2 + (f_hi - f_mid) ** 2)
+        return point, lo_w, hi_w
+
+    def predict(self, X):
+        import numpy as np
+        return np.maximum(1.0, self.enrol.predict(X) + self.fu.predict(X))
+
+    def predict_components(self, X):
+        return self.enrol.predict(X), self.fu.predict(X)
+
+    def predict_interval(self, X):
+        import numpy as np
+        point, lo_w, hi_w = self._raw_band(X)
+        return (np.maximum(1.0, point - self.scale_ * lo_w),
+                np.maximum(1.0, point + self.scale_ * hi_w))
+
+
 class LoadedHead:
     """A fitted head reassembled from disk, with the same predict surface as
     ConformalQuantileModel so callers do not care which they were handed."""
@@ -46,10 +83,29 @@ class LoadedHead:
         return np.minimum(lower, upper), np.maximum(lower, upper)
 
 
-def _load_head(base: Path, head: str, meta: dict) -> Optional[LoadedHead]:
+def _load_stage(base: Path, stage: str, transform: str) -> Optional[LoadedHead]:
+    models = {}
+    for alpha in QUANTILES:
+        path = base / f"{stage}_q{int(alpha * 100)}.pkl"
+        if not path.exists():
+            log.warning("Missing %s — stage '%s' unavailable", path, stage)
+            return None
+        models[alpha] = joblib.load(path)
+    return LoadedHead(models, 0.0, transform)
+
+
+def _load_head(base: Path, head: str, meta: dict):
     spec = (meta.get("heads") or {}).get(head)
     if not spec:
         return None
+
+    if spec.get("kind") == "two_stage":
+        transform = spec.get("transform", "log1p")
+        enrol = _load_stage(base, "enrolment", transform)
+        fu = _load_stage(base, "followup", transform)
+        if enrol is None or fu is None:
+            return None
+        return LoadedTwoStage(enrol, fu, spec.get("band_scale", 1.0))
     models = {}
     for alpha in QUANTILES:
         path = base / f"{head}_q{int(alpha * 100)}.pkl"
