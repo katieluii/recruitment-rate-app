@@ -64,6 +64,37 @@ def site_month_rate(df: pd.DataFrame) -> pd.Series:
     return rate.replace([np.inf, -np.inf], np.nan)
 
 
+def size_adjusted_effect(df: pd.DataFrame) -> pd.Series:
+    """Each trial's rate relative to what its SIZE alone would predict.
+
+    The raw rate is largely arithmetic. Regressing log(rate) on log(site_count)
+    gives a slope near -1 (-0.88 on P3, -1.40 on P1) because sites sit in the
+    denominator and sponsors add sites precisely because sites are slow. Ranking
+    countries on the raw number therefore partly ranks which countries appear in
+    small trials: China tops the raw P3 table but sits BELOW average once trial
+    size is controlled, and the raw and adjusted rankings correlate at only 0.29.
+
+    This removes the mechanical component by regressing out trial size, and
+    returns exp(residual) — a multiplier where 1.20 means "20% faster than a
+    trial of this size and site count would normally manage".
+    """
+    rate = df["site_month_rate"] if "site_month_rate" in df.columns else site_month_rate(df)
+    ok = rate.notna() & (rate > 0)
+    out = pd.Series(np.nan, index=df.index, dtype=float)
+    if ok.sum() < 50:
+        return out
+
+    log_rate = np.log(rate[ok].clip(lower=1e-4))
+    log_k = np.log(pd.to_numeric(df.loc[ok, "site_count"], errors="coerce").clip(lower=1))
+    log_n = np.log(pd.to_numeric(df.loc[ok, "Enrollment"], errors="coerce").clip(lower=1))
+    X = np.vstack([log_k, log_n, np.ones(ok.sum())]).T
+    beta = np.linalg.lstsq(X, log_rate.to_numpy(), rcond=None)[0]
+    out.loc[ok] = np.exp(log_rate.to_numpy() - X @ beta)
+    log.info("size adjustment: log(sites) %+.3f, log(enrolment) %+.3f",
+             beta[0], beta[1])
+    return out
+
+
 def _shrink(values: np.ndarray, parent: float, smoothing: float = SMOOTHING) -> float:
     n = len(values)
     if n == 0:
@@ -92,7 +123,9 @@ def build_grid(frames: dict[str, pd.DataFrame]) -> dict:
         lo, hi = df["site_month_rate"].quantile([0.01, 0.99])
         df["site_month_rate"] = df["site_month_rate"].clip(lo, hi)
 
+        df["size_adj"] = size_adjusted_effect(df)
         rates = df["site_month_rate"].to_numpy(dtype=float)
+        adj = df["size_adj"].to_numpy(dtype=float)
         all_rates.extend(rates.tolist())
         phase_rate = float(np.median(rates))
 
@@ -101,7 +134,9 @@ def build_grid(frames: dict[str, pd.DataFrame]) -> dict:
                    for a, m in masks.items() if m.sum() >= MIN_TRIALS_CELL}
 
         cell: dict[tuple[str, str], list[float]] = defaultdict(list)
+        cell_adj: dict[tuple[str, str], list[float]] = defaultdict(list)
         country_all: dict[str, list[float]] = defaultdict(list)
+        country_adj: dict[str, list[float]] = defaultdict(list)
         fac: dict[str, dict] = defaultdict(
             lambda: {"rates": [], "countries": set(), "areas": set()})
 
@@ -112,8 +147,12 @@ def build_grid(frames: dict[str, pd.DataFrame]) -> dict:
             areas = [a for a, m in masks.items() if m[i]]
             for c in countries:
                 country_all[c].append(rates[i])
+                if not np.isnan(adj[i]):
+                    country_adj[c].append(adj[i])
                 for a in areas:
                     cell[(c, a)].append(rates[i])
+                    if not np.isnan(adj[i]):
+                        cell_adj[(c, a)].append(adj[i])
             for f, _city, c in parsed:
                 if not f or is_placeholder_facility(f):
                     continue
@@ -131,12 +170,14 @@ def build_grid(frames: dict[str, pd.DataFrame]) -> dict:
             "by_area": {a: round(r, 4) for a, r in ta_rate.items()},
             "by_country": {
                 c: {"rate": round(_shrink(np.array(v), phase_rate), 4),
+                    "adj": round(_shrink(np.array(country_adj.get(c, [])), 1.0), 3),
                     "n_trials": len(v)}
                 for c, v in country_all.items() if len(v) >= MIN_TRIALS_CELL
             },
             "by_country_area": {
                 f"{c}||{a}": {
                     "rate": round(_shrink(np.array(v), ta_rate.get(a, phase_rate)), 4),
+                    "adj": round(_shrink(np.array(cell_adj.get((c, a), [])), 1.0), 3),
                     "n_trials": len(v),
                 }
                 for (c, a), v in cell.items() if len(v) >= MIN_TRIALS_CELL
