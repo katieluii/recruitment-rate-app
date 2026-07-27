@@ -70,7 +70,7 @@ class ConformalQuantileModel:
                  coverage: float = 0.80, calib_strategy: str = "recent",
                  censoring_frame: pd.DataFrame | None = None,
                  weight_cap: float = 10.0, country_mix: bool = False,
-                 criteria_text: bool = False):
+                 criteria_text: bool = False, point_objective: str = "quantile"):
         if transform not in TRANSFORMS:
             raise ValueError(f"Unknown transform {transform!r}")
         self.phase_key = phase_key
@@ -85,6 +85,12 @@ class ConformalQuantileModel:
         self.weight_cap = weight_cap
         self.country_mix = country_mix
         self.criteria_text = criteria_text
+        # 'quantile' fits the 0.5 quantile (conditional MEDIAN, minimises MAE).
+        # 'l2' fits a squared-error head (conditional MEAN, which is what R2
+        # rewards). The two genuinely disagree: on P1HV a RandomForest, which
+        # averages over trees and so predicts the mean, scores R2 0.420 against
+        # 0.368 for the quantile head while losing MAE 2.87 to 2.64.
+        self.point_objective = point_objective
         self.qhat_ = 0.0
 
     # ── transforms ───────────────────────────────────────────────────────────
@@ -100,6 +106,23 @@ class ConformalQuantileModel:
         return TRANSFORMS[self.transform][1](np.asarray(y, dtype=float))
 
     # ── fitting ──────────────────────────────────────────────────────────────
+
+    def _fit_point_l2(self, X: pd.DataFrame, y: np.ndarray,
+                      sample_weight: np.ndarray | None = None):
+        """Squared-error head, used for the point estimate only."""
+        import lightgbm as lgb
+
+        pipe = Pipeline([
+            ("pre", make_preprocessor(
+                ta_target_encoding=self.ta_target_encoding,
+                country_mix=self.country_mix, criteria_text=self.criteria_text)),
+            ("model", lgb.LGBMRegressor(**self.params)),
+        ])
+        if sample_weight is None:
+            pipe.fit(X, y)
+        else:
+            pipe.fit(X, y, model__sample_weight=sample_weight)
+        return pipe
 
     def _fit_quantiles(self, X: pd.DataFrame, y: np.ndarray,
                        sample_weight: np.ndarray | None = None) -> dict:
@@ -120,6 +143,8 @@ class ConformalQuantileModel:
             else:
                 pipe.fit(X, y, model__sample_weight=sample_weight)
             models[alpha] = pipe
+        if self.point_objective == "l2":
+            models["point"] = self._fit_point_l2(X, y, sample_weight)
         return models
 
     # ── censoring correction ─────────────────────────────────────────────────
@@ -212,7 +237,8 @@ class ConformalQuantileModel:
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         """X is already feature-built (see build_features)."""
-        return np.maximum(self._floor, self._inv(self.models[0.5].predict(X)))
+        head = self.models.get("point", self.models[0.5])
+        return np.maximum(self._floor, self._inv(head.predict(X)))
 
     def predict_interval(self, X: pd.DataFrame):
         lo = self.models[0.1].predict(X) - self.qhat_
@@ -255,7 +281,8 @@ class TwoStageDuration:
     def __init__(self, phase_key: str, params: dict | None = None,
                  calib_frac: float = 0.2, coverage: float = 0.80,
                  censoring_frame: pd.DataFrame | None = None,
-                 country_mix: bool = False, criteria_text: bool = False):
+                 country_mix: bool = False, criteria_text: bool = False,
+                 point_objective: str = "quantile"):
         self.phase_key = phase_key
         self.coverage = coverage
         self.calib_frac = calib_frac
@@ -264,12 +291,13 @@ class TwoStageDuration:
         self.enrol = ConformalQuantileModel(
             phase_key, transform="log1p", params=params, conformal=False,
             censoring_frame=censoring_frame, country_mix=country_mix,
-            criteria_text=criteria_text)
+            criteria_text=criteria_text, point_objective=point_objective)
         # Follow-up is set by the protocol's endpoint, not by geography, so the
         # site mix is deliberately withheld from that stage.
         self.fu = ConformalQuantileModel(
             phase_key, transform="log1p", params=params, conformal=False,
-            country_mix=False, criteria_text=criteria_text)
+            country_mix=False, criteria_text=criteria_text,
+            point_objective=point_objective)
         self.scale_ = 1.0
 
     @staticmethod

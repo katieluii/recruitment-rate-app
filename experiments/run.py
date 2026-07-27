@@ -48,6 +48,8 @@ CONFIGS = {
         p, country_mix=False, criteria_text=False), False),
     "two_stage_geo":        (lambda p: TwoStageDuration(p, country_mix=True), False),
     "stratified":           (lambda p: StratifiedTwoStage(p), False),
+    # L2 point head (conditional mean) with quantile heads kept for the interval
+    "two_stage_l2":         (lambda p: TwoStageDuration(p, point_objective="l2"), False),
     "two_stage_text":       (lambda p: TwoStageDuration(
         p, country_mix=False, criteria_text=True), False),
     "v1_shipped":           (lambda p: ShippedArtifact(
