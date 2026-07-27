@@ -9,7 +9,7 @@
         "followup"
       ],
       "transform": "log1p",
-      "band_scale": 1.006532663316583,
+      "band_scale": 0.9879396984924624,
       "quantiles": [
         0.1,
         0.5,
@@ -17,13 +17,13 @@
       ],
       "n_fit": 6905,
       "coverage_nominal": 0.8,
-      "ipcw_applied": false
+      "ipcw_applied": true
     },
     "rate": {
       "target": "recruitment_rate",
       "kind": "single",
       "transform": "log",
-      "qhat": 0.014369296436626877,
+      "qhat": 0.011137567602850867,
       "quantiles": [
         0.1,
         0.5,
@@ -44,6 +44,7 @@
     "sad_mad": "None",
     "endpoint_archetype": "UNKNOWN",
     "sponsor_tier": "OTHER",
+    "Phases": "PHASE3",
     "Enrollment": 338.0,
     "site_count": 32.0,
     "country_count": 2.0,

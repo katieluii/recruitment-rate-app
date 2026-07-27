@@ -9,7 +9,7 @@
         "followup"
       ],
       "transform": "log1p",
-      "band_scale": 1.0251256281407035,
+      "band_scale": 0.9879396984924624,
       "quantiles": [
         0.1,
         0.5,
@@ -23,7 +23,7 @@
       "target": "recruitment_rate",
       "kind": "single",
       "transform": "log",
-      "qhat": 0.00662625552059648,
+      "qhat": 0.010921809655127124,
       "quantiles": [
         0.1,
         0.5,
@@ -44,6 +44,7 @@
     "sad_mad": "None",
     "endpoint_archetype": "SAFETY",
     "sponsor_tier": "OTHER",
+    "Phases": "PHASE2",
     "Enrollment": 91.0,
     "site_count": 12.0,
     "country_count": 1.0,
