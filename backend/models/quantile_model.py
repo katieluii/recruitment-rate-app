@@ -33,6 +33,16 @@ log = logging.getLogger(__name__)
 
 QUANTILES = (0.1, 0.5, 0.9)
 
+#: The L2 point head is keyed by name, not by an alpha, because it is not a
+#: quantile. Save and load MUST share this function: naming it inline once
+#: computed "point" * 100 and crashed every retrain.
+POINT_KEY = "point"
+
+
+def slot_name(key) -> str:
+    """Filename slot for a fitted head, keyed by alpha or by POINT_KEY."""
+    return POINT_KEY if key == POINT_KEY else f"q{int(float(key) * 100)}"
+
 TRANSFORMS = {
     "log1p": (np.log1p, np.expm1, 1.0),
     "log": (lambda y: np.log(np.maximum(y, 1e-6)), np.exp, 1e-4),
@@ -70,7 +80,7 @@ class ConformalQuantileModel:
                  coverage: float = 0.80, calib_strategy: str = "recent",
                  censoring_frame: pd.DataFrame | None = None,
                  weight_cap: float = 10.0, country_mix: bool = False,
-                 criteria_text: bool = False, point_objective: str = "quantile"):
+                 criteria_text: bool = False, point_objective: str = "l2"):
         if transform not in TRANSFORMS:
             raise ValueError(f"Unknown transform {transform!r}")
         self.phase_key = phase_key
@@ -282,7 +292,7 @@ class TwoStageDuration:
                  calib_frac: float = 0.2, coverage: float = 0.80,
                  censoring_frame: pd.DataFrame | None = None,
                  country_mix: bool = False, criteria_text: bool = False,
-                 point_objective: str = "quantile"):
+                 point_objective: str = "l2"):
         self.phase_key = phase_key
         self.coverage = coverage
         self.calib_frac = calib_frac

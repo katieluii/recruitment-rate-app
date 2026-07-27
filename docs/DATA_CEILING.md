@@ -48,6 +48,15 @@ the endpoint would rate-limit anyway.
 **R² 0.70 is not reachable from public registry data.** Not because the model is
 weak, but because the information is absent.
 
+One caveat this document originally got wrong, kept here rather than quietly
+edited out: it claimed both modelling levers were spent. They were not. Changing
+the point head from the alpha=0.5 quantile to a squared-error objective then
+gained 0.038 on Phase 1 and 0.027 on Phase 3 for no new data at all. The lesson
+is narrow but worth keeping — "the data is the ceiling" was true about the
+distance to 0.70 and false about the distance to the next 0.03, and only the
+second claim was testable in an afternoon. Test the loss function before
+declaring a ceiling.
+
 What actually determines whether a trial finishes on time:
 
 - how many planned sites ever activate, and when
@@ -66,18 +75,25 @@ the available features support.
 
 ## Where the ceiling actually sits
 
-Best after 5× more training data and a hyperparameter search:
+Best after 5× more training data, a hyperparameter search, and an L2 point head,
+all on one temporal fold:
 
 | phase | R² | RMSE (days) |
 |---|---|---|
-| P1 | 0.512 | 236 |
-| P1HV | 0.377 | 139 |
-| P2 | 0.341 | 281 |
-| P3 | 0.336 | 286 |
+| P1 | 0.555 | 226 |
+| P1HV | 0.370 | 140 |
+| P2 | 0.345 | 280 |
+| P3 | 0.372 | 278 |
 
-Both obvious levers are spent. Lifting the API cap moved P3 more than tuning did,
-and tuning converged on a smaller, slower learner with only 3 of 18 trials beating
-the defaults — the signature of a flat space and a modest signal.
+Three levers now spent. Lifting the API cap moved P3 more than tuning did; tuning
+converged on a smaller, slower learner with only 3 of 18 trials beating the
+defaults, which is the signature of a flat space and a modest signal; and the L2
+head took the remainder. None of the three closes even half the gap to 0.70.
+
+P1HV is the one phase where v1's RandomForest still scores higher on R² (0.420
+against 0.370), and it does so for the same reason the L2 head helped elsewhere:
+averaging over trees estimates a mean. It loses on MAE. The two metrics disagree
+on that cohort and the disagreement is real, not a bug.
 
 ## What would actually move it
 

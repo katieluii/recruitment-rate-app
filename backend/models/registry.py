@@ -14,7 +14,8 @@ import joblib
 
 from backend.config import settings
 from backend.constants import PHASES
-from backend.models.quantile_model import QUANTILES, TRANSFORMS
+from backend.models.quantile_model import (POINT_KEY, QUANTILES, TRANSFORMS,
+                                           slot_name)
 
 log = logging.getLogger(__name__)
 
@@ -72,7 +73,12 @@ class LoadedHead:
 
     def predict(self, X):
         import numpy as np
-        return np.maximum(self._floor, self._inv(self.models[0.5].predict(X)))
+        # Prefer the L2 head. R2 is minimised by the conditional mean, and the
+        # alpha=0.5 head fits the median, so serving the median would give away
+        # the gain the L2 head was added for. Falls back to the median for
+        # artifacts trained before the point head existed.
+        head = self.models.get(POINT_KEY, self.models[0.5])
+        return np.maximum(self._floor, self._inv(head.predict(X)))
 
     def predict_interval(self, X):
         import numpy as np
@@ -83,14 +89,23 @@ class LoadedHead:
         return np.minimum(lower, upper), np.maximum(lower, upper)
 
 
+def _load_point(base: Path, prefix: str, models: dict) -> None:
+    """Attach the L2 point head if this artifact has one. Optional by design:
+    artifacts predating it stay loadable and serve from the median."""
+    path = base / f"{prefix}_{POINT_KEY}.pkl"
+    if path.exists():
+        models[POINT_KEY] = joblib.load(path)
+
+
 def _load_stage(base: Path, stage: str, transform: str) -> Optional[LoadedHead]:
     models = {}
     for alpha in QUANTILES:
-        path = base / f"{stage}_q{int(alpha * 100)}.pkl"
+        path = base / f"{stage}_{slot_name(alpha)}.pkl"
         if not path.exists():
             log.warning("Missing %s — stage '%s' unavailable", path, stage)
             return None
         models[alpha] = joblib.load(path)
+    _load_point(base, stage, models)
     return LoadedHead(models, 0.0, transform)
 
 
@@ -108,11 +123,12 @@ def _load_head(base: Path, head: str, meta: dict):
         return LoadedTwoStage(enrol, fu, spec.get("band_scale", 1.0))
     models = {}
     for alpha in QUANTILES:
-        path = base / f"{head}_q{int(alpha * 100)}.pkl"
+        path = base / f"{head}_{slot_name(alpha)}.pkl"
         if not path.exists():
             log.warning("Missing %s — head '%s' unavailable", path, head)
             return None
         models[alpha] = joblib.load(path)
+    _load_point(base, head, models)
     return LoadedHead(models, spec.get("qhat", 0.0), spec.get("transform", "log1p"))
 
 

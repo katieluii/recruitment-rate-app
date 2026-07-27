@@ -25,8 +25,9 @@ import pandas as pd
 from backend.config import settings
 from backend.constants import PHASES
 from backend.data.data_layer import get_raw_dataframe
-from backend.models.quantile_model import (QUANTILES, ConformalQuantileModel,
-                                           TwoStageDuration)
+from backend.models.quantile_model import (POINT_KEY, QUANTILES,
+                                           ConformalQuantileModel,
+                                           TwoStageDuration, slot_name)
 from backend.preprocessing.cleaner import clean
 from backend.preprocessing.pipeline import build_features
 
@@ -207,7 +208,7 @@ async def train_phase(phase_key: str) -> None:
             model.fit(sub, target)
             for stage, sub_model in (("enrolment", model.enrol), ("followup", model.fu)):
                 for alpha, pipe in sub_model.models.items():
-                    joblib.dump(pipe, base / f"{stage}_q{int(alpha * 100)}.pkl")
+                    joblib.dump(pipe, base / f"{stage}_{slot_name(alpha)}.pkl")
             meta["heads"][head] = {
                 "target": target,
                 "kind": "two_stage",
@@ -230,7 +231,7 @@ async def train_phase(phase_key: str) -> None:
         model.fit(sub, target)
 
         for alpha, pipe in model.models.items():
-            joblib.dump(pipe, base / f"{head}_q{int(alpha * 100)}.pkl")
+            joblib.dump(pipe, base / f"{head}_{slot_name(alpha)}.pkl")
 
         meta["heads"][head] = {
             "target": target,
