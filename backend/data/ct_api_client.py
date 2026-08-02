@@ -49,6 +49,39 @@ COMPLETED_STATUSES = ["COMPLETED"]
 ONGOING_STATUSES = ["RECRUITING", "ACTIVE_NOT_RECRUITING", "ENROLLING_BY_INVITATION"]
 
 
+#: CT.gov rate-limits a sustained page walk. Retrying the SAME page with backoff
+#: is the difference between a complete corpus and a silently short one.
+_RETRIES = 6
+_BACKOFF_BASE = 4.0
+_PAGE_PAUSE = 0.5
+
+
+async def _get_with_retry(client: httpx.AsyncClient, params: dict, page: int):
+    """GET one page, retrying transient failures. Raises if all retries fail."""
+    last: Exception | None = None
+    for attempt in range(_RETRIES + 1):
+        if attempt or page:
+            await asyncio.sleep(
+                _PAGE_PAUSE if not attempt else _BACKOFF_BASE * (2 ** (attempt - 1))
+            )
+        try:
+            resp = await client.get(f"{settings.ct_api_base}/studies", params=params)
+            resp.raise_for_status()
+            return resp
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            if status != 429 and status < 500:
+                raise  # a 4xx that backing off will not fix
+            last = exc
+            log.warning("CT.gov HTTP %s on page %d (attempt %d/%d) — backing off",
+                        status, page, attempt + 1, _RETRIES + 1)
+        except httpx.HTTPError as exc:
+            last = exc
+            log.warning("CT.gov error on page %d (attempt %d/%d): %s",
+                        page, attempt + 1, _RETRIES + 1, exc)
+    raise last  # type: ignore[misc]
+
+
 async def fetch_studies(
     phases: list[str],
     # Was 5000, which silently discarded ~88% of the corpus: 17,092 completed
@@ -78,24 +111,29 @@ async def fetch_studies(
         "format": "json",
     }
 
+    params["countTotal"] = "true"
+
     studies: list[dict] = []
+    total_available: int | None = None
     async with httpx.AsyncClient(timeout=60) as client:
         for page in range(settings.ct_api_max_pages):
             try:
-                resp = await client.get(
-                    f"{settings.ct_api_base}/studies",
-                    params=params,
-                )
-                resp.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                body = exc.response.text[:500]
-                log.error("CT.gov API HTTP %s on page %d: %s", exc.response.status_code, page, body)
-                break
+                resp = await _get_with_retry(client, params, page)
             except httpx.HTTPError as exc:
-                log.error("CT.gov API error on page %d: %s", page, exc)
-                break
+                # Fail CLOSED. A mid-pagination error used to `break` and return
+                # whatever had arrived, which the cache then stored as though it
+                # were the whole corpus: one 429 on page 20 of 25 silently cost
+                # 6,196 Phase 1 studies with nothing in the data to show for it.
+                raise RuntimeError(
+                    f"CT.gov pagination failed on page {page} after "
+                    f"{_RETRIES} retries with {len(studies)} studies collected"
+                    f"{'' if total_available is None else f' of {total_available}'}"
+                    f": {exc}. Refusing to return a truncated corpus."
+                ) from exc
 
             data = resp.json()
+            if total_available is None:
+                total_available = data.get("totalCount")
             page_studies = data.get("studies", [])
             studies.extend(page_studies)
             log.info("Page %d: +%d studies (total %d)", page, len(page_studies), len(studies))
@@ -107,7 +145,21 @@ async def fetch_studies(
             if not next_token:
                 break
             params["pageToken"] = next_token
+            # countTotal is a first-request parameter; CT.gov rejects it
+            # alongside a pageToken.
+            params.pop("countTotal", None)
+        else:
+            raise RuntimeError(
+                f"CT.gov pagination hit the {settings.ct_api_max_pages}-page cap "
+                f"with {len(studies)} studies and more still to fetch."
+            )
 
+    if total_available and len(studies) < min(total_available, max_records):
+        raise RuntimeError(
+            f"CT.gov returned {len(studies)} studies but reports "
+            f"{total_available} match the query. Refusing to return a "
+            "truncated corpus."
+        )
     return studies[:max_records]
 
 
@@ -205,6 +257,12 @@ def flatten_study(study: dict) -> dict | None:
     return {
         "nct_id": nct_id,
         "Start Date": start_date,
+        # ACTUAL vs ESTIMATED (docs/OPEN_LEVERS.md §2). A trial whose START date
+        # is still a projection is a different object from one that has begun,
+        # and the field arrives in the same payload either way. Fetched and
+        # discarded until now — the third instance of the field-whose-TYPE-
+        # mattered defect that produced this project's two costliest bugs.
+        "start_date_type": _date_type(status.get("startDateStruct")),
         "Primary Completion Date": primary_date,
         "overall_status": overall_status,
         "is_ongoing": int(is_ongoing),
