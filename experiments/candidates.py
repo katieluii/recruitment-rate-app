@@ -500,3 +500,51 @@ class StratifiedTwoStage:
 
     def routing_report(self, test: pd.DataFrame) -> pd.Series:
         return self._route(test).fillna("(pooled)").value_counts()
+
+
+class HorizonMatched:
+    """TwoStageDuration trained only on trials short enough for the test fold's
+    observation window (docs/OPEN_LEVERS.md §3).
+
+    The corpus holds completed trials, so a test trial that started in 2025 can
+    only appear if it finished inside about a year. Measured on P1: the longest
+    trial in each test start-year sits within ~0.2 years of that year's available
+    horizon, and the model's bias runs from -1.27 months where the horizon is
+    longest to +2.03 months where it is shortest. Training rows face no such cut,
+    so the two folds are drawn from differently-shaped distributions.
+
+    This applies the test fold's selection to the training fold: drop training
+    trials whose duration exceeds `max_years`.
+
+    READ THE RESULT CAREFULLY. Matching removes the long trials from training, so
+    it can raise R2 on a truncated fold while making the deployed model worse at
+    exactly the long trials a planner most needs warning about. A win here is a
+    reason to investigate the metric, not a reason to ship.
+    """
+
+    name = "horizon_matched"
+
+    def __init__(self, phase_key: str, max_years: float = 3.6,
+                 params: dict | None = None):
+        self.phase_key = phase_key
+        self.max_years = max_years
+        self.params = params
+
+    def fit(self, train: pd.DataFrame, target: str = "duration_days"):
+        from backend.models.quantile_model import TwoStageDuration
+
+        keep = train[target].to_numpy(dtype=float) / 365.25 <= self.max_years
+        kept = train[keep].reset_index(drop=True)
+        log.info("%s horizon match at %.1f yr: %d/%d training rows kept (%.1f%%)",
+                 self.phase_key, self.max_years, len(kept), len(train),
+                 100 * len(kept) / max(1, len(train)))
+        self.n_dropped_ = int((~keep).sum())
+        self.inner_ = TwoStageDuration(self.phase_key, params=self.params).fit(
+            kept, target)
+        return self
+
+    def predict(self, test: pd.DataFrame) -> np.ndarray:
+        return self.inner_.predict(test)
+
+    def predict_interval(self, test: pd.DataFrame):
+        return self.inner_.predict_interval(test)

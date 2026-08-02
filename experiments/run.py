@@ -18,9 +18,9 @@ import pandas as pd
 from backend.constants import PHASES
 from experiments import ledger
 from experiments.baselines import ALL_BASELINES, PRIMARY_BASELINE
-from experiments.candidates import (LGBMPoint, LGBMQuantile, ShippedArtifact,
-                                    StratifiedTwoStage, TwoStageDuration,
-                                    V1Recipe)
+from experiments.candidates import (HorizonMatched, LGBMPoint, LGBMQuantile,
+                                    ShippedArtifact, StratifiedTwoStage,
+                                    TwoStageDuration, V1Recipe)
 from experiments.dataset import load_clean
 from experiments.metrics import GATES, check_gates, evaluate, skill_score
 from experiments.splits import check_split_viability, get_split
@@ -84,6 +84,11 @@ CONFIGS = {
         p, clip_policy="weight", clip_weight=0.25), False),
     "l1_weight_050":        (lambda p: TwoStageDuration(
         p, clip_policy="weight", clip_weight=0.5), False),
+    # ── Lever 3: observation-horizon matching (docs/OPEN_LEVERS.md §3) ───────
+    "l3_horizon_2y":        (lambda p: HorizonMatched(p, max_years=2.0), False),
+    "l3_horizon_3y":        (lambda p: HorizonMatched(p, max_years=3.0), False),
+    "l3_horizon_36y":       (lambda p: HorizonMatched(p, max_years=3.6), False),
+    "l3_horizon_5y":        (lambda p: HorizonMatched(p, max_years=5.0), False),
     "v1_shipped":           (lambda p: ShippedArtifact(
         p, artifacts_dir="models/artifacts_v1_baseline"), False),
 }

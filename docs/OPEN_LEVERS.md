@@ -6,7 +6,7 @@ being carried in conversation, which is not a place they survive.
 Ordered by expected value, not by effort. Every one gets a ledger row, and anything
 that does not improve R2 on the temporal fold gets reverted rather than argued for.
 
-**Status:** 1 closed (no gain, 2026-08-03) · 2, 3, 4 open.
+**Status (2026-08-03):** all four resolved. 1 closed, no gain · 2 captured, not a feature · 3 bias confirmed, both fixes rejected, gate question raised for Katie · 4 fixed and tested.
 
 ## 1. The enrolment label is partly fabricated by a constant — CLOSED, no gain
 
@@ -140,7 +140,79 @@ This is the same shape as the two defects that cost the most so far: the
 user supplies an ESTIMATE at design time. Both were a field whose *type* mattered
 and was thrown away. This is the third instance of that pattern.
 
-## 3. Observation-horizon matching
+## 3. Observation-horizon matching — BIAS CONFIRMED, both fixes rejected
+
+**Measured 2026-08-03 on P1. The bias named below is real and larger than "small".
+Neither proposed fix survives. The more important finding is about the GATE, not
+the model — see the last block.**
+
+**The test fold is hard-truncated by observation horizon.** The corpus holds
+completed trials, so a trial appears only if it finished by the data vintage. The
+longest trial in each test start-year sits within ~0.2 years of the horizon that
+year had:
+
+| test start year | n | horizon available | longest trial observed | true median |
+|---|---|---|---|---|
+| 2021 | 836 | 4.93 yr | 5.14 yr | 12.73 mo |
+| 2022 | 788 | 3.97 yr | 4.24 yr | 9.51 mo |
+| 2023 | 606 | 2.97 yr | 3.21 yr | 9.00 mo |
+| 2024 | 490 | 1.95 yr | 2.11 yr | 6.19 mo |
+| 2025 | 272 | 1.06 yr | 1.34 yr | 3.68 mo |
+| 2026 | 19 | 0.27 yr | 0.28 yr | 1.68 mo |
+
+The falling median is an artifact of the window, not a trend in trial duration.
+The model's bias tracks it: −1.27 months where the horizon is longest, +2.03 where
+it is shortest, `corr(horizon, signed error) = −0.135` over 3,011 rows. So the
+model over-predicts precisely where the fold cannot hold a long trial.
+
+**Fix A — a horizon feature — is the excluded calendar feature wearing a hat.**
+`years since start to data vintage` is `−start_date` plus a constant, i.e. a
+monotone transform of start year, which `pipeline.py` excludes by name after
+`primary_completion_year` cost +25 months of bias on P2. It also has no value at
+serve time: a trial being quoted has not started, so its horizon is 0, outside
+every value in training, where a tree is flat. Not tested; it is the known defect.
+
+**Fix B — matching the training fold to the test horizon — is metric-fitting.**
+Dropping training trials longer than the cut does raise R2 on the 2021+ fold, and
+the gain is not a sample-size effect (lever 1's placebo puts a random cut of this
+size at roughly −0.008):
+
+| training cut | rows kept | R2 on 2021+ | MAE |
+|---|---|---|---|
+| none (control) | 5,757 | 0.5549 | 4.99 |
+| ≤ 5.0 yr | 91.1% | **0.6026** | 4.77 |
+| ≤ 3.6 yr | 81.4% | 0.5936 | 4.79 |
+| ≤ 3.0 yr | 76.1% | 0.5609 | 4.89 |
+| ≤ 2.0 yr | 63.5% | 0.3710 | 5.58 |
+
+Scored on a fold that is NOT truncated, it reverses. Training on starts before
+2018, then scoring the same two models on an untruncated fold (2018–2020 starts,
+horizon 5.4–8.6 years against a corpus whose p95 duration is 5.9) and on the
+truncated one:
+
+| training set | untruncated fold R2 | truncated fold R2 |
+|---|---|---|
+| full | 0.6334 | 0.4883 |
+| matched ≤5 yr | 0.5528 | 0.5636 |
+| **change from matching** | **−0.0806** | **+0.0753** |
+
+Equal and opposite. Matching also drives bias on the untruncated fold from −2.14
+to −4.50 months: it makes the model worse, by 4.5 months, at exactly the long
+trials a planner most needs warning about, and is paid for that in R2 by a fold
+that structurally cannot contain them. Rejected.
+
+**What this says about the gate — for Katie, not for me to change.** The 0.70 R2
+bar is computed on the 2021+ fold, whose target is truncated by observation
+horizon, and that fold rewards under-prediction. It ranked these two models in
+opposite directions from an honest fold, by 0.16 R2. Any future lever that shortens
+predictions will collect a gain here that it has not earned. Two options, both
+cheap: score the gate on a horizon-adequate window (train <2018 / test 2018–2020,
+which costs 3,011 test rows and buys an uncapped target), or keep the current fold
+and report bias-by-start-year beside R2 so truncation-fitting is visible when it
+happens. `experiments/horizon_bias.py` and `experiments/horizon_disproof.py`
+produce both tables.
+
+### Original hypothesis (2026-08-02)
 
 The corpus is completed trials only, so every row survived long enough to finish.
 IPCW corrects the duration target for this, but the FEATURES are never matched on
