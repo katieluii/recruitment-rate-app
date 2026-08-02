@@ -179,7 +179,38 @@ def clean(df: pd.DataFrame, phase_key: str, censored: bool = False) -> pd.DataFr
 MIN_ENROL_FRACTION = 0.25
 
 
-def recruiting_months(df: pd.DataFrame) -> pd.Series:
+def _followup_months(df: pd.DataFrame) -> pd.Series:
+    """Estimated follow-up in months, imputed the same way for every caller.
+
+    Split out of `recruiting_months` so that `clipped_by_floor` can ask which
+    rows the floor is about to fabricate WITHOUT re-deriving the imputation and
+    letting two copies of it drift.
+    """
+    from backend.preprocessing.endpoints import add_endpoint_features
+
+    if "endpoint_archetype" not in df.columns:
+        df = add_endpoint_features(df.copy())
+
+    fu = df.get("followup_months", pd.Series([np.nan] * len(df), index=df.index))
+    by_arch = df.groupby("endpoint_archetype")["followup_months"].median()
+    fu = fu.fillna(df["endpoint_archetype"].map(by_arch))
+    return fu.fillna(fu.median()).fillna(0.0)
+
+
+def clipped_by_floor(df: pd.DataFrame, min_fraction: float | None = None) -> pd.Series:
+    """Boolean mask: rows whose recruiting window is SET BY the floor constant.
+
+    For these rows `total - followup` fell below `min_fraction * total`, so the
+    enrolment-stage target is not a measurement — it is `min_fraction x duration`.
+    Used to drop or down-weight them rather than to fit against a constant.
+    """
+    frac = MIN_ENROL_FRACTION if min_fraction is None else min_fraction
+    total = df["duration_days"] / 30.44
+    return (total - _followup_months(df)) < (frac * total)
+
+
+def recruiting_months(df: pd.DataFrame,
+                      min_fraction: float | None = None) -> pd.Series:
     """Months actually spent recruiting: total duration minus follow-up.
 
     THE single definition of the denominator — `recruitment_grid` imports this
@@ -196,18 +227,14 @@ def recruiting_months(df: pd.DataFrame) -> pd.Series:
     Follow-up comes from the parsed primary-outcome time frame, and where that
     will not parse (about half of trials) from the median for that endpoint
     archetype — survival endpoints carry long follow-up, PK endpoints almost none.
+
+    `min_fraction` overrides the floor for a single caller (the sweep in
+    `experiments/`); production leaves it None so the module constant governs.
     """
-    from backend.preprocessing.endpoints import add_endpoint_features
-
-    if "endpoint_archetype" not in df.columns:
-        df = add_endpoint_features(df.copy())
-
+    frac = MIN_ENROL_FRACTION if min_fraction is None else min_fraction
     total = df["duration_days"] / 30.44
-    fu = df.get("followup_months", pd.Series([np.nan] * len(df), index=df.index))
-    by_arch = df.groupby("endpoint_archetype")["followup_months"].median()
-    fu = fu.fillna(df["endpoint_archetype"].map(by_arch))
-    fu = fu.fillna(fu.median()).fillna(0.0)
-    return (total - fu).clip(lower=MIN_ENROL_FRACTION * total)
+    fu = _followup_months(df)
+    return (total - fu).clip(lower=frac * total)
 
 
 def compute_recruitment_rate(df: pd.DataFrame) -> pd.DataFrame:

@@ -1,12 +1,67 @@
 # Untested levers
 
-Four things that have never been tried or measured. Written down because they were
+Four things that had never been tried or measured. Written down because they were
 being carried in conversation, which is not a place they survive.
 
 Ordered by expected value, not by effort. Every one gets a ledger row, and anything
 that does not improve R2 on the temporal fold gets reverted rather than argued for.
 
-## 1. The enrolment label is partly fabricated by a constant
+**Status:** 1 closed (no gain, 2026-08-03) · 2, 3, 4 open.
+
+## 1. The enrolment label is partly fabricated by a constant — CLOSED, no gain
+
+**Measured 2026-08-03 on P1 (temporal, cutoff 2021-01-01). Every intervention lost.
+The floor stays at 0.25.** Ledger rows `l1_*`; the section below is the original
+hypothesis, kept because the reasoning in it was sound and the result was not
+predictable from it.
+
+| config | R2 | MAE (mo) |
+|---|---|---|
+| `two_stage_l2` — the 0.25 floor, kept (control) | **0.5549** | 4.99 |
+| `l1_frac_025` — same thing via the new parameter | 0.5549 | 4.99 |
+| sweep 0.0 / 0.1 / 0.4 | 0.5504 / 0.5519 / 0.5460 | 4.97 / 4.97 / 5.05 |
+| drop clipped rows, enrolment head | 0.4111 | 5.76 |
+| drop clipped rows, both heads | 0.3106 | 6.10 |
+| down-weight clipped 0.1 / 0.25 / 0.5 | 0.4585 / 0.4977 / 0.5269 | 5.53 / 5.31 / 5.14 |
+
+Three findings, in the order they change the conclusion:
+
+**The floor cannot move the duration label. It only moves the split.** The two
+components are `enrol = clip(total - fu)` and `fu = total - enrol`, so they sum to
+`total` by construction — verified at max error 1e-14 across fractions 0.0 to 0.9.
+The sweep is therefore not a test of label correctness at all: whatever the floor
+does, the thing the model is scored on is unchanged, and the only way R2 can move
+is through how learnable each half becomes. That is why the whole sweep spans
+0.009 R2. No fraction was ever going to win, and this is the reason.
+
+**The clipped rows carry MORE signal than an average row, not less.** Dropping them
+cost 0.144 R2. A placebo dropping an equally large RANDOM slice (two seeds) cost
+0.016 and 0.013 — about a tenth as much. So the loss is the rows themselves, not
+the 18% sample-size cut, and the doc's own decision rule ("if it falls, those rows
+were carrying signal") fires. Down-weighting reproduces this monotonically: R2
+rises with the weight all the way to 1.0, i.e. the optimum is to leave them alone.
+
+**Why: the clip fires on SHORT trials, not the long-follow-up ones assumed below.**
+On P1 the clipped rows have a median total duration of 4.3 months against 12.3 for
+the rest, and a median follow-up estimate of 4.0 against 1.1 — the follow-up
+estimate swallows the whole span, leaving a raw window of −0.1 months. Removing
+them removes the fast end of the distribution, which is a systematic slice, which
+is why it costs an order of magnitude more than a random cut of the same size.
+
+The area-level claim below does survive: Oncology (23.2% clipped) and Haematology
+(22.0%) are hit two to three times harder than Urology (4.0%) or Immunology (6.6%).
+Both facts are true at once — the clipped set is bimodal.
+
+**What is NOT closed.** The component split is still partly fabricated for one row
+in six, and `predict_components` surfaces it as a planning output ("months to last
+patient in"). That defect is real, it is simply invisible to a duration-R2 gate,
+and it cannot be scored — the true split is exactly the quantity the registry does
+not publish. Do not re-test it against R2; it will keep coming back flat.
+
+Measured share on the floor, this corpus: P1 18.3%, P1HV 9.1%, 15.2% before the
+HV split — which reconciles with the 15.9% recorded below.
+
+### Original hypothesis (2026-08-02)
 
 `cleaner.py:210` derives the recruiting window as `total - followup`, then clips it:
 

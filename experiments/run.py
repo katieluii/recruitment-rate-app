@@ -52,6 +52,38 @@ CONFIGS = {
     "two_stage_l2":         (lambda p: TwoStageDuration(p, point_objective="l2"), False),
     "two_stage_text":       (lambda p: TwoStageDuration(
         p, country_mix=False, criteria_text=True), False),
+    # ── Lever 1: the MIN_ENROL_FRACTION floor (docs/OPEN_LEVERS.md §1) ────────
+    # ~1 training row in 6 has its enrolment target set by the constant 0.25
+    # rather than by data. Three tests, each its own ledger row.
+    # (a) drop the clipped rows from the enrolment head
+    "l1_drop_clipped":      (lambda p: TwoStageDuration(
+        p, clip_policy="drop"), False),
+    "l1_drop_clipped_both": (lambda p: TwoStageDuration(
+        p, clip_policy="drop", clip_scope="both"), False),
+    # placebo for (a): drop an equally large RANDOM slice, so the sample-size
+    # cost of dropping can be separated from the clip's own contribution
+    "l1_drop_random":       (lambda p: TwoStageDuration(
+        p, clip_policy="drop_random", clip_seed=42), False),
+    "l1_drop_random_s7":    (lambda p: TwoStageDuration(
+        p, clip_policy="drop_random", clip_seed=7), False),
+    "l1_drop_random_both":  (lambda p: TwoStageDuration(
+        p, clip_policy="drop_random", clip_scope="both", clip_seed=42), False),
+    # (b) sweep the floor
+    "l1_frac_000":          (lambda p: TwoStageDuration(
+        p, min_enrol_fraction=0.0), False),
+    "l1_frac_010":          (lambda p: TwoStageDuration(
+        p, min_enrol_fraction=0.1), False),
+    "l1_frac_025":          (lambda p: TwoStageDuration(
+        p, min_enrol_fraction=0.25), False),
+    "l1_frac_040":          (lambda p: TwoStageDuration(
+        p, min_enrol_fraction=0.4), False),
+    # (c) down-weight instead of dropping
+    "l1_weight_010":        (lambda p: TwoStageDuration(
+        p, clip_policy="weight", clip_weight=0.1), False),
+    "l1_weight_025":        (lambda p: TwoStageDuration(
+        p, clip_policy="weight", clip_weight=0.25), False),
+    "l1_weight_050":        (lambda p: TwoStageDuration(
+        p, clip_policy="weight", clip_weight=0.5), False),
     "v1_shipped":           (lambda p: ShippedArtifact(
         p, artifacts_dir="models/artifacts_v1_baseline"), False),
 }

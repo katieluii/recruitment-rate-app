@@ -207,13 +207,21 @@ class ConformalQuantileModel:
                  100 * (1 - frame["event_observed"].mean()))
         return w
 
-    def fit(self, train: pd.DataFrame, target: str):
-        train = train[train[target].notna()].reset_index(drop=True)
+    def fit(self, train: pd.DataFrame, target: str,
+            sample_weight: np.ndarray | None = None):
+        """`sample_weight` is per-row and aligned to `train` BEFORE the NaN-target
+        filter; it multiplies the IPCW weights rather than replacing them."""
+        keep = train[target].notna().to_numpy()
+        train = train[keep].reset_index(drop=True)
+        if sample_weight is not None:
+            sample_weight = np.asarray(sample_weight, dtype=float)[keep]
         X = build_features(train, self.phase_key)
         y = self._fwd(train[target].to_numpy(dtype=float))
 
         w = self._ipcw_weights(train, target)
         self.ipcw_applied_ = w is not None
+        if sample_weight is not None:
+            w = sample_weight if w is None else w * sample_weight
 
         self.qhat_ = 0.0
         if not self.conformal or len(y) < 100:
@@ -292,10 +300,30 @@ class TwoStageDuration:
                  calib_frac: float = 0.2, coverage: float = 0.80,
                  censoring_frame: pd.DataFrame | None = None,
                  country_mix: bool = False, criteria_text: bool = False,
-                 point_objective: str = "l2"):
+                 point_objective: str = "l2",
+                 min_enrol_fraction: float | None = None,
+                 clip_policy: str = "keep", clip_weight: float = 0.25,
+                 clip_scope: str = "enrol", clip_seed: int = 42):
+        if clip_policy not in ("keep", "drop", "weight", "drop_random"):
+            raise ValueError(f"Unknown clip_policy {clip_policy!r}")
+        if clip_scope not in ("enrol", "both"):
+            raise ValueError(f"Unknown clip_scope {clip_scope!r}")
         self.phase_key = phase_key
         self.coverage = coverage
         self.calib_frac = calib_frac
+        # For ~1 row in 6 the enrolment target is the floor constant rather than
+        # a measurement (docs/OPEN_LEVERS.md §1). `clip_policy` decides what to
+        # do about it: fit on it anyway, drop it, or down-weight it. The floor
+        # itself is swept via `min_enrol_fraction`.
+        self.min_enrol_fraction = min_enrol_fraction
+        self.clip_policy = clip_policy
+        self.clip_weight = clip_weight
+        self.clip_scope = clip_scope
+        # 'drop_random' is the PLACEBO for 'drop': it removes an equally large
+        # random slice instead of the clipped one. Without it, "dropping the
+        # clipped rows costs R2" cannot be told apart from "dropping 18% of any
+        # rows costs R2", and the second explanation needs no defect at all.
+        self.clip_seed = clip_seed
         # Each stage fits its own 0.1/0.5/0.9 quantiles; the composite band is
         # assembled from both spreads and scaled once to hit nominal coverage.
         self.enrol = ConformalQuantileModel(
@@ -310,13 +338,18 @@ class TwoStageDuration:
             point_objective=point_objective)
         self.scale_ = 1.0
 
-    @staticmethod
-    def _components(df: pd.DataFrame):
+    def _components(self, df: pd.DataFrame):
         from backend.preprocessing.cleaner import recruiting_months
 
         total = df["duration_days"] / 30.44
-        enrol = recruiting_months(df)
+        enrol = recruiting_months(df, min_fraction=self.min_enrol_fraction)
         return enrol, (total - enrol).clip(lower=0.0)
+
+    def _clipped(self, df: pd.DataFrame) -> np.ndarray:
+        from backend.preprocessing.cleaner import clipped_by_floor
+
+        return clipped_by_floor(
+            df, min_fraction=self.min_enrol_fraction).to_numpy(dtype=bool)
 
     def _raw_band(self, test: pd.DataFrame):
         """Point estimate and one-sided half-widths, before scaling.
@@ -349,8 +382,42 @@ class TwoStageDuration:
         cal_idx, tr_idx = order[-n_cal:], order[:-n_cal]
 
         tr = train.iloc[tr_idx].reset_index(drop=True)
-        self.enrol.fit(tr.assign(_t=enrol.iloc[tr_idx].to_numpy() * 30.44), "_t")
-        self.fu.fit(tr.assign(_t=fu.iloc[tr_idx].to_numpy() * 30.44), "_t")
+        e_frame = tr.assign(_t=enrol.iloc[tr_idx].to_numpy() * 30.44)
+        f_frame = tr.assign(_t=fu.iloc[tr_idx].to_numpy() * 30.44)
+
+        # Rows whose enrolment target is the floor constant, not a measurement.
+        clipped = self._clipped(train)[tr_idx]
+        self.n_clipped_train_ = int(clipped.sum())
+        self.clipped_share_ = float(clipped.mean()) if len(clipped) else 0.0
+
+        e_w = f_w = None
+        if self.clip_policy in ("drop", "drop_random"):
+            if self.clip_policy == "drop":
+                keep = ~clipped
+            else:
+                rng = np.random.default_rng(self.clip_seed)
+                keep = np.ones(len(clipped), dtype=bool)
+                keep[rng.choice(len(clipped), size=int(clipped.sum()),
+                                replace=False)] = False
+            e_frame = e_frame[keep].reset_index(drop=True)
+            if self.clip_scope == "both":
+                f_frame = f_frame[keep].reset_index(drop=True)
+        elif self.clip_policy == "weight":
+            e_w = np.where(clipped, self.clip_weight, 1.0)
+            if self.clip_scope == "both":
+                f_w = e_w
+        if self.clip_policy != "keep":
+            from backend.preprocessing.cleaner import MIN_ENROL_FRACTION
+
+            frac = (MIN_ENROL_FRACTION if self.min_enrol_fraction is None
+                    else self.min_enrol_fraction)
+            log.info("%s clip_policy=%s scope=%s: %d/%d training rows (%.1f%%) "
+                     "sit on the %.2f floor", self.phase_key, self.clip_policy,
+                     self.clip_scope, self.n_clipped_train_, len(clipped),
+                     100 * self.clipped_share_, frac)
+
+        self.enrol.fit(e_frame, "_t", sample_weight=e_w)
+        self.fu.fit(f_frame, "_t", sample_weight=f_w)
 
         cal = train.iloc[cal_idx].reset_index(drop=True)
         y = cal[target].to_numpy(dtype=float)
