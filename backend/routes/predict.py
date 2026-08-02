@@ -12,6 +12,15 @@ router = APIRouter(tags=["predict"])
 
 
 class PredictRequest(BaseModel):
+    # Reject unknown fields instead of dropping them. A request sending
+    # `site_count` rather than `num_sites` used to return HTTP 200 with a
+    # prediction made without any site count, which is indistinguishable from a
+    # correct answer: a local-vs-deployed comparison sent the wrong name and
+    # appeared to show a stale deployment, off by up to 3.7 months across three
+    # phases, when the deployment was current. A 422 costs one debugging minute;
+    # a silent default cost an afternoon.
+    model_config = {"extra": "forbid"}
+
     phase: str = Field(..., examples=["P2"])
     therapeutic_area: str = Field(..., examples=["Oncology/Solid Tumours"])
     enrollment: Optional[int] = Field(None, ge=1, le=50000)

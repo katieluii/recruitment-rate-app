@@ -91,7 +91,45 @@ What to test, cheapest first:
 - Sweep MIN_ENROL_FRACTION across 0.0 / 0.1 / 0.25 / 0.4 and read the R2 curve.
 - Weight clipped rows down rather than dropping them.
 
-## 2. `startDateStruct.type` is fetched and discarded
+## 2. `startDateStruct.type` is fetched and discarded — CAPTURED, not a feature
+
+**Measured 2026-08-03. The field is now captured (`start_date_type`), and must NOT
+be wired as a model feature. It does not carry the distinction the section below
+assumes.**
+
+A completed trial has, by definition, started, so the completed corpus never holds
+an ESTIMATED start date. The values it actually takes are ACTUAL and UNKNOWN — the
+latter meaning the registry record omits the `type` key, which is a
+record-completeness marker, not a has-it-begun marker:
+
+| frame | ACTUAL | ESTIMATED | UNKNOWN |
+|---|---|---|---|
+| P1 raw completed studies | 13,351 | 0 | 10,114 |
+| P1 modelling frame, after cleaning | 8,730 | 0 | 38 |
+| P1 temporal TRAIN fold (pre-2021) | 5,719 | 0 | 38 |
+| P1 temporal TEST fold (2021+) | 3,011 | 0 | **0** |
+
+The feature is constant across the entire test fold, so it cannot change a single
+scored prediction; in training it is 0.66% non-constant. Note also the attrition:
+of 10,114 raw UNKNOWN-start records only 38 survive cleaning, so the field is
+largely a marker for records the cleaner already excludes.
+
+Wiring it anyway would ADD an instance of the defect pattern rather than close one.
+The column is ~constant in training and would take its value at serve time from a
+user whose trial has not started — a field meaning one thing in training and
+another in deployment, which is the exact shape of the `site_count` and enrolment
+bugs.
+
+**Where the premise does hold, checked:** the ONGOING cohort has 150 ESTIMATED-start
+trials (all RECRUITING or ENROLLING_BY_INVITATION — a trial recruiting before its
+start date is registry noise in its own right). 69 reach the censoring frame, 1.7%
+of its 4,015 censored rows, where elapsed-time-so-far is measured from a projected
+start. Checked for the failure that would matter: none are future-dated and none
+produce a negative or zero elapsed time (min 3 days). No correction needed today;
+the reason it is harmless is that the projections have all since passed, which is
+a property of the vintage rather than of the code.
+
+### Original hypothesis (2026-08-02)
 
 `ct_api_client.py:173` parses `startDateStruct` for its date and drops the `type`
 field, which is ACTUAL or ESTIMATED. A trial whose start date is still an estimate
