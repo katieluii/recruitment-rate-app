@@ -156,9 +156,17 @@ def load(phase_key: str, force: bool = False) -> Optional[dict]:
     priors_path = base / "site_priors.json"
     site_priors = json.loads(priors_path.read_text()) if priors_path.exists() else {}
 
+    # Most common primary-endpoint COMBINATIONS per therapeutic area. Absent on
+    # artifacts built before 2026-08-03; the route reports the gap rather than
+    # inventing a profile, so an un-regenerated phase is visible instead of silent.
+    profiles_path = base / "endpoint_profiles.json"
+    endpoint_profiles = (json.loads(profiles_path.read_text())
+                         if profiles_path.exists() else {})
+
     entry = {
         "heads": heads,
         "site_priors": site_priors,
+        "endpoint_profiles": endpoint_profiles,
         "rmse": meta.get("rmse", 0.0),
         "n_train": meta.get("n_train", 0),
         "analytics": analytics,

@@ -1,0 +1,134 @@
+{
+  "_phase": [
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 2135,
+      "share": 0.52,
+      "median_months": 2.4
+    },
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 899,
+      "share": 0.219,
+      "median_months": 8.3
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 364,
+      "share": 0.089,
+      "median_months": 3.1
+    }
+  ],
+  "Gastroenterology": [
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 55,
+      "share": 0.797,
+      "median_months": 8.6
+    },
+    {
+      "archetypes": [
+        "SAFETY",
+        "PK_PD"
+      ],
+      "label": "SAFETY + PK_PD",
+      "n": 7,
+      "share": 0.101,
+      "median_months": 8.4
+    },
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 4,
+      "share": 0.058,
+      "median_months": 26.6
+    }
+  ],
+  "Metabolic": [
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 39,
+      "share": 0.406,
+      "median_months": 5.6
+    },
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 32,
+      "share": 0.333,
+      "median_months": 7.7
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 8,
+      "share": 0.083,
+      "median_months": 6.8
+    }
+  ],
+  "Urology/Male": [
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 24,
+      "share": 0.8,
+      "median_months": 9.5
+    },
+    {
+      "archetypes": [
+        "SAFETY",
+        "PK_PD"
+      ],
+      "label": "SAFETY + PK_PD",
+      "n": 6,
+      "share": 0.2,
+      "median_months": 6.1
+    }
+  ],
+  "Other": [
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 2119,
+      "share": 0.521,
+      "median_months": 2.4
+    },
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 891,
+      "share": 0.219,
+      "median_months": 8.3
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 360,
+      "share": 0.088,
+      "median_months": 3.0
+    }
+  ]
+}

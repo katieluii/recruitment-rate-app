@@ -1,0 +1,508 @@
+{
+  "_phase": [
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 3312,
+      "share": 0.378,
+      "median_months": 19.5
+    },
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 2414,
+      "share": 0.275,
+      "median_months": 3.5
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 780,
+      "share": 0.089,
+      "median_months": 7.8
+    }
+  ],
+  "Cardiovascular": [
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 144,
+      "share": 0.475,
+      "median_months": 2.1
+    },
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 66,
+      "share": 0.218,
+      "median_months": 13.3
+    },
+    {
+      "archetypes": [
+        "SAFETY",
+        "PK_PD"
+      ],
+      "label": "SAFETY + PK_PD",
+      "n": 20,
+      "share": 0.066,
+      "median_months": 3.4
+    }
+  ],
+  "CNS/Neurology": [
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 220,
+      "share": 0.333,
+      "median_months": 13.4
+    },
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 195,
+      "share": 0.295,
+      "median_months": 3.2
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 70,
+      "share": 0.106,
+      "median_months": 8.4
+    }
+  ],
+  "Chemically-Induced Disorders": [
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 15,
+      "share": 0.341,
+      "median_months": 2.5
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 9,
+      "share": 0.205,
+      "median_months": 8.3
+    },
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 6,
+      "share": 0.136,
+      "median_months": 13.6
+    }
+  ],
+  "Congenital/Hereditary/Rare Diseases": [
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 25,
+      "share": 0.595,
+      "median_months": 19.6
+    },
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 5,
+      "share": 0.119,
+      "median_months": 5.3
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 5,
+      "share": 0.119,
+      "median_months": 8.3
+    }
+  ],
+  "Dermatology/Connective Tissue Diseases": [
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 115,
+      "share": 0.377,
+      "median_months": 12.3
+    },
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 66,
+      "share": 0.216,
+      "median_months": 4.4
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 44,
+      "share": 0.144,
+      "median_months": 5.2
+    }
+  ],
+  "Endocrinology": [
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 23,
+      "share": 0.489,
+      "median_months": 2.6
+    },
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 10,
+      "share": 0.213,
+      "median_months": 11.9
+    },
+    {
+      "archetypes": [
+        "SAFETY",
+        "PK_PD"
+      ],
+      "label": "SAFETY + PK_PD",
+      "n": 4,
+      "share": 0.085,
+      "median_months": 4.1
+    }
+  ],
+  "Gastroenterology": [
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 207,
+      "share": 0.528,
+      "median_months": 7.4
+    },
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 87,
+      "share": 0.222,
+      "median_months": 15.4
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 31,
+      "share": 0.079,
+      "median_months": 9.3
+    }
+  ],
+  "Haematology": [
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 314,
+      "share": 0.488,
+      "median_months": 34.0
+    },
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 89,
+      "share": 0.138,
+      "median_months": 8.6
+    },
+    {
+      "archetypes": [
+        "RESPONSE",
+        "SAFETY"
+      ],
+      "label": "RESPONSE + SAFETY",
+      "n": 86,
+      "share": 0.134,
+      "median_months": 47.0
+    }
+  ],
+  "Immunology": [
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 108,
+      "share": 0.37,
+      "median_months": 12.5
+    },
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 92,
+      "share": 0.315,
+      "median_months": 3.5
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 21,
+      "share": 0.072,
+      "median_months": 5.7
+    }
+  ],
+  "Infectious Diseases": [
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 379,
+      "share": 0.42,
+      "median_months": 9.1
+    },
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 188,
+      "share": 0.208,
+      "median_months": 3.0
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 88,
+      "share": 0.098,
+      "median_months": 5.4
+    }
+  ],
+  "Metabolic": [
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 316,
+      "share": 0.404,
+      "median_months": 2.4
+    },
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 228,
+      "share": 0.291,
+      "median_months": 10.7
+    },
+    {
+      "archetypes": [
+        "BIOMARKER"
+      ],
+      "label": "BIOMARKER",
+      "n": 68,
+      "share": 0.087,
+      "median_months": 9.2
+    }
+  ],
+  "Oncology/Solid Tumours": [
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 1087,
+      "share": 0.511,
+      "median_months": 33.7
+    },
+    {
+      "archetypes": [
+        "RESPONSE",
+        "SAFETY"
+      ],
+      "label": "RESPONSE + SAFETY",
+      "n": 270,
+      "share": 0.127,
+      "median_months": 44.9
+    },
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 269,
+      "share": 0.126,
+      "median_months": 8.0
+    }
+  ],
+  "Ophthalmology": [
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 67,
+      "share": 0.504,
+      "median_months": 15.3
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 15,
+      "share": 0.113,
+      "median_months": 10.1
+    },
+    {
+      "archetypes": [
+        "BIOMARKER"
+      ],
+      "label": "BIOMARKER",
+      "n": 10,
+      "share": 0.075,
+      "median_months": 8.6
+    }
+  ],
+  "Respiratory": [
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 143,
+      "share": 0.369,
+      "median_months": 12.3
+    },
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 116,
+      "share": 0.299,
+      "median_months": 2.7
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 40,
+      "share": 0.103,
+      "median_months": 7.1
+    }
+  ],
+  "Rheumatology": [
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 33,
+      "share": 0.367,
+      "median_months": 13.3
+    },
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 21,
+      "share": 0.233,
+      "median_months": 2.4
+    },
+    {
+      "archetypes": [
+        "BIOMARKER",
+        "SAFETY"
+      ],
+      "label": "BIOMARKER + SAFETY",
+      "n": 7,
+      "share": 0.078,
+      "median_months": 11.2
+    }
+  ],
+  "Urology/Male": [
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 103,
+      "share": 0.71,
+      "median_months": 7.1
+    },
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 16,
+      "share": 0.11,
+      "median_months": 9.7
+    },
+    {
+      "archetypes": [
+        "SAFETY",
+        "PK_PD"
+      ],
+      "label": "SAFETY + PK_PD",
+      "n": 13,
+      "share": 0.09,
+      "median_months": 13.3
+    }
+  ],
+  "Other": [
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 774,
+      "share": 0.331,
+      "median_months": 14.3
+    },
+    {
+      "archetypes": [
+        "PK_PD"
+      ],
+      "label": "PK_PD",
+      "n": 772,
+      "share": 0.33,
+      "median_months": 2.9
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 283,
+      "share": 0.121,
+      "median_months": 6.0
+    }
+  ]
+}

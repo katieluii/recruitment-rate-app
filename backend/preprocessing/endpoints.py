@@ -52,7 +52,16 @@ _RULES: list[tuple[str, re.Pattern]] = [
         r"\b(major adverse cardiac|major adverse cardiovascular|\bmace\b|"
         r"composite (?:end ?point|outcome)|"
         r"all[- ]cause mortality|cardiovascular death|hospitali[sz]ation for|"
-        r"time to first (?:event|occurrence)|incidence of .{0,40}(?:events?|episodes?))", re.I)),
+        r"time to first (?:event|occurrence)|"
+        # "incidence of X events" is a composite ONLY when X is not an adverse
+        # event. Without the lookahead this clause swallowed "incidence of
+        # treatment-emergent adverse events", the single most common safety
+        # phrasing in the registry, and EVENT_COMPOSITE is evaluated before
+        # SAFETY — so 893 of 1,006 EVENT_COMPOSITE trials were safety trials,
+        # 100% of them on Phase 1. Measured 2026-08-03.
+        r"incidence of (?!.{0,40}(?:adverse|\bAEs?\b|\bTEAEs?\b|\bSAEs?\b|"
+        r"toxicit|reactions?))"
+        r".{0,40}(?:events?|episodes?))", re.I)),
 
     ("EVENT_RATE", re.compile(
         r"\b(annuali[sz]ed .{0,25}rate|annual .{0,20}rate|"

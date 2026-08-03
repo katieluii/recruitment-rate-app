@@ -263,6 +263,11 @@ async def train_phase(phase_key: str) -> None:
     from backend.analytics.site_rates import build_priors
     (base / "site_priors.json").write_text(json.dumps(build_priors(df)))
 
+    # Endpoint combinations, same reasoning: derived from the corpus, and the
+    # deployed app has no corpus.
+    from backend.analytics.endpoint_profiles import build_profiles
+    (base / "endpoint_profiles.json").write_text(json.dumps(build_profiles(df)))
+
     log.info("Saved %s metadata (%d rows)", phase_key, len(df))
 
 
