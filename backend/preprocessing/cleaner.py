@@ -9,11 +9,35 @@ log = logging.getLogger(__name__)
 
 
 def parse_dates(df: pd.DataFrame, require_completion: bool = True) -> pd.DataFrame:
+    """Parse the registry's two date columns, then drop rows missing either.
+
+    `format="ISO8601"` is load-bearing, not decoration. CT.gov publishes BOTH
+    precisions — "2015-10" for older records and "2022-10-21" for newer ones —
+    and pandas infers a single format from the first non-null value, then
+    coerces everything that does not match it to NaT. The `dropna` below then
+    deletes those rows without a word.
+
+    Which half died depended on the order the API happened to return, so it was
+    not even stable between fetches: measured 2026-08-04, this silently discarded
+    44.9% of P1, 51.7% of P2 and 46.6% of P3 — the OLDER trials in P1 and P2
+    (first value full-precision) and the NEWER ones in P3 (first value
+    year-month), which left P3 with no post-2017 starts at all and an empty
+    temporal test fold. ISO8601 accepts reduced precision and recovers 100%.
+    """
     for col in ["Start Date", "Primary Completion Date"]:
-        df[col] = pd.to_datetime(df[col], errors="coerce")
+        parsed = pd.to_datetime(df[col], format="ISO8601", errors="coerce")
+        lost = int(parsed.isna().sum() - df[col].isna().sum())
+        if lost > 0:
+            log.warning("%s: %d values would not parse as ISO8601", col, lost)
+        df[col] = parsed
+
     subset = ["Start Date", "Primary Completion Date"] if require_completion else ["Start Date"]
+    before = len(df)
     df.dropna(subset=subset, inplace=True)
     df.reset_index(drop=True, inplace=True)
+    if before:
+        log.info("parse_dates: kept %d of %d rows (%.1f%%)",
+                 len(df), before, 100 * len(df) / before)
     return df
 
 
