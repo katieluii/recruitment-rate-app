@@ -14,3 +14,7 @@ scipy==1.13.0
 openpyxl==3.1.2
 lightgbm==4.6.0
 pyarrow==21.0.0
+# Reverse Kaplan-Meier for the IPCW censoring weights in trainer/quantile_model.
+# Serving never reaches it, which is why its absence stayed invisible until a
+# retrain was attempted on a clean checkout and died in _ipcw_weights.
+lifelines==0.27.8
