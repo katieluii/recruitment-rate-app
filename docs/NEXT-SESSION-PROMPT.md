@@ -1,49 +1,63 @@
 # Next-session prompt — WSi recruitment/duration predictor
 
-**Superseded 2026-08-03.** The prompt this file used to hold pointed at four open
-levers in `docs/OPEN_LEVERS.md` and told the next session to start with lever 1.
-All four are now resolved and none of them raised R2. Pasting the old text would
-send a session to redo finished work, so it is gone rather than kept below.
-
-Start a session from `~/Projects/ws_professional/recruitment_rate_app` and paste
-the block below.
+Start a session from `~/Projects/ws_professional/recruitment_rate_app` and paste the
+block below. Last updated 2026-08-05.
 
 ---
 
-Read `AI_STATE.md` first, then `docs/OPEN_LEVERS.md` for the detail behind it.
-Both were written on 2026-08-03 and the numbers in them are measured — treat them
-as findings, not as claims to re-derive.
+Read `AI_STATE.md` first, then `docs/OPEN_LEVERS.md` for the detail behind it. The
+numbers in both are measured — treat them as findings, not as claims to re-derive.
 
-Where things stand: v3.1 is live on Railway with an L2 point head, R2 is
-0.555 / 0.370 / 0.345 / 0.372 for P1 / P1HV / P2 / P3 against a 0.70 gate that
-still fails everywhere, and all four levers in OPEN_LEVERS.md are closed. Three
-were rejected on measurement; the fourth was a correctness fix and shipped to the
-repo but not to Railway.
+Where things stand: the app is live on Railway and verified serving the current
+models. All four levers in OPEN_LEVERS.md are closed. Two things changed underneath
+everything on 2026-08-04, and both matter more than any individual result:
 
-The blocking item is not a model change. It is a decision about the GATE, written
-up at the end of OPEN_LEVERS.md §3: the 0.70 R2 bar is computed on the 2021+ fold,
-whose target is truncated by observation horizon, and that fold rewards
-under-prediction. Horizon-matched training was shown to gain +0.075 R2 there while
-losing -0.081 on an honest fold. Until that is settled, any new lever's R2 number
-is hard to interpret, so settle it before running more experiments.
+**The corpus was roughly half its true size until then.** `parse_dates` parsed a
+column holding both `2015-10` and `2022-10-21` without specifying a format; pandas
+inferred one from the first value and the `dropna` two lines later silently deleted
+the rest. Which half died depended on the order the API returned. Fixed, corpora
+roughly doubled, all four models retrained. Do NOT compare a pre-2026-08-04 ledger
+row against a later one — re-measure instead.
 
-This environment needs `brew install libomp` or LightGBM will not import, and only
-the P1 cache exists locally — P2 and P3 need a fetch, one phase per run.
+**There is no absolute R2 gate any more.** The 0.70 bar was unreachable from this
+feature set and was retired by Katie. R2 and RMSE are optimisation targets — R2 up,
+RMSE down — and the bar is each phase's own best recorded value, held by
+`experiments/leaderboard.py` and printed on every run. Two absolute gates remain and
+both pass: `skill_vs_ta_median > 0` and interval coverage in 0.75-0.90.
+
+Scoring runs on the horizon fold by default (train <2018, test 2018-2020), because
+the old 2021+ fold was truncated by observation horizon and rewarded any change that
+merely predicted shorter. Current bar: P1 0.6292, P2 0.4025, P3 0.3631, P1HV 0.3187.
+
+**Start here.** On the honest fold the model under-predicts in EVERY test year on
+EVERY phase — P1 by 2.8-3.5 months, P2 by 2.5-4.8, P3 by 2.3-5.9. That is systematic
+optimism in a planning tool, it was invisible under a single R2 number, and a
+calibration or recency weight is far cheaper than finding new signal. Step 1 is to
+find out whether the bias is uniform or concentrated in long trials.
 
 Ground rules that are already established, so do not relitigate them:
-- R2 is the gate, not a reported figure. Do not move the bar to make numbers green.
-  Note this is NOT the same as the §3 question, which is about which FOLD the bar is
-  computed on.
 - Per-site enrolment does not exist in CT.gov or AACT. Country recruitment speed is
-  not identifiable. Both are settled — see the memory node.
+  not identifiable. Both settled — see the memory node.
 - Per-indication stratified models, phase-purity contamination and AACT-as-a-second-
-  source were all tested and rejected. Do not re-propose them.
-- The four levers are closed. Do not re-propose the MIN_ENROL_FRACTION sweep, the
-  `startDateStruct.type` feature, or horizon matching — each has a measured negative
-  result and a recorded reason.
-- Retrain ONE phase per run (`--phase P1`). Fetching all four back to back has
-  rate-limited CT.gov twice and left artifacts half-applied.
-- Verify a deploy by asserting on `n_train` in the response as well as the
-  prediction, and send `num_sites` — the API now returns 422 for unknown fields
-  locally, but the deployed build still drops them silently until lever 4 ships.
+  source were tested and rejected. Do not re-propose them.
+- The four levers are closed, each with a measured negative result and a recorded
+  reason. Do not re-propose the MIN_ENROL_FRACTION sweep, the `startDateStruct.type`
+  feature, or horizon-matched training.
+- Nothing ships without a row in `experiments/ledger.jsonl`, and a result is only
+  comparable within one split. Do not mix horizon-fold and temporal-fold numbers.
+- Retrain from the local cache — `python -m scripts.train_models --use-cache`. It
+  avoids twelve back-to-back CT.gov fetches and fits on exactly the corpus the
+  harness measured. If a cache is cold, fetch ONE phase per run; fetching all four
+  back to back has rate-limited CT.gov twice.
+- This environment needs `brew install libomp` or LightGBM will not import.
+- Railway AUTO-DEPLOYS from `main`. A push is a deploy. Verify one by asserting on
+  `n_train` in the response as well as the prediction, and send `num_sites` — unknown
+  fields now return 422 rather than being dropped.
 - Git identity for this repo is `dev <dev@localhost>` with no Claude trailers.
+
+Two habits that earned their place this session, both of which caught real defects
+that passing tests and clean logs did not: assert on the artifact rather than the log
+(`heads.duration.ipcw_applied` in metadata.json caught two phases trained with no
+censoring correction), and when a check disagrees with the code, find out which one
+is wrong before believing either (a 0/12 agreement score turned out to be the regex
+being wrong, not the model).

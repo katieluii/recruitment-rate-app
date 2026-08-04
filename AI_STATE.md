@@ -2,35 +2,56 @@
 
 ## Current Context
 
-WSi trial recruitment/duration predictor. v3.1 is live on Railway with an L2 point
-head. The four levers in `docs/OPEN_LEVERS.md` are all resolved and none raised R2.
+WSi trial recruitment/duration predictor, live on Railway and verified serving the
+current models on 2026-08-05 (n_train asserted per phase, not inferred from a
+successful response). The four levers in `docs/OPEN_LEVERS.md` are all resolved and
+none raised R2.
 
 **The corpus was roughly half its true size until 2026-08-04.** `parse_dates` called
 `pd.to_datetime` without a format against a column holding BOTH `2015-10` and
 `2022-10-21`; pandas inferred one format from the first value and the `dropna` two
 lines later deleted everything that did not match. Fixed with `format="ISO8601"`.
-Every number recorded before that date, including the whole ledger and the R2
-history, was computed on roughly half the data, chosen by an era-correlated
-criterion nobody selected. Do not compare a pre-2026-08-04 ledger row with a later
-one; re-measure instead.
+Every number recorded before that date was computed on roughly half the data, chosen
+by an era-correlated criterion nobody selected. Do not compare a pre-2026-08-04
+ledger row with a later one; re-measure instead.
 
-Current R2 on the recovered corpus, temporal split at 2021-01-01, against a 0.70
-gate that still fails everywhere: P1 0.5714, P1HV 0.3483, P2 0.3261, P3 0.3729.
+**There is no absolute R2 gate any more (Katie, 2026-08-04).** The 0.70 bar was
+unreachable from this feature set and was retired. R2 and RMSE are OPTIMISATION
+TARGETS - R2 up, RMSE down - and the bar is each phase's own best recorded value,
+held by `experiments/leaderboard.py`. Two absolute gates remain and both currently
+pass: `skill_vs_ta_median > 0` (does the model beat a per-therapeutic-area median
+lookup table, which decides whether it deserves to exist) and interval coverage
+within 0.75-0.90.
 
-Working protocol is unchanged: nothing ships without a row in
-`experiments/ledger.jsonl`, R2 is the gate rather than a reported figure, and
-per-indication stratified models, phase-purity contamination, AACT-as-a-second-source,
-per-site enrolment and country recruitment speed are all settled as rejected or
-non-identifiable — do not re-propose them.
+**Scoring moved to the horizon fold**: train <2018, test 2018-2020, where trials
+have had 5.4-8.6 years to finish against a corpus whose p95 duration is 5.9. The old
+2021+ fold could not contain a long trial and rewarded any change that merely
+predicted shorter. `--split temporal` reproduces pre-2026-08-04 rows; the two folds
+are NOT comparable and the leaderboard refuses to mix them.
+
+Current bar to beat, horizon fold, `two_stage_l2`:
+
+| phase | R2 | RMSE (days) |
+|---|---|---|
+| P1 | 0.6292 | 357.1 |
+| P2 | 0.4025 | 413.5 |
+| P3 | 0.3631 | 438.7 |
+| P1HV | 0.3187 | 177.1 |
+
+Still settled, do not re-propose: per-indication stratified models, phase-purity
+contamination, AACT as a second source, per-site enrolment, country recruitment
+speed. Nothing ships without a row in `experiments/ledger.jsonl`.
 
 Environment note for a machine that has not run this repo: there is no committed
 venv and the parquet cache is gitignored. Bootstrap is
 `/usr/bin/python3 -m venv .venv` (3.9.6), `pip install -r requirements.txt`, and
-`brew install libomp` — LightGBM will not import without libomp. All four phase
-caches now exist locally (P1 completed + ongoing, P2, P3); a cold machine needs a
-fetch, one phase per run.
+`brew install libomp` — LightGBM will not import without libomp. All seven caches
+exist locally (completed for four phases, ongoing for P1/P2/P3); a cold machine needs
+a fetch, one phase per run. Train from them with
+`python -m scripts.train_models --use-cache`, which avoids twelve back-to-back CT.gov
+fetches and fits the model on exactly the corpus the harness measured.
 
-Railway AUTO-DEPLOYS from `main`, verified live on 2026-08-03. A push is a deploy.
+Railway AUTO-DEPLOYS from `main`. A push is a deploy.
 
 ## Completed
 
@@ -90,26 +111,45 @@ Railway AUTO-DEPLOYS from `main`, verified live on 2026-08-03. A push is a deplo
   5,355, 0.3791 -> 0.3483; P2 5,540 -> 13,940, 0.3460 -> 0.3261; P3 5,356 -> 13,395,
   0.3722 -> 0.3729. More data helped one phase and hurt two, which falsifies the
   repo's standing claim that more training data is the most reliable lever here.
-- Full suite green: 44 passed.
+- `1d625b0` All four phases retrained on the recovered corpus: P1 5,757 -> 15,429
+  train rows, P1HV 2,041 -> 7,416, P2 5,540 -> 16,126, P3 5,356 -> 14,959. Served
+  predictions moved down almost everywhere (P3 Cardiovascular -9.9 months, P2
+  Oncology -6.6, most others -2 to 0, P3 Oncology +2.8), which was checked against
+  the corpus rather than assumed: the recovered mass is 2000-2010 trials running a
+  median 18.0 (P2) and 19.1 (P3) months against 19.9 and 21.8 for 2015-20.
+- The first attempt at that retrain silently trained P2 and P3 with NO censoring
+  correction — training from cache with no ongoing cohort made the loader return an
+  empty frame and `_censoring_frame` caught it into one buried warning. Both were
+  refetched and retrained, all four verified via `heads.duration.ipcw_applied` in
+  metadata.json, and the loader now raises with the fix command instead of
+  downgrading the model in silence.
+- `1622bad` The 0.70 gate retired and scoring moved to the horizon fold, per the
+  Current Context above. Bias by start year now prints on every run with a
+  corr(year, bias) figure. Two bugs in that instrumentation were found by reading its
+  own first output: the leaderboard compared every row against itself because the run
+  wrote to the ledger before reading the bar back, and the bias note printed
+  "strongly negative means..." under a +0.970 correlation. Both fixed and covered by
+  rejection tests.
+- Deployed and verified live 2026-08-05: all four phases serving the retrained models
+  with n_train asserted per phase (7,416 / 15,429 / 16,126 / 14,959), predictions
+  matching local exactly, and the unknown-field 422 still holding.
+- Full suite green: 53 passed.
 
 ## Known Issues
 
-- EVERY measurement recorded before 2026-08-04, in the ledger and in
-  `docs/OPEN_LEVERS.md`, was computed on roughly half the corpus. The structural
-  findings survive because they are constructions rather than measurements (lever 1's
-  enrolment + follow-up summing to the label; lever 3's horizon feature being
-  `start_year` in disguise). The NUMBERS do not — lever 1's R2 curve and lever 3's
-  +0.075/-0.081 disproof both need re-measuring on the recovered corpus before being
-  quoted again.
-- Artifacts are stale against the recovered corpus. P1 was retrained on the HALF
-  corpus with fixed endpoint rules; P1HV, P2 and P3 carry the half corpus AND the old
-  buggy rules. Nothing served today reflects either fix. A P1 backup taken before its
-  retrain is in the session scratchpad only, not in the repo.
-- The gate is computed on a fold truncated by observation horizon, and that fold
-  rewards under-prediction. It ranked two models in opposite directions from an honest
-  fold by 0.16 R2. Needs a decision — `docs/OPEN_LEVERS.md` §3. Unchanged here.
+- The model UNDER-PREDICTS in every test year on every phase, on the honest fold: P1
+  by 2.8-3.5 months, P2 by 2.5-4.8, P3 by 2.3-5.9, P1HV by 1.3-3.0. This is a
+  systematic optimism bias in a planning tool and it was invisible under a single R2
+  number. It is the strongest open lead and it is cheaper to chase than new signal.
+- EVERY measurement recorded before 2026-08-04 was computed on roughly half the
+  corpus, and every measurement before 2026-08-04's gate change used the truncated
+  2021+ fold. The structural findings survive because they are constructions rather
+  than measurements (lever 1's components summing to the label; lever 3's horizon
+  feature being `start_year` in disguise). The NUMBERS do not — lever 1's R2 curve and
+  lever 3's +0.075/-0.081 disproof both need re-measuring on the horizon fold before
+  being quoted again.
 - The endpoint classifier abstains on 21.0% of P2 and 33.5% of P3, so UNCLASSIFIED is
-  the single largest profile for both phases (4,222 and 4,343 trials). Blind agreement
+  the largest single profile for both (4,222 and 4,343 trials). Blind agreement
   between the LLM classifier and the regex is 80.8% overall but only 50% for
   EVENT_COMPOSITE and EVENT_RATE and 58% for BIOMARKER; those three should not be
   trusted from an LLM label without the same case-by-case look that found the
@@ -119,31 +159,33 @@ Railway AUTO-DEPLOYS from `main`, verified live on 2026-08-03. A push is a deplo
   the full corpus RESPONSE+SAFETY is 4th (n=330, 44.7 months) behind UNCLASSIFIED
   (n=344, 26.0), while running ~12 months longer than SAFETY alone. Consider ranking
   by decision value or excluding UNCLASSIFIED from the three.
-- Lever 1's real defect stands and R2 cannot see it: for ~18% of rows the
+- Lever 1's real defect stands and no R2 can see it: for ~18% of rows the
   enrolment/follow-up split is set by the floor constant, and `predict_components`
-  surfaces it as a planning output. Unscoreable — the true split is what the registry
-  does not publish. Do not re-test it against R2.
+  surfaces it as a planning output. Unscoreable — the true split is exactly what the
+  registry does not publish. Do not re-test it against R2.
+- The API narrows the endpoint representation: `inference.py` sets exactly ONE
+  `endpoint_has_*` flag while the model trains on a multi-hot set, so a
+  RESPONSE+SAFETY trial cannot be expressed. Specced in `SPECS.md`, not built.
 - `experiments/run.py` records `n_train` as the pre-filter split size, so the `l3_*`
   ledger rows overstate what those models trained on.
-- `SiteMixRequest` still accepts and drops unknown fields — the defect lever 4 fixed on
-  `PredictRequest`. No frontend caller.
+- `SiteMixRequest` still accepts and drops unknown fields — the defect lever 4 fixed
+  on `PredictRequest`. No frontend caller.
 
 ## Exact Next Steps
 
-1. Decide whether to retrain all four phases against the recovered corpus. This is the
-   blocking item: every artifact is trained on half the data, and P1 aside, on the
-   buggy endpoint rules too. Expect served numbers to move.
-2. Re-measure lever 1 and lever 3 on the recovered corpus before either result is
-   quoted again — `python -m experiments.run --phases P1 --config two_stage_l2,l1_drop_clipped,l1_drop_random,l3_horizon_5y`
-   and `python -m experiments.horizon_disproof --phase P1`.
-3. Run the training-window / recency-weight experiment. It is now the highest-value
-   untested lever: the recovered rows are all OLD, they all land in TRAIN, and more of
-   them helped P1 (+0.017) while hurting P1HV (-0.031) and P2 (-0.020), which is era
-   drift rather than a data-volume effect.
-4. Decide the gate question in `docs/OPEN_LEVERS.md` §3.
-5. Build the outstanding UI work, specced in `SPECS.md`: the endpoint-profile route,
-   multi-archetype predict (the API sets exactly ONE `endpoint_has_*` flag while the
-   model trains on a multi-hot set), and live enrollment/sites sliders. Not started.
-6. Decide whether `SiteMixRequest` should also forbid extra fields.
+1. Chase the under-prediction bias above. Start by checking whether it is uniform or
+   concentrated in long trials — `python -m experiments.horizon_bias --phase P1`
+   reports bias per start year, and the per-therapeutic-area table in the run report
+   splits it by area. A calibration or a recency weight are the obvious candidates,
+   and either is cheaper than finding new signal.
+2. Re-measure levers 1 and 3 on the horizon fold and the recovered corpus before
+   either result is quoted again:
+   `python -m experiments.run --phases P1 --config two_stage_l2,l1_drop_clipped,l1_drop_random,l3_horizon_5y`
+3. Run the training-window / recency-weight experiment. The recovered rows are all
+   OLD and they all land in TRAIN; more of them helped P1 and hurt P1HV and P2, which
+   is era drift rather than a data-volume effect.
+4. Build the outstanding UI work, specced in `SPECS.md`: the endpoint-profile route,
+   multi-archetype predict, and live enrollment/sites sliders. Not started.
+5. Decide whether `SiteMixRequest` should also forbid extra fields.
 
 Git identity for this repo is `dev <dev@localhost>` with no Claude trailers.

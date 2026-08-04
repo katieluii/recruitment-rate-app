@@ -6,7 +6,14 @@ being carried in conversation, which is not a place they survive.
 Ordered by expected value, not by effort. Every one gets a ledger row, and anything
 that does not improve R2 on the temporal fold gets reverted rather than argued for.
 
-**Status (2026-08-03):** all four resolved. 1 closed, no gain · 2 captured, not a feature · 3 bias confirmed, both fixes rejected, gate question raised for Katie · 4 fixed and tested.
+**Status (2026-08-04):** all four resolved, and re-read the caveat below. 1 closed, no gain · 2 captured, not a feature · 3 bias confirmed, both fixes rejected, gate question raised for Katie · 4 fixed and tested.
+
+> **Caveat on every number in this file.** All of it was measured before the
+> 2026-08-04 date-parsing fix, on roughly half the corpus, and on the truncated 2021+
+> fold. The structural conclusions hold because they are constructions rather than
+> measurements — lever 1's components sum to the label by definition, and lever 3's
+> horizon feature is `start_year` in disguise whatever the corpus. The magnitudes do
+> not. Re-measure before quoting any figure here.
 
 ## 1. The enrolment label is partly fabricated by a constant — CLOSED, no gain
 
@@ -201,16 +208,28 @@ to −4.50 months: it makes the model worse, by 4.5 months, at exactly the long
 trials a planner most needs warning about, and is paid for that in R2 by a fold
 that structurally cannot contain them. Rejected.
 
-**What this says about the gate — for Katie, not for me to change.** The 0.70 R2
-bar is computed on the 2021+ fold, whose target is truncated by observation
-horizon, and that fold rewards under-prediction. It ranked these two models in
-opposite directions from an honest fold, by 0.16 R2. Any future lever that shortens
-predictions will collect a gain here that it has not earned. Two options, both
-cheap: score the gate on a horizon-adequate window (train <2018 / test 2018–2020,
-which costs 3,011 test rows and buys an uncapped target), or keep the current fold
-and report bias-by-start-year beside R2 so truncation-fitting is visible when it
-happens. `experiments/horizon_bias.py` and `experiments/horizon_disproof.py`
-produce both tables.
+**What this said about the gate — DECIDED 2026-08-04, no longer open.** This section
+originally raised the gate as a question for Katie: the 0.70 R2 bar was computed on
+the 2021+ fold, whose target is truncated by observation horizon and which rewards
+under-prediction, and it ranked two models in opposite directions from an honest fold
+by 0.16 R2. Both parts were settled:
+
+- **The fold moved.** Scoring now defaults to train <2018 / test 2018-2020
+  (`--split horizon`), where trials have had 5.4-8.6 years against a corpus whose p95
+  duration is 5.9. The 2021+ fold remains as `--split temporal` for reproducing older
+  ledger rows, and the two are not comparable.
+- **The 0.70 threshold was retired entirely**, on the grounds that it was unreachable
+  from a feature set missing per-site enrolment and country speed. R2 and RMSE became
+  optimisation targets against each phase's own best recorded value
+  (`experiments/leaderboard.py`); `skill_vs_ta_median > 0` and interval coverage
+  remain as absolute gates, and both pass.
+- **Bias by start year now prints on every run** with a corr(year, bias) figure. With
+  no absolute gate, that diagnostic is what stops a future lever winning by simply
+  predicting shorter.
+
+It immediately paid for itself: on the honest fold the model under-predicts in every
+test year on every phase, by 2.3 to 5.9 months. That is the largest open lead in the
+project and it is recorded in `AI_STATE.md`.
 
 ### Original hypothesis (2026-08-02)
 
