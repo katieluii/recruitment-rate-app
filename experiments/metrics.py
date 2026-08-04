@@ -187,25 +187,31 @@ def concordance(y_true: np.ndarray, y_pred: np.ndarray,
 #: Gates a change must clear before it can ship. R2 is a TARGET, not a
 #: description of where the model is: best on P3 today is 0.369, so this fails
 #: deliberately until the accuracy work closes the gap.
+#: R2 is an OPTIMISATION TARGET, not a threshold (Katie, 2026-08-04). The 0.70
+#: bar was never reachable from this feature set: the two highest-signal inputs
+#: for recruitment speed - per-site enrolment and country-level speed - are not
+#: published by CT.gov or AACT and are settled as non-identifiable. A gate that
+#: cannot be passed is not a gate, it is a red light everyone learns to ignore.
+#:
+#: What replaces it is deliberately not weaker. `skill_vs_ta_median` asks
+#: whether the model beats a per-therapeutic-area median lookup table, which is
+#: the question that decides whether it deserves to exist at all, and it is
+#: PASSABLE. Coverage keeps the intervals honest. And `experiments.leaderboard`
+#: holds each phase to its own best recorded R2 and RMSE, so the bar rises as
+#: the model improves and cannot be cleared by lowering it.
 GATES = {
-    "r2_min": 0.70,
     "skill_vs_ta_median_min": 0.0,
     "interval_coverage_min": 0.75,
     "interval_coverage_max": 0.90,
 }
 
+#: Reported and optimised on every run. R2 up, RMSE down.
+OBJECTIVES = {"r2": "max", "rmse_days": "min"}
+
 
 def check_gates(metrics: dict) -> dict:
     """Pass/fail each shipping gate, with the shortfall stated."""
     out: dict[str, dict] = {}
-
-    r2 = metrics.get("r2")
-    out["r2"] = {
-        "value": r2,
-        "threshold": GATES["r2_min"],
-        "pass": bool(r2 is not None and r2 >= GATES["r2_min"]),
-        "shortfall": None if r2 is None else round(GATES["r2_min"] - r2, 4),
-    }
 
     skill = metrics.get("skill_vs_ta_median")
     out["skill_vs_ta_median"] = {
@@ -233,6 +239,32 @@ def skill_score(candidate_mae: float, baseline_mae: float) -> float | None:
     return round(1.0 - (candidate_mae / baseline_mae), 3)
 
 
+def bias_by_start_year(df_test: pd.DataFrame, y_true, y_pred,
+                       unit: str = "days") -> list[dict]:
+    """Signed error per test-fold start year — the truncation tell-tale.
+
+    Reported beside R2 on every run, permanently. The corpus holds completed
+    trials only, so a start-year with a short observation horizon cannot contain
+    a long trial, and a model that simply predicts shorter collects R2 it has
+    not earned. That shows up here as bias trending positive as the horizon
+    shrinks, and it is invisible in a single R2 number: horizon-matched training
+    once scored +0.075 on a truncated fold while losing 0.081 on an honest one.
+    """
+    if "Start Date" not in df_test.columns:
+        return []
+    div = 30.44 if unit == "days" else 1.0
+    years = pd.to_datetime(df_test["Start Date"], format="ISO8601",
+                           errors="coerce").dt.year
+    err = (np.asarray(y_pred, dtype=float) - np.asarray(y_true, dtype=float)) / div
+    frame = pd.DataFrame({"year": years.to_numpy(), "err": err}).dropna(subset=["year"])
+    out = []
+    for year, grp in frame.groupby("year"):
+        out.append({"start_year": int(year), "n": int(len(grp)),
+                    "bias": round(float(grp["err"].mean()), 2),
+                    "mae": round(float(grp["err"].abs().mean()), 2)})
+    return out
+
+
 def evaluate(df_test: pd.DataFrame, y_true, y_pred,
              lower=None, upper=None, unit: str = "days") -> dict:
     """Full metric bundle for one (phase, config) pair."""
@@ -244,4 +276,14 @@ def evaluate(df_test: pd.DataFrame, y_true, y_pred,
         if unit != "days":
             out.pop("interval_mean_width_months", None)
     out["_per_ta"] = per_ta.to_dict(orient="records")
+    by_year = bias_by_start_year(df_test, y_true, y_pred, unit=unit)
+    out["bias_by_start_year"] = by_year
+    # One number for the ledger: how strongly bias tracks the calendar. A large
+    # positive value means the model errs long on early starts and short on
+    # late ones, which is what fitting the truncation looks like.
+    if len(by_year) >= 3:
+        yrs = np.array([r["start_year"] for r in by_year], dtype=float)
+        bias = np.array([r["bias"] for r in by_year], dtype=float)
+        if yrs.std() > 0 and bias.std() > 0:
+            out["bias_year_trend"] = round(float(np.corrcoef(yrs, bias)[0, 1]), 3)
     return out

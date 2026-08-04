@@ -16,20 +16,42 @@ log = logging.getLogger(__name__)
 
 DEFAULT_CUTOFF = "2021-01-01"
 
+#: The gate fold, chosen 2026-08-04. Trials that started in 2021 or later have
+#: had between 0 and 5.6 years to finish, against a corpus whose 95th-percentile
+#: duration is 5.9 years, so the 2021+ fold cannot contain a long trial and
+#: scores a model higher for predicting short. Measured: the longest trial in
+#: each 2021+ start-year sits within ~0.2 years of that year's available
+#: horizon, and model bias ran -1.27 months where the horizon was longest to
+#: +2.03 where it was shortest.
+#:
+#: Trials starting 2018-2020 have had 5.4 to 8.6 years, so a long trial CAN
+#: appear and the target is effectively uncapped. The cost is real and worth
+#: stating: 2021+ trials become training data only and are never scored.
+HORIZON_CUTOFF = "2018-01-01"
+HORIZON_TEST_END = "2021-01-01"
+
 
 def temporal_split(
     df: pd.DataFrame,
     cutoff: str = DEFAULT_CUTOFF,
     date_col: str = "Start Date",
+    test_end: str | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Split on trial START date. Returns (train, test)."""
-    dates = pd.to_datetime(df[date_col], errors="coerce")
+    """Split on trial START date. Returns (train, test).
+
+    `test_end` closes the test window on the right. Without it the test fold
+    runs to the data vintage and its later years are truncated by observation
+    horizon — see HORIZON_CUTOFF above for why that flatters short predictions.
+    """
+    dates = pd.to_datetime(df[date_col], format="ISO8601", errors="coerce")
     cut = pd.Timestamp(cutoff)
     train = df[dates < cut].reset_index(drop=True)
-    test = df[dates >= cut].reset_index(drop=True)
-    log.info(
-        "Temporal split @ %s: train=%d test=%d", cutoff, len(train), len(test)
-    )
+    mask = dates >= cut
+    if test_end is not None:
+        mask &= dates < pd.Timestamp(test_end)
+    test = df[mask].reset_index(drop=True)
+    log.info("Temporal split @ %s%s: train=%d test=%d", cutoff,
+             f" (test < {test_end})" if test_end else "", len(train), len(test))
     return train, test
 
 
@@ -44,11 +66,16 @@ def random_split(
 
 
 def get_split(df: pd.DataFrame, kind: str, **kwargs):
+    if kind == "horizon":
+        kwargs.setdefault("cutoff", HORIZON_CUTOFF)
+        kwargs.setdefault("test_end", HORIZON_TEST_END)
+        return temporal_split(df, **kwargs)
     if kind == "temporal":
         return temporal_split(df, **kwargs)
     if kind == "random":
         return random_split(df, **kwargs)
-    raise ValueError(f"Unknown split kind '{kind}' (expected temporal|random)")
+    raise ValueError(
+        f"Unknown split kind '{kind}' (expected horizon|temporal|random)")
 
 
 def check_split_viability(

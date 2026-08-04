@@ -105,7 +105,10 @@ def run_one(config: str, phase_key: str, split: str, cutoff: str,
             target: str = "duration_days") -> dict | None:
     df = load_clean(phase_key)
     df = df[df[target].notna()].reset_index(drop=True)
-    train, test = get_split(df, split, **({"cutoff": cutoff} if split == "temporal" else {}))
+    split_args = {}
+    if split == "temporal":
+        split_args["cutoff"] = cutoff or "2021-01-01"
+    train, test = get_split(df, split, **split_args)
 
     warning = check_split_viability(train, test)
     if warning:
@@ -230,8 +233,15 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="all",
                     help=f"one of {list(CONFIGS)} or 'all' or 'baselines'")
-    ap.add_argument("--split", default="temporal", choices=["temporal", "random"])
-    ap.add_argument("--cutoff", default="2021-01-01")
+    # The horizon fold is the default gate fold from 2026-08-04: trials starting
+    # 2018-2020 have had 5.4-8.6 years to finish against a corpus whose p95
+    # duration is 5.9, so a long trial can actually appear. `temporal` keeps the
+    # old 2021+ fold available for reproducing pre-2026-08-04 ledger rows, whose
+    # numbers are NOT comparable with horizon-fold numbers.
+    ap.add_argument("--split", default="horizon",
+                    choices=["horizon", "temporal", "random"])
+    ap.add_argument("--cutoff", default=None,
+                    help="temporal split only; horizon uses its own window")
     ap.add_argument("--phases", default=",".join(PHASES))
     ap.add_argument("--target", default="duration_days",
                     choices=list(TARGET_UNITS))
@@ -271,6 +281,13 @@ def main() -> None:
                 rows.append(row)
 
     rows = add_skill_scores(rows)
+
+    # Snapshot the bar BEFORE writing this run's rows, or every result compares
+    # against itself and reports "level" forever.
+    from experiments import leaderboard
+    prior_best = leaderboard.best(
+        args.split, args.cutoff if args.split == "temporal" else None)
+
     for row in rows:
         ledger.append({k: v for k, v in row.items() if k != "per_ta"})
 
@@ -289,6 +306,43 @@ def main() -> None:
     if not summary.empty:
         print(summary.to_string(index=False))
     print("=" * 100)
+
+    # R2 up, RMSE down, against this phase's own best. There is no absolute
+    # threshold any more; the previous best IS the bar.
+    table = prior_best
+    print("\nAgainst best recorded BEFORE this run (same split):")
+    for row in rows:
+        if row.get("skipped") or row.get("error"):
+            continue
+        verdicts = leaderboard.compare(row, table)
+        bits = []
+        for metric, v in verdicts.items():
+            if v["verdict"] == "unknown":
+                continue
+            prev = v.get("previous")
+            mark = {"record": "NEW BEST", "regression": "worse", "level": "level"}[v["verdict"]]
+            bits.append(f"{metric} {v['value']:.4f} ({mark}"
+                        + (f", prev {prev:.4f}" if prev is not None else "")
+                        + ")")
+        print(f"  {row['config']:<24} {row['phase']:<5} " + " | ".join(bits))
+
+    # The truncation tell-tale, printed permanently beside the headline numbers.
+    for row in rows:
+        by_year = row.get("bias_by_start_year")
+        if not by_year or row.get("skipped"):
+            continue
+        trend = row.get("bias_year_trend")
+        line = "  ".join(f"{r['start_year']}:{r['bias']:+.1f}" for r in by_year)
+        print(f"\n  {row['config']} / {row['phase']} bias by start year (months): {line}")
+        if trend is not None:
+            note = ""
+            if trend <= -0.5:
+                note = ("  — negative: the model errs SHORT on late starts, the "
+                        "signature of fitting the observation-horizon cap")
+            elif trend >= 0.5:
+                note = ("  — positive: error moves toward zero on later starts, "
+                        "not the truncation signature")
+            print(f"    corr(start year, bias) = {trend:+.3f}{note}")
     print(f"Report: {path}")
     print(f"Ledger: {ledger.LEDGER_PATH}")
 
