@@ -3,27 +3,27 @@
     {
       "archetypes": [],
       "label": "UNCLASSIFIED",
-      "n": 1624,
-      "share": 0.21,
-      "median_months": 16.7
-    },
-    {
-      "archetypes": [
-        "SAFETY"
-      ],
-      "label": "SAFETY",
-      "n": 1304,
-      "share": 0.169,
-      "median_months": 22.5
+      "n": 4222,
+      "share": 0.262,
+      "median_months": 16.0
     },
     {
       "archetypes": [
         "BIOMARKER"
       ],
       "label": "BIOMARKER",
-      "n": 1179,
-      "share": 0.153,
-      "median_months": 14.6
+      "n": 2455,
+      "share": 0.152,
+      "median_months": 14.0
+    },
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 2335,
+      "share": 0.145,
+      "median_months": 21.7
     }
   ],
   "Cardiovascular": [
@@ -32,25 +32,25 @@
         "BIOMARKER"
       ],
       "label": "BIOMARKER",
-      "n": 95,
+      "n": 237,
       "share": 0.36,
-      "median_months": 14.1
+      "median_months": 11.2
     },
     {
       "archetypes": [],
       "label": "UNCLASSIFIED",
-      "n": 71,
-      "share": 0.269,
-      "median_months": 18.0
+      "n": 236,
+      "share": 0.359,
+      "median_months": 17.0
     },
     {
       "archetypes": [
         "SAFETY"
       ],
       "label": "SAFETY",
-      "n": 38,
-      "share": 0.144,
-      "median_months": 26.8
+      "n": 75,
+      "share": 0.114,
+      "median_months": 17.9
     }
   ],
   "CNS/Neurology": [
@@ -59,27 +59,52 @@
         "CLINICAL_SCORE"
       ],
       "label": "CLINICAL_SCORE",
-      "n": 159,
-      "share": 0.223,
-      "median_months": 19.1
+      "n": 368,
+      "share": 0.237,
+      "median_months": 17.0
     },
     {
-      "archetypes": [
-        "BIOMARKER"
-      ],
-      "label": "BIOMARKER",
-      "n": 134,
-      "share": 0.188,
-      "median_months": 20.3
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 363,
+      "share": 0.234,
+      "median_months": 17.9
     },
     {
       "archetypes": [
         "SAFETY"
       ],
       "label": "SAFETY",
-      "n": 132,
-      "share": 0.185,
-      "median_months": 23.3
+      "n": 307,
+      "share": 0.198,
+      "median_months": 23.4
+    }
+  ],
+  "Chemically-Induced Disorders": [
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 39,
+      "share": 0.609,
+      "median_months": 10.8
+    },
+    {
+      "archetypes": [
+        "PRO"
+      ],
+      "label": "PRO",
+      "n": 5,
+      "share": 0.078,
+      "median_months": 6.0
+    },
+    {
+      "archetypes": [
+        "BIOMARKER"
+      ],
+      "label": "BIOMARKER",
+      "n": 4,
+      "share": 0.062,
+      "median_months": 8.7
     }
   ],
   "Congenital/Hereditary/Rare Diseases": [
@@ -88,28 +113,25 @@
         "SAFETY"
       ],
       "label": "SAFETY",
-      "n": 24,
-      "share": 0.429,
+      "n": 33,
+      "share": 0.355,
       "median_months": 23.6
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 20,
+      "share": 0.215,
+      "median_months": 23.7
     },
     {
       "archetypes": [
         "BIOMARKER"
       ],
       "label": "BIOMARKER",
-      "n": 7,
-      "share": 0.125,
-      "median_months": 22.1
-    },
-    {
-      "archetypes": [
-        "BIOMARKER",
-        "SAFETY"
-      ],
-      "label": "BIOMARKER + SAFETY",
-      "n": 5,
-      "share": 0.089,
-      "median_months": 37.4
+      "n": 10,
+      "share": 0.108,
+      "median_months": 26.5
     }
   ],
   "Dermatology/Connective Tissue Diseases": [
@@ -118,79 +140,79 @@
         "CLINICAL_SCORE"
       ],
       "label": "CLINICAL_SCORE",
-      "n": 133,
-      "share": 0.302,
-      "median_months": 12.9
+      "n": 261,
+      "share": 0.325,
+      "median_months": 11.0
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 146,
+      "share": 0.182,
+      "median_months": 9.4
     },
     {
       "archetypes": [
         "BIOMARKER"
       ],
       "label": "BIOMARKER",
-      "n": 88,
-      "share": 0.2,
-      "median_months": 13.2
-    },
-    {
-      "archetypes": [],
-      "label": "UNCLASSIFIED",
-      "n": 67,
-      "share": 0.152,
-      "median_months": 13.2
+      "n": 133,
+      "share": 0.165,
+      "median_months": 13.9
     }
   ],
   "Endocrinology": [
     {
       "archetypes": [],
       "label": "UNCLASSIFIED",
-      "n": 22,
-      "share": 0.4,
-      "median_months": 23.4
+      "n": 42,
+      "share": 0.389,
+      "median_months": 19.3
     },
     {
       "archetypes": [
         "BIOMARKER"
       ],
       "label": "BIOMARKER",
-      "n": 12,
-      "share": 0.218,
-      "median_months": 12.2
+      "n": 25,
+      "share": 0.231,
+      "median_months": 12.3
     },
     {
       "archetypes": [
         "SAFETY"
       ],
       "label": "SAFETY",
-      "n": 11,
-      "share": 0.2,
-      "median_months": 15.7
+      "n": 18,
+      "share": 0.167,
+      "median_months": 18.3
     }
   ],
   "Gastroenterology": [
     {
       "archetypes": [],
       "label": "UNCLASSIFIED",
-      "n": 96,
-      "share": 0.313,
-      "median_months": 21.8
-    },
-    {
-      "archetypes": [
-        "SAFETY"
-      ],
-      "label": "SAFETY",
-      "n": 55,
-      "share": 0.179,
-      "median_months": 24.4
+      "n": 268,
+      "share": 0.363,
+      "median_months": 18.0
     },
     {
       "archetypes": [
         "BIOMARKER"
       ],
       "label": "BIOMARKER",
-      "n": 43,
-      "share": 0.14,
-      "median_months": 20.5
+      "n": 104,
+      "share": 0.141,
+      "median_months": 20.0
+    },
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 104,
+      "share": 0.141,
+      "median_months": 23.0
     }
   ],
   "Haematology": [
@@ -199,80 +221,79 @@
         "RESPONSE"
       ],
       "label": "RESPONSE",
-      "n": 199,
-      "share": 0.362,
-      "median_months": 36.9
+      "n": 373,
+      "share": 0.348,
+      "median_months": 34.0
+    },
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 222,
+      "share": 0.207,
+      "median_months": 29.0
     },
     {
       "archetypes": [
         "SAFETY"
       ],
       "label": "SAFETY",
-      "n": 90,
-      "share": 0.164,
-      "median_months": 38.7
-    },
-    {
-      "archetypes": [],
-      "label": "UNCLASSIFIED",
-      "n": 73,
-      "share": 0.133,
-      "median_months": 29.0
+      "n": 182,
+      "share": 0.17,
+      "median_months": 35.4
     }
   ],
   "Immunology": [
     {
       "archetypes": [],
       "label": "UNCLASSIFIED",
-      "n": 75,
-      "share": 0.22,
-      "median_months": 15.0
+      "n": 221,
+      "share": 0.275,
+      "median_months": 11.0
     },
     {
       "archetypes": [
         "CLINICAL_SCORE"
       ],
       "label": "CLINICAL_SCORE",
-      "n": 69,
-      "share": 0.202,
-      "median_months": 16.4
+      "n": 175,
+      "share": 0.218,
+      "median_months": 16.0
     },
     {
       "archetypes": [
         "SAFETY"
       ],
       "label": "SAFETY",
-      "n": 54,
-      "share": 0.158,
-      "median_months": 26.1
+      "n": 106,
+      "share": 0.132,
+      "median_months": 20.0
     }
   ],
   "Infectious Diseases": [
     {
       "archetypes": [],
       "label": "UNCLASSIFIED",
-      "n": 224,
-      "share": 0.248,
-      "median_months": 9.4
+      "n": 406,
+      "share": 0.267,
+      "median_months": 12.0
     },
     {
       "archetypes": [
         "SAFETY"
       ],
       "label": "SAFETY",
-      "n": 191,
-      "share": 0.212,
+      "n": 284,
+      "share": 0.187,
       "median_months": 15.4
     },
     {
       "archetypes": [
-        "IMMUNOGENICITY",
-        "SAFETY"
+        "IMMUNOGENICITY"
       ],
-      "label": "IMMUNOGENICITY + SAFETY",
-      "n": 117,
-      "share": 0.13,
-      "median_months": 12.2
+      "label": "IMMUNOGENICITY",
+      "n": 193,
+      "share": 0.127,
+      "median_months": 7.8
     }
   ],
   "Metabolic": [
@@ -281,25 +302,25 @@
         "BIOMARKER"
       ],
       "label": "BIOMARKER",
-      "n": 240,
-      "share": 0.523,
-      "median_months": 12.3
+      "n": 590,
+      "share": 0.582,
+      "median_months": 11.9
     },
     {
       "archetypes": [],
       "label": "UNCLASSIFIED",
-      "n": 66,
-      "share": 0.144,
-      "median_months": 19.6
+      "n": 160,
+      "share": 0.158,
+      "median_months": 15.4
     },
     {
       "archetypes": [
         "SAFETY"
       ],
       "label": "SAFETY",
-      "n": 63,
-      "share": 0.137,
-      "median_months": 15.2
+      "n": 109,
+      "share": 0.107,
+      "median_months": 15.3
     }
   ],
   "Oncology/Solid Tumours": [
@@ -308,28 +329,25 @@
         "RESPONSE"
       ],
       "label": "RESPONSE",
-      "n": 419,
-      "share": 0.311,
-      "median_months": 30.6
+      "n": 891,
+      "share": 0.305,
+      "median_months": 30.1
     },
     {
       "archetypes": [
-        "SAFETY"
+        "SURVIVAL"
       ],
-      "label": "SAFETY",
-      "n": 245,
-      "share": 0.182,
-      "median_months": 35.8
+      "label": "SURVIVAL",
+      "n": 528,
+      "share": 0.181,
+      "median_months": 33.0
     },
     {
-      "archetypes": [
-        "RESPONSE",
-        "SAFETY"
-      ],
-      "label": "RESPONSE + SAFETY",
-      "n": 195,
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 423,
       "share": 0.145,
-      "median_months": 44.7
+      "median_months": 28.1
     }
   ],
   "Ophthalmology": [
@@ -338,52 +356,52 @@
         "BIOMARKER"
       ],
       "label": "BIOMARKER",
-      "n": 74,
-      "share": 0.284,
-      "median_months": 11.6
+      "n": 161,
+      "share": 0.319,
+      "median_months": 10.0
     },
     {
       "archetypes": [],
       "label": "UNCLASSIFIED",
-      "n": 72,
-      "share": 0.276,
-      "median_months": 16.3
+      "n": 155,
+      "share": 0.308,
+      "median_months": 14.9
     },
     {
       "archetypes": [
         "SAFETY"
       ],
       "label": "SAFETY",
-      "n": 38,
-      "share": 0.146,
-      "median_months": 18.4
+      "n": 63,
+      "share": 0.125,
+      "median_months": 18.3
     }
   ],
   "Pathological Conditions, Signs and Symptoms": [
     {
       "archetypes": [],
       "label": "UNCLASSIFIED",
-      "n": 12,
-      "share": 0.3,
-      "median_months": 5.2
+      "n": 33,
+      "share": 0.363,
+      "median_months": 9.0
     },
     {
       "archetypes": [
         "CLINICAL_SCORE"
       ],
       "label": "CLINICAL_SCORE",
-      "n": 11,
-      "share": 0.275,
-      "median_months": 12.3
+      "n": 21,
+      "share": 0.231,
+      "median_months": 16.0
     },
     {
       "archetypes": [
         "PK_PD"
       ],
       "label": "PK_PD",
-      "n": 6,
-      "share": 0.15,
-      "median_months": 9.2
+      "n": 14,
+      "share": 0.154,
+      "median_months": 10.2
     }
   ],
   "Respiratory": [
@@ -392,52 +410,79 @@
         "BIOMARKER"
       ],
       "label": "BIOMARKER",
-      "n": 122,
-      "share": 0.307,
-      "median_months": 12.2
+      "n": 297,
+      "share": 0.327,
+      "median_months": 11.0
     },
     {
       "archetypes": [],
       "label": "UNCLASSIFIED",
-      "n": 90,
-      "share": 0.227,
-      "median_months": 21.0
+      "n": 225,
+      "share": 0.248,
+      "median_months": 15.3
     },
     {
       "archetypes": [
         "SAFETY"
       ],
       "label": "SAFETY",
-      "n": 62,
-      "share": 0.156,
-      "median_months": 21.6
+      "n": 113,
+      "share": 0.125,
+      "median_months": 17.0
     }
   ],
   "Rheumatology": [
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 75,
+      "share": 0.246,
+      "median_months": 17.9
+    },
     {
       "archetypes": [
         "CLINICAL_SCORE"
       ],
       "label": "CLINICAL_SCORE",
-      "n": 32,
-      "share": 0.244,
-      "median_months": 15.2
+      "n": 70,
+      "share": 0.23,
+      "median_months": 13.3
     },
     {
       "archetypes": [
         "BIOMARKER"
       ],
       "label": "BIOMARKER",
-      "n": 30,
-      "share": 0.229,
-      "median_months": 16.0
-    },
+      "n": 63,
+      "share": 0.207,
+      "median_months": 15.6
+    }
+  ],
+  "Urology/Female Health": [
     {
       "archetypes": [],
       "label": "UNCLASSIFIED",
-      "n": 21,
-      "share": 0.16,
-      "median_months": 20.2
+      "n": 26,
+      "share": 0.605,
+      "median_months": 12.0
+    },
+    {
+      "archetypes": [
+        "CLINICAL_SCORE"
+      ],
+      "label": "CLINICAL_SCORE",
+      "n": 7,
+      "share": 0.163,
+      "median_months": 20.5
+    },
+    {
+      "archetypes": [
+        "BIOMARKER"
+      ],
+      "label": "BIOMARKER",
+      "n": 4,
+      "share": 0.093,
+      "median_months": 9.9
     }
   ],
   "Urology/Male": [
@@ -446,53 +491,52 @@
         "BIOMARKER"
       ],
       "label": "BIOMARKER",
-      "n": 31,
-      "share": 0.5,
-      "median_months": 17.6
+      "n": 68,
+      "share": 0.417,
+      "median_months": 17.8
     },
     {
       "archetypes": [],
       "label": "UNCLASSIFIED",
-      "n": 16,
-      "share": 0.258,
-      "median_months": 22.3
-    },
-    {
-      "archetypes": [
-        "BIOMARKER",
-        "SAFETY"
-      ],
-      "label": "BIOMARKER + SAFETY",
-      "n": 6,
-      "share": 0.097,
-      "median_months": 31.0
-    }
-  ],
-  "Other": [
-    {
-      "archetypes": [],
-      "label": "UNCLASSIFIED",
-      "n": 624,
-      "share": 0.285,
-      "median_months": 15.0
+      "n": 46,
+      "share": 0.282,
+      "median_months": 18.0
     },
     {
       "archetypes": [
         "SAFETY"
       ],
       "label": "SAFETY",
-      "n": 385,
-      "share": 0.176,
-      "median_months": 22.2
+      "n": 13,
+      "share": 0.08,
+      "median_months": 18.0
+    }
+  ],
+  "Other": [
+    {
+      "archetypes": [],
+      "label": "UNCLASSIFIED",
+      "n": 1584,
+      "share": 0.355,
+      "median_months": 14.9
+    },
+    {
+      "archetypes": [
+        "SAFETY"
+      ],
+      "label": "SAFETY",
+      "n": 667,
+      "share": 0.15,
+      "median_months": 21.0
     },
     {
       "archetypes": [
         "BIOMARKER"
       ],
       "label": "BIOMARKER",
-      "n": 303,
-      "share": 0.139,
-      "median_months": 16.4
+      "n": 552,
+      "share": 0.124,
+      "median_months": 15.4
     }
   ]
 }
