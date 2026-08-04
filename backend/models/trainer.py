@@ -140,7 +140,8 @@ def _feature_ranges(X: pd.DataFrame) -> dict:
     return out
 
 
-async def _censoring_frame(phase_key: str) -> pd.DataFrame | None:
+async def _censoring_frame(phase_key: str,
+                           loader=None) -> pd.DataFrame | None:
     """Completed + still-running trials, for the IPCW censoring correction.
 
     Only the shape of the censoring distribution is needed, not the ongoing
@@ -152,11 +153,14 @@ async def _censoring_frame(phase_key: str) -> pd.DataFrame | None:
                                             flatten_study)
 
     try:
-        completed = await get_raw_dataframe(phase_key)
-        raw = await fetch_studies(PHASES[phase_key]["api_phases"],
-                                  statuses=ONGOING_STATUSES)
-        ongoing = pd.DataFrame(
-            [r for s in raw if (r := flatten_study(s)) is not None])
+        if loader is not None:
+            completed, ongoing = loader.completed(phase_key), loader.ongoing(phase_key)
+        else:
+            completed = await get_raw_dataframe(phase_key)
+            raw = await fetch_studies(PHASES[phase_key]["api_phases"],
+                                      statuses=ONGOING_STATUSES)
+            ongoing = pd.DataFrame(
+                [r for s in raw if (r := flatten_study(s)) is not None])
         if ongoing.empty:
             return None
         for frame, flag in ((completed, 0), (ongoing, 1)):
@@ -173,16 +177,24 @@ async def _censoring_frame(phase_key: str) -> pd.DataFrame | None:
         return None
 
 
-async def train_phase(phase_key: str) -> None:
+async def train_phase(phase_key: str, loader=None) -> None:
+    """Fit and save one phase's artifacts.
+
+    `loader` supplies the raw frames instead of the CT.gov API. Passing the
+    local parquet cache does two things: it avoids the twelve back-to-back
+    fetches that retraining four phases would otherwise issue, and it makes the
+    model train on EXACTLY the corpus the experiment harness measured, which is
+    the point of keeping the fitted class in backend/ in the first place.
+    """
     log.info("Training %s ...", phase_key)
-    raw = await get_raw_dataframe(phase_key)
+    raw = loader.completed(phase_key) if loader is not None else await get_raw_dataframe(phase_key)
     df = clean(raw, phase_key)
 
     hv_flag = PHASES[phase_key]["hv"]
     if "is_hv" in df.columns:
         df = df[df["is_hv"] == int(hv_flag)].reset_index(drop=True)
 
-    censoring = await _censoring_frame(phase_key)
+    censoring = await _censoring_frame(phase_key, loader=loader)
 
     base = _phase_dir(phase_key)
     base.mkdir(parents=True, exist_ok=True)
@@ -271,10 +283,10 @@ async def train_phase(phase_key: str) -> None:
     log.info("Saved %s metadata (%d rows)", phase_key, len(df))
 
 
-async def train_all() -> None:
+async def train_all(loader=None) -> None:
     for phase_key in PHASES:
         try:
-            await train_phase(phase_key)
+            await train_phase(phase_key, loader=loader)
         except Exception as exc:
             log.error("Failed to train %s: %s", phase_key, exc, exc_info=True)
 
