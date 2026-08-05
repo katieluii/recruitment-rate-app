@@ -1,13 +1,17 @@
-import { api } from './api.js?v=6';
-import { renderErrorBar } from './charts.js?v=6';
+import { api } from './api.js?v=9';
+import { renderErrorBar } from './charts.js?v=9';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const phaseSelect = document.getElementById('phase-select');
 const taSelect    = document.getElementById('ta-select');
-const endpointSel = document.getElementById('endpoint-select');
 const enrolInput  = document.getElementById('enrollment-input');
 const sitesInput  = document.getElementById('sites-input');
 const predictBtn  = document.getElementById('predict-btn');
+const enrolField  = document.getElementById('enrollment-field');
+const sitesField  = document.getElementById('sites-field');
+const enrolValue  = document.getElementById('enrollment-value');
+const sitesValue  = document.getElementById('sites-value');
+const sliderCaption = document.getElementById('slider-caption');
 const resultCard  = document.getElementById('result-card');
 const errorNotice = document.getElementById('error-notice');
 const warnNotice  = document.getElementById('warn-notice');
@@ -15,8 +19,8 @@ const warnNotice  = document.getElementById('warn-notice');
 // ── Bootstrap app ─────────────────────────────────────────────────────────────
 async function init() {
   try {
-    const [phases, areas, archetypes] = await Promise.all([
-      api.getPhases(), api.getTherapeuticAreas(), api.getEndpointArchetypes(),
+    const [phases, areas] = await Promise.all([
+      api.getPhases(), api.getTherapeuticAreas(),
     ]);
 
     phaseSelect.options.length = 0;
@@ -35,10 +39,13 @@ async function init() {
 
     areas.forEach(ta => taSelect.add(new Option(ta, ta)));
 
-    // Endpoint type is the strongest driver of duration after phase: on Phase 3
-    // a survival endpoint runs a median 39.6 months against 10.6 for
-    // immunogenicity. Left blank, the model assumes what is typical for the area.
-    archetypes.forEach(a => endpointSel.add(new Option(prettyArchetype(a), a)));
+    // The endpoint input is deliberately absent. It exposed WSi's internal
+    // 11-value archetype vocabulary (SURVIVAL, BIOMARKER, …) and asked the user
+    // to supply the strongest driver of duration after phase — which is a large
+    // part of what they came to find out. It returns as a SELECTION from the
+    // endpoint combinations that actually occur in this phase x area, once WS21
+    // ships that clustering (docs/WS21_CONTRACT.md). Until then the model uses
+    // what is typical for the area, which is what the blank option did anyway.
 
     predictBtn.disabled = false;
   } catch (err) {
@@ -47,6 +54,9 @@ async function init() {
 }
 
 // ── Predict ───────────────────────────────────────────────────────────────────
+// Phase and therapeutic area stay behind an explicit action: they decide WHICH
+// model answers, so changing them is a different question, not a refinement of
+// the current one. Enrolment and sites are refinements and update live.
 predictBtn.addEventListener('click', async () => {
   clearNotices();
   const phase = phaseSelect.value;
@@ -54,28 +64,102 @@ predictBtn.addEventListener('click', async () => {
   if (!phase || !ta) return;
 
   setLoading(true);
-
   try {
-    const payload = { phase, therapeutic_area: ta };
-    if (endpointSel.value) payload.endpoint_archetype = endpointSel.value;
-    if (enrolInput.value)  payload.enrollment = Number(enrolInput.value);
-    if (sitesInput.value)  payload.num_sites  = Number(sitesInput.value);
+    await armSliders(phase, ta);
+    await runPrediction({ scroll: true });
+  } finally {
+    setLoading(false);
+  }
+});
 
-    const result = await api.predict(payload);
-    displayResult(result);
+function buildPayload() {
+  const payload = { phase: phaseSelect.value, therapeutic_area: taSelect.value };
+  if (!enrolField.hidden && enrolInput.value) payload.enrollment = Number(enrolInput.value);
+  if (!sitesField.hidden && sitesInput.value) payload.num_sites  = Number(sitesInput.value);
+  return payload;
+}
+
+async function runPrediction({ scroll = false } = {}) {
+  try {
+    errorNotice.classList.remove('visible');
+    const result = await api.predict(buildPayload());
+    displayResult(result, { scroll });
+    return true;
   } catch (err) {
     if (err.message.includes('model')) {
       showWarn(err.message + ' Run <code>python -m scripts.train_models</code> to train.');
     } else {
       showError(`Prediction failed: ${err.message}`);
     }
-  } finally {
-    setLoading(false);
+    return false;
   }
+}
+
+// Bounds come from the model's TRAINED range for this phase and area, so the
+// slider cannot be dragged somewhere the model has no evidence. The starting
+// value is the therapeutic area's own median where one exists — an oncology
+// Phase 3 runs a median 89 sites and a dermatology Phase 3 runs 33, and opening
+// both at the same number describes a trial neither resembles.
+async function armSliders(phase, ta) {
+  try {
+    const { inputs } = await api.getInputRanges(phase, ta);
+    applyRange(inputs.enrollment, enrolField, enrolInput, enrolValue);
+    applyRange(inputs.num_sites,  sitesField, sitesInput, sitesValue);
+    sliderCaption.hidden = enrolField.hidden && sitesField.hidden;
+  } catch (err) {
+    // Sliders are a refinement; losing them must not cost the prediction.
+    enrolField.hidden = true;
+    sitesField.hidden = true;
+    sliderCaption.hidden = true;
+  }
+}
+
+function applyRange(range, field, input, output) {
+  if (!range) { field.hidden = true; return; }
+  input.min = range.min;
+  input.max = range.max;
+  input.step = range.max > 2000 ? 10 : 1;
+  input.value = Math.min(Math.max(range.default, range.min), range.max);
+  output.textContent = fmtCount(input.value);
+  field.hidden = false;
+}
+
+function fmtCount(n) { return Number(n).toLocaleString(); }
+
+// One in-flight request at a time. A drag fires an input event per pixel, and
+// without this the answer displayed is whichever response happens to land last
+// rather than the one matching where the handle stopped.
+let pending = null;
+let queued = false;
+
+async function liveUpdate() {
+  if (pending) { queued = true; return; }
+  resultCard.classList.add('updating');
+  do {
+    queued = false;
+    pending = runPrediction();
+    await pending;
+    pending = null;
+  } while (queued);
+  resultCard.classList.remove('updating');
+}
+
+[[enrolInput, enrolValue], [sitesInput, sitesValue]].forEach(([input, output]) => {
+  // 'input' updates the READOUT on every pixel so the control feels direct;
+  // the prediction itself is debounced, because it is a model call.
+  input.addEventListener('input', () => { output.textContent = fmtCount(input.value); });
+  let timer = null;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(liveUpdate, 180);
+  });
+  // A keyboard user tabbing away or releasing the handle should not wait out
+  // the debounce.
+  input.addEventListener('change', () => { clearTimeout(timer); liveUpdate(); });
 });
 
 // ── Display result ────────────────────────────────────────────────────────────
-function displayResult(r) {
+function displayResult(r, { scroll = false } = {}) {
   document.getElementById('result-months').textContent = r.predicted_months.toFixed(1);
   document.getElementById('result-phase-label').textContent = r.phase_label;
   document.getElementById('result-ta').textContent = r.therapeutic_area;
@@ -94,13 +178,23 @@ function displayResult(r) {
   displaySplit(r);
   displayProvenance(r.provenance);
 
+  // Set the warning state in ONE write. Warnings are per-input — a slider
+  // position can be outside the trained range and the next one inside it — so
+  // this both raises and clears them, without an intermediate hidden state that
+  // would reflow the page between every pair of responses during a drag.
   if (r.extrapolation_warnings && r.extrapolation_warnings.length) {
     showWarn('Outside the trained range — treat as indicative only:<br>' +
              r.extrapolation_warnings.map(w => `· ${escapeHtml(w)}`).join('<br>'));
+  } else {
+    warnNotice.classList.remove('visible');
   }
 
   resultCard.classList.add('visible');
-  resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  // Scroll ONLY on the explicit Predict action, which reveals the card for the
+  // first time. Doing it on every update yanked the page out from under a drag:
+  // the slider fires continuously, and each response re-scrolled the window
+  // while the handle was still held.
+  if (scroll) resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // ── Duration split: recruiting vs follow-up ───────────────────────────────────
@@ -183,11 +277,6 @@ function displayRate(r) {
   // The caveat ships with the number, not in a footnote. This figure is modelled
   // from trial-level data, not observed per-site enrolment.
   document.getElementById('rate-note').textContent = r.rate_note || '';
-}
-
-function prettyArchetype(a) {
-  return a.replace(/_/g, ' ').toLowerCase()
-          .replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function escapeHtml(s) {

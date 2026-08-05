@@ -348,3 +348,67 @@ body {
 .working-body ul{margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.4rem}
 .working-body ul.gaps li{color:var(--text-muted)}
 .working-body ul li b{color:var(--text)}
+
+/* ── Live input sliders ───────────────────────────────────────────────────────
+   Enrolment and site count update the prediction on drag, with no button. Each
+   takes a full row rather than a grid cell: they are wider controls than a
+   select and staggering them across two columns left one high and one low.
+
+   Bounds come from the model's TRAINED range (/api/input-ranges), not the API's
+   validation limits. num_sites accepts 5000, but a tree is flat outside the
+   range it saw, and serving predictions there is the original site_count
+   defect. Bounding the control beats warning after the fact. */
+.slider-field {
+  grid-column: 1 / -1;
+  margin-top: .15rem;
+}
+
+/* Label and value are different things and must not read as one line of text:
+   the label names the input, the value IS the input's state. */
+.slider-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-bottom: .1rem;
+}
+.slider-head label {
+  margin-bottom: 0;
+  letter-spacing: .01em;
+}
+.slider-value {
+  font-size: 1.35rem;
+  font-weight: 650;
+  line-height: 1.1;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.slider-caption {
+  grid-column: 1 / -1;
+  margin: -.35rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: .8;
+}
+
+.slider-field input[type="range"] {
+  width: 100%;
+  padding: 0;
+  margin: .35rem 0 0;
+  background: transparent;
+  border: none;
+  accent-color: var(--accent);
+  cursor: grab;
+}
+.slider-field input[type="range"]:active { cursor: grabbing; }
+.slider-field input[type="range"]:focus { border: none; outline: none; }
+.slider-field input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* Dim while recomputing rather than blanking the figure — a number that
+   disappears mid-drag reads as an error rather than as work in progress. */
+.result-card.updating { opacity: 0.72; transition: opacity 120ms ease; }

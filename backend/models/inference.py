@@ -56,11 +56,28 @@ def _phase_raw(phase_key: str) -> str:
     return {"P1HV": "PHASE1", "P1": "PHASE1", "P2": "PHASE2", "P3": "PHASE3"}[phase_key]
 
 
+#: The eligibility features a caller may set, and the ONLY route by which a
+#: patient-population description reaches the model. `criteria_text` is
+#: deliberately absent: build_features produces it and the fitted preprocessor
+#: drops it (no text block), so accepting it would imply an effect it cannot have.
+ELIGIBILITY_NUMERIC = ("n_inclusion_criteria", "n_exclusion_criteria",
+                       "criteria_chars")
+
+
+def eligibility_fields() -> tuple:
+    """Allowlist for `eligibility_features`, derived rather than restated so it
+    cannot drift from the markers the pipeline actually builds."""
+    from backend.preprocessing.text_features import CRITERIA_MARKERS
+
+    return ELIGIBILITY_NUMERIC + tuple(f"crit_{n}" for n in CRITERIA_MARKERS)
+
+
 def _build_input_row(phase_key: str, therapeutic_area: str,
                      enrollment: Optional[int], num_sites: Optional[int],
                      drug_type: str, region: str,
-                     endpoint_archetype: Optional[str] = None,
-                     followup_months: Optional[float] = None) -> pd.DataFrame:
+                     endpoint_archetypes: Optional[list] = None,
+                     followup_months: Optional[float] = None,
+                     eligibility_features: Optional[dict] = None) -> pd.DataFrame:
     """Single-row frame matching build_features output.
 
     Unspecified fields are left NaN so they fall back to the training-set
@@ -81,15 +98,34 @@ def _build_input_row(phase_key: str, therapeutic_area: str,
         "Drug_Type": drug_type,
         "is_hv": int(PHASES[phase_key]["hv"]),
     }
-    if endpoint_archetype:
+    if endpoint_archetypes:
         row["primary_outcome_measures"] = ""
     df = pd.DataFrame([row])
     X = build_features(df, phase_key)
-    if endpoint_archetype:
-        X["endpoint_archetype"] = endpoint_archetype
-        flag = f"endpoint_has_{endpoint_archetype}"
-        if flag in X.columns:
-            X[flag] = 1
+    if endpoint_archetypes:
+        # One flag per archetype. Setting exactly one was the interface being
+        # narrower than the model: training rows carry a multi-hot set (21.8% of
+        # trials light more than one), so a served row with a single flag sat in
+        # a region the model rarely saw, and a RESPONSE+SAFETY trial could not be
+        # asked about at all — it came back as whichever half was sent.
+        #
+        # The categorical takes the FIRST element, matching `classify_primary`'s
+        # first-parseable convention in training rather than inventing a new one.
+        X["endpoint_archetype"] = endpoint_archetypes[0]
+        for archetype in endpoint_archetypes:
+            flag = f"endpoint_has_{archetype}"
+            if flag in X.columns:
+                X[flag] = 1
+
+    # Eligibility arrives as feature VALUES, not a label. The crit_* markers are
+    # derived from criteria text inside build_features, so they are set after it
+    # rather than through the row; the three numerics could go either way and are
+    # set here too so one code path owns the whole block.
+    if eligibility_features:
+        for field, value in eligibility_features.items():
+            if field in X.columns and value is not None:
+                X[field] = value
+
     return _apply_defaults(X, phase_key, therapeutic_area)
 
 
@@ -125,11 +161,22 @@ def _apply_defaults(X: pd.DataFrame, phase_key: str,
 
 
 def _check_extrapolation(X: pd.DataFrame, phase_key: str) -> list[str]:
-    """Flag numeric inputs outside the range the model was trained on.
+    """Flag numeric inputs outside the range the model has real evidence for.
 
     The guard for the original failure: v1 trained site_count on 1..20 (it was
     really a country count) and served requests at 40+, where a forest returns
     a constant and every therapeutic area collapses onto the same answer.
+
+    Bounds are the trained p01-p99, NOT min-max. Min-max lets a single outlier
+    answer for the whole feature: one Phase 3 trial enrolled 7,702 patients at
+    one site, which stretched `enrollment_per_site`'s "valid" band to
+    [0.21, 7701.9] and let 123 patients-per-site pass without a word — a trial
+    design that does not exist. That feature's p01-p99 band is [1.15, 1069] and
+    was already being recorded and ignored. A control that cannot reject
+    anything is indistinguishable from one that works.
+
+    Values between p99 and max are real but rare, so they get a softer note
+    rather than the same warning: the model HAS seen them, just barely.
     """
     entry = registry.load(phase_key) or {}
     ranges = entry.get("feature_ranges") or {}
@@ -140,11 +187,22 @@ def _check_extrapolation(X: pd.DataFrame, phase_key: str) -> list[str]:
         val = X[col].iloc[0]
         if pd.isna(val) or not isinstance(val, (int, float, np.integer, np.floating)):
             continue
+
+        lo, hi = bounds.get("p01"), bounds.get("p99")
+        if lo is None or hi is None:   # artifacts predating the p01/p99 record
+            lo, hi = bounds["min"], bounds["max"]
+
         if val < bounds["min"] or val > bounds["max"]:
             out.append(
                 f"{col}={val:g} is outside the trained range "
                 f"[{bounds['min']:g}, {bounds['max']:g}] — this prediction is an "
                 f"extrapolation and should be treated as indicative only"
+            )
+        elif val < lo or val > hi:
+            out.append(
+                f"{col}={val:g} sits in the sparse tail of the training data "
+                f"(typical range [{lo:g}, {hi:g}]) — fewer than 1 in 50 trials "
+                f"look like this, so treat the prediction as indicative"
             )
     return out
 
@@ -156,8 +214,21 @@ def predict(
     num_sites: Optional[int] = None,
     drug_type: str = "DRUG",
     region: str = "US",
+    endpoint_archetypes: Optional[list] = None,
+    eligibility_features: Optional[dict] = None,
     endpoint_archetype: Optional[str] = None,
 ) -> Prediction:
+    """Predict duration and recruitment rate for a described trial.
+
+    `endpoint_archetype` (singular) is kept as an alias for the first element of
+    `endpoint_archetypes`. It is not decoration: renaming the parameter broke a
+    live WS21 session that calls this function in-process, and took its duration
+    card down on every cell. In-process callers have no HTTP contract to shield
+    them, so the Python signature is the contract.
+    """
+    if endpoint_archetype and not endpoint_archetypes:
+        endpoint_archetypes = [endpoint_archetype]
+
     entry = registry.load(phase_key)
     if entry is None:
         raise FileNotFoundError(
@@ -169,7 +240,8 @@ def predict(
         raise FileNotFoundError(f"No duration head trained for {phase_key}.")
 
     X = _build_input_row(phase_key, therapeutic_area, enrollment, num_sites,
-                         drug_type, region, endpoint_archetype)
+                         drug_type, region, endpoint_archetypes,
+                         eligibility_features=eligibility_features)
     warnings = _check_extrapolation(X, phase_key)
     for w in warnings:
         log.warning("%s: %s", phase_key, w)
@@ -249,7 +321,9 @@ def predict(
         phase_key, result,
         supplied={"enrollment": enrollment, "num_sites": num_sites,
                   "drug_type": drug_type, "region": region,
-                  "endpoint_archetype": endpoint_archetype},
+                  "endpoint_archetype": (endpoint_archetypes[0]
+                                         if endpoint_archetypes else None),
+                  "endpoint_archetypes": endpoint_archetypes},
         therapeutic_area=therapeutic_area,
     )
     return result

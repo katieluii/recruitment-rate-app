@@ -33,4 +33,7 @@ export const api = {
   predict: (payload) =>
     apiFetch('/predict', { method: 'POST', body: JSON.stringify(payload) }),
   getAnalytics: (phase) => apiFetch(`/analytics?phase=${phase}`),
+  getInputRanges: (phase, ta) =>
+    apiFetch(`/input-ranges?phase=${encodeURIComponent(phase)}` +
+             (ta ? `&therapeutic_area=${encodeURIComponent(ta)}` : '')),
 };

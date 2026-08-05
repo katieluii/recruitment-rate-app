@@ -1,11 +1,11 @@
 from __future__ import annotations
-from typing import Optional
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.constants import PHASES, THERAPEUTIC_AREAS
-from backend.models.inference import predict
+from backend.models.inference import eligibility_fields, predict
 from backend.preprocessing.endpoints import ARCHETYPES
 
 router = APIRouter(tags=["predict"])
@@ -30,9 +30,35 @@ class PredictRequest(BaseModel):
     endpoint_archetype: Optional[str] = Field(
         None, examples=["SURVIVAL"],
         description=(
-            "Primary endpoint type. The strongest single driver of duration "
-            "after phase: on Phase 3 the median runs 39.6 months for a survival "
-            "endpoint against 10.6 for immunogenicity."
+            "Primary endpoint type, single. The strongest single driver of "
+            "duration after phase: on Phase 3 the median runs 39.6 months for a "
+            "survival endpoint against 10.6 for immunogenicity. Kept for "
+            "existing callers; prefer `endpoint_archetypes`."
+        ),
+    )
+    eligibility_features: Optional[Dict[str, float]] = Field(
+        None,
+        examples=[{"n_inclusion_criteria": 9, "n_exclusion_criteria": 17,
+                   "criteria_chars": 3400, "crit_biomarker_required": 1}],
+        description=(
+            "Patient-population characteristics as FEATURE VALUES. A cluster "
+            "label cannot be sent: eligibility reaches the model through 13 "
+            "numeric and binary features, and `criteria_text` is not among them "
+            "— it is built and then dropped by the fitted preprocessor. Unknown "
+            "keys are rejected rather than ignored. Effect size is modest; see "
+            "docs/WS21_CONTRACT.md before building a UI that implies otherwise."
+        ),
+    )
+    endpoint_archetypes: Optional[List[str]] = Field(
+        None, examples=[["RESPONSE", "SAFETY"]],
+        description=(
+            "Every primary-endpoint archetype the trial carries. A trial has a "
+            "COMBINATION, not one endpoint: 21.8% of trials light more than one "
+            "flag, and the combination is not the sum of its parts — P1 oncology "
+            "RESPONSE+SAFETY runs a median 44.7 months against 33.0 for SAFETY "
+            "alone and 38.6 for RESPONSE alone. The model has always trained on "
+            "a multi-hot flag set; sending a single value was the interface "
+            "narrowing what the model could express."
         ),
     )
 
@@ -84,12 +110,32 @@ def post_predict(req: PredictRequest):
         raise HTTPException(422, f"Unknown phase '{req.phase}'. Valid: {list(PHASES)}")
     if req.therapeutic_area not in THERAPEUTIC_AREAS:
         raise HTTPException(422, f"Unknown therapeutic area '{req.therapeutic_area}'.")
-    if req.endpoint_archetype and req.endpoint_archetype not in ARCHETYPES:
+    if req.endpoint_archetype and req.endpoint_archetypes:
+        # Rejected rather than silently preferring one. Two callers disagreeing
+        # about which field wins is the class of defect this API keeps hitting.
         raise HTTPException(
             422,
-            f"Unknown endpoint archetype '{req.endpoint_archetype}'. "
-            f"Valid: {list(ARCHETYPES)}",
+            "Send either `endpoint_archetype` or `endpoint_archetypes`, not both.",
         )
+
+    archetypes = req.endpoint_archetypes or (
+        [req.endpoint_archetype] if req.endpoint_archetype else [])
+    unknown = [a for a in archetypes if a not in ARCHETYPES]
+    if unknown:
+        raise HTTPException(
+            422,
+            f"Unknown endpoint archetype(s) {unknown}. Valid: {list(ARCHETYPES)}",
+        )
+
+    if req.eligibility_features:
+        allowed = set(eligibility_fields())
+        unknown_keys = sorted(set(req.eligibility_features) - allowed)
+        if unknown_keys:
+            raise HTTPException(
+                422,
+                f"Unknown eligibility feature(s) {unknown_keys}. "
+                f"Valid: {sorted(allowed)}",
+            )
 
     try:
         result = predict(
@@ -99,7 +145,8 @@ def post_predict(req: PredictRequest):
             num_sites=req.num_sites,
             drug_type=req.drug_type,
             region=req.region,
-            endpoint_archetype=req.endpoint_archetype,
+            endpoint_archetypes=archetypes or None,
+            eligibility_features=req.eligibility_features,
         )
     except FileNotFoundError as exc:
         raise HTTPException(503, str(exc))
