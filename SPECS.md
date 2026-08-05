@@ -7,6 +7,19 @@ the intent survives the session that had it. Newest first.
 
 ## 2026-08-03 — Endpoint profiles and live inputs
 
+> **OWNERSHIP CORRECTED 2026-08-05. Most of this spec belongs to WS21, not WSi.**
+> The dividing test: does it feed the duration prediction? The endpoint CLASSIFIER
+> does — it supplies model features AND, through `cleaner.py`'s follow-up imputation,
+> partly defines the training target — so it stays here. The endpoint PROFILES layer
+> and the interactive UI do not; nothing in WSi's model or preprocessing reads
+> `endpoint_profiles.json`. Both move to WS21, which `WS21_KICKOFF.md` and the
+> tracker card already assign them to. See `docs/WSI_CHANGES_FOR_WS21.md`.
+>
+> **Still WSi's, and still unbuilt:** the multi-archetype predict fix. `inference.py`
+> sets exactly one `endpoint_has_*` flag while the model trains on a multi-hot set,
+> so a RESPONSE+SAFETY trial is unexpressable through `/predict`. That is a WSi model
+> bug regardless of who builds the interface on top.
+
 **Why.** Two problems in one screen. The endpoint dropdown asks the user to supply
 the single strongest driver of duration after phase, which is the thing they came
 to find out; and the API accepts only ONE endpoint archetype while the model was
