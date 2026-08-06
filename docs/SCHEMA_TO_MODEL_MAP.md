@@ -1,7 +1,14 @@
 # WS21's extraction schema, mapped onto what WSi's model can consume
 
 Written 2026-08-06 by the WSi session, against the endpoint_v1.0 /
-eligibility_v1.0 schema. Companion to `docs/WS21_CONTRACT.md`.
+eligibility_v1.0 schema in `docs/EXTRACTION_SCHEMA_v1.md`.
+
+**Provenance correction (2026-08-06):** that schema was authored by KATIE and
+supplied to the WSi session. An earlier WSi note attributed it to the WS21
+session, which had never seen it — WS21 flagged the error rather than letting
+silence read as assent. Nothing below is agreed on WS21's side until they say so.
+
+Companion to `docs/WS21_CONTRACT.md`.
 
 The schema's three-layer split — source / normalized / derived — is the right
 shape, and it enforces something this project learned expensively: a derived
@@ -16,6 +23,11 @@ against the richer schema — it is an argument about which parts are inputs tod
 and which are candidate features tomorrow, and the two should not be confused.
 
 ## 1. The collision to fix first: constraints vs bullets
+
+**Applies only to constraint-level extraction, which is NOT what WS21 ships
+today.** WS21 confirmed its `n_inclusion_criteria` already comes from a bullet
+count, so nothing currently in flight is affected. This is for whoever builds
+against the schema.
 
 `count_criteria` (features.py:215) counts BULLETS — "one bullet per line" under
 the Inclusion/Exclusion heading. The schema's atomic unit is one CONSTRAINT.
