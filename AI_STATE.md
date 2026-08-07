@@ -51,7 +51,14 @@ a fetch, one phase per run. Train from them with
 `python -m scripts.train_models --use-cache`, which avoids twelve back-to-back CT.gov
 fetches and fits the model on exactly the corpus the harness measured.
 
-Railway AUTO-DEPLOYS from `main`. A push is a deploy.
+Railway AUTO-DEPLOYS from `main`. A push is a deploy. HEAD 7bee96b is deployed and
+verified live (n_train asserted per phase, dropdown gone, sliders arming, eligibility
+parameter answering, guard firing in the sparse tail).
+
+WS21 (`../clinical-trial-analyst`) imports WSi IN-PROCESS from this checkout and pins it
+at a commit; `check_pin()` warns and never fails. It is pinned at 883a69d5 and has
+delivered both contracts to `analyst/artifacts/` — `endpoint_combinations.json` and
+`eligibility_clusters.json`. WSi does not read them yet.
 
 ## Completed
 
@@ -148,6 +155,25 @@ Railway AUTO-DEPLOYS from `main`. A push is a deploy.
   feature being `start_year` in disguise). The NUMBERS do not — lever 1's R2 curve and
   lever 3's +0.075/-0.081 disproof both need re-measuring on the horizon fold before
   being quoted again.
+- THE CEILING. Three independent probes now agree: the endpoint classifier fix (893
+  trials relabelled) moved R2 +0.0004; a full permissive-to-restrictive eligibility swap
+  moves 0.6 months against a 14.7-month observed cluster spread; WS21's event-driven flag
+  shows 11.2 months observed within-cell and +0.16 MAE as a feature. Large real
+  differences, negligible model gains, each redundant with something the model already
+  holds. The duration model is near the ceiling of what design-time registry fields can
+  tell it, which argues the under-prediction above is a CALIBRATION problem rather than a
+  missing-feature one. Test that before extracting more fields.
+- WS21's event-driven result is NOT gate-eligible as measured: their baselines are P1
+  6.22 / P2 8.48 / P3 9.44 MAE against WSi's horizon-fold 7.78 / 9.46 / 10.22. Different
+  fold or corpus. It must be re-run in WSi's harness, and measured against BIAS as well as
+  MAE — a feature that fixes systematic under-prediction can leave MAE flat.
+- The sites slider is near-inert on duration: 0.3 months across its whole trained range
+  against enrolment's 11.5. It does move the recruitment rate (0.497 to 0.226 pt/site/mo
+  between 57 and 200 sites). Keep / relabel / drop / show the rate instead — undecided.
+- `co_primary` is not derivable from the registry, so SCHEMA_TO_MODEL_MAP's instruction to
+  filter endpoints on primary + co_primary is partly unimplementable; use primary only.
+  WS21 also caches no secondary outcome text, only a count, so key secondaries need a
+  refetch decision.
 - The endpoint classifier abstains on 21.0% of P2 and 33.5% of P3, so UNCLASSIFIED is
   the largest single profile for both (4,222 and 4,343 trials). Blind agreement
   between the LLM classifier and the regex is 80.8% overall but only 50% for
@@ -173,19 +199,25 @@ Railway AUTO-DEPLOYS from `main`. A push is a deploy.
 
 ## Exact Next Steps
 
-1. Chase the under-prediction bias above. Start by checking whether it is uniform or
-   concentrated in long trials — `python -m experiments.horizon_bias --phase P1`
-   reports bias per start year, and the per-therapeutic-area table in the run report
-   splits it by area. A calibration or a recency weight are the obvious candidates,
-   and either is cheaper than finding new signal.
-2. Re-measure levers 1 and 3 on the horizon fold and the recovered corpus before
-   either result is quoted again:
+1. Chase the under-prediction bias — the largest open problem, and the ceiling finding
+   above suggests it is calibration rather than missing signal. Start with
+   `python -m experiments.horizon_bias --phase P1` to see whether it is uniform or
+   concentrated in long trials, then test a calibration or recency weight.
+2. Re-measure levers 1 and 3 on the horizon fold and recovered corpus before either is
+   quoted again:
    `python -m experiments.run --phases P1 --config two_stage_l2,l1_drop_clipped,l1_drop_random,l3_horizon_5y`
-3. Run the training-window / recency-weight experiment. The recovered rows are all
-   OLD and they all land in TRAIN; more of them helped P1 and hurt P1HV and P2, which
-   is era drift rather than a data-volume effect.
-4. Build the outstanding UI work, specced in `SPECS.md`: the endpoint-profile route,
-   multi-archetype predict, and live enrollment/sites sliders. Not started.
-5. Decide whether `SiteMixRequest` should also forbid extra fields.
+3. Run the training-window / recency-weight experiment. Recovered rows are all OLD and all
+   land in TRAIN; more of them helped P1 (+0.017) and hurt P1HV (-0.031) and P2 (-0.020).
+4. When WS21 hands over the event-driven regex, add it to WSi's own preprocessing and run
+   it through this harness on the horizon fold, reporting bias by start year alongside MAE
+   and R2. Only retrain if it beats the recorded best.
+5. Wire the read side for WS21's two contract files, then build the endpoint and
+   eligibility panels under the agreed presentation rules: ALWAYS re-run the prediction on
+   selection, show the eligibility contribution explicitly, and put WS21's observed cluster
+   median beside WSi's prediction labelled observed vs predicted.
+6. Decide whether `SiteMixRequest` should also forbid extra fields.
+
+Awaiting Katie, not actionable here: the WS21 deterministic-vs-LLM extraction project
+shape; the sites slider question; who builds the endpoint/eligibility panels.
 
 Git identity for this repo is `dev <dev@localhost>` with no Claude trailers.
