@@ -99,13 +99,28 @@ def _save_cache(cache: dict) -> None:
                                 ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+# `claude -p` reports usage-limit and login walls on STDOUT, exits 1, and leaves
+# stderr EMPTY, so an stderr-only message throws away the reason and makes a
+# transient, self-clearing wall look like a code bug.
+_WALL_MARKERS = ("session limit", "usage limit", "rate limit", "limit reached",
+                 "not logged in", "please run /login")
+
+
+def _claude_failure(proc) -> RuntimeError:
+    """Build the error for a non-zero `claude -p`, reading BOTH streams."""
+    detail = ((proc.stderr or "").strip() or (proc.stdout or "").strip() or "(no output)")[:500]
+    low = detail.lower()
+    wall = " [transient wall — rerun once it clears]" if any(m in low for m in _WALL_MARKERS) else ""
+    return RuntimeError(f"`claude -p` failed (rc={proc.returncode}){wall}: {detail}")
+
+
 def _call(prompt: str) -> str:
     out = subprocess.run(
         ["claude", "-p", prompt, "--model", MODEL],
         capture_output=True, text=True, timeout=600,
     )
     if out.returncode != 0:
-        raise RuntimeError(f"claude -p failed: {out.stderr[:300]}")
+        raise _claude_failure(out)
     return out.stdout.strip()
 
 
