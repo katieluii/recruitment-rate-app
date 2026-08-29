@@ -46,8 +46,10 @@ DURATION, RATE = "duration_days", "recruitment_rate"
 SHIPPED = {"P1HV": "two_stage_l2_cov85_ipcw", "P1": "two_stage_l2_ipcw",
            "P2": "two_stage_l2_ipcw", "P3": "two_stage_l2_ipcw"}
 # The rate head ships unweighted by design: a censored row's Enrollment field is the target,
-# not what has been recruited, so there is nothing for IPCW to reweight toward.
-RATE_SHIPPED = "lgbm_rate"
+# not what has been recruited, so there is nothing for IPCW to reweight toward. P1HV ships the
+# 0.85-nominal band (trainer.RATE_COVERAGE_TARGET): at 0.80 it covered 0.744 on this fold, under
+# the 0.75 gate; 0.85 lands 0.800 with MAE unchanged (2026-08-30).
+RATE_SHIPPED = {"P1HV": "lgbm_rate_cov85", "P1": "lgbm_rate", "P2": "lgbm_rate", "P3": "lgbm_rate"}
 BASELINE = "ta_median"
 FOLD_TEXT = ("horizon fold — train on trials starting before 2018, test on 2018–2020 starts, "
              "which have had 5.4–8.6 years to finish against a corpus whose p95 duration is 5.9")
@@ -89,8 +91,7 @@ def _gates(r: dict) -> dict:
 
 def build(rows: list) -> dict:
     out = {"split": SPLIT, "fold": FOLD_TEXT, "generated_from": str(LEDGER.relative_to(ROOT)),
-           "phases": {}, "rate": {"config": RATE_SHIPPED, "target": RATE, "unit": RATE_UNIT,
-                                  "phases": {}}}
+           "phases": {}, "rate": {"target": RATE, "unit": RATE_UNIT, "phases": {}}}
     for ph in PHASE_ORDER:
         r = latest(rows, SHIPPED[ph], ph)
         b = latest(rows, BASELINE, ph)
@@ -117,13 +118,13 @@ def build(rows: list) -> dict:
             "baseline_mae_months": b.get("mae_months") if b else None,
         }
     for ph in PHASE_ORDER:
-        r = latest(rows, RATE_SHIPPED, ph, target=RATE)
+        r = latest(rows, RATE_SHIPPED[ph], ph, target=RATE)
         b = latest(rows, BASELINE, ph, target=RATE)
         if r is None:
             out["rate"]["phases"][ph] = {"status": "NOT MEASURED on this fold"}
             continue
         out["rate"]["phases"][ph] = {
-            "ledger_row": r["ledger_row"], "run_ts": r.get("ts"),
+            "config": RATE_SHIPPED[ph], "ledger_row": r["ledger_row"], "run_ts": r.get("ts"),
             "n_train": r.get("n_train"), "n_test": r.get("n_test"),
             "mae": r.get("mae_raw"), "rmse": r.get("rmse_raw", r.get("rmse_days")),
             "skill_vs_ta_median": r.get("skill_vs_ta_median"),

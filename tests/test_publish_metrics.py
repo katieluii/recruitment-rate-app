@@ -70,3 +70,29 @@ def test_fill_docs_replaces_both_blocks(tmp_path):
     text = doc.read_text()
     assert "OLD" not in text and "| P2 | 9.00 mo |" in text and "| P2 | 2.20 |" in text
     assert pm.fill_docs(pub, docs=[doc], write=False) == []  # idempotent
+
+
+def _nominal_of(config: str) -> float:
+    return 0.85 if "cov85" in config else 0.80
+
+
+def test_shipped_configs_name_the_trainer_targets():
+    """publish_metrics.SHIPPED / RATE_SHIPPED and trainer.COVERAGE_TARGET /
+    RATE_COVERAGE_TARGET must describe the same band, or the published coverage is
+    measured against a target the served artifact was not calibrated to."""
+    from backend.models import trainer
+
+    for ph, cfg in pm.SHIPPED.items():
+        assert _nominal_of(cfg) == trainer.COVERAGE_TARGET.get(ph, 0.80), (ph, cfg)
+        assert cfg.endswith("_ipcw"), f"{ph}: shipped duration config must be an IPCW-parity config"
+    for ph, cfg in pm.RATE_SHIPPED.items():
+        assert _nominal_of(cfg) == trainer.RATE_COVERAGE_TARGET.get(ph, 0.80), (ph, cfg)
+
+
+def test_shipped_target_mismatch_is_caught(monkeypatch):
+    """The rejecting case for the test above: drift one side and the check must fail."""
+    from backend.models import trainer
+
+    monkeypatch.setitem(trainer.RATE_COVERAGE_TARGET, "P1HV", 0.80)
+    with pytest.raises(AssertionError):
+        test_shipped_configs_name_the_trainer_targets()

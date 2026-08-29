@@ -68,12 +68,19 @@ async def main():
     parser.add_argument("--use-cache", action="store_true",
                         help="Train from the local parquet cache instead of "
                              "fetching from ClinicalTrials.gov.")
+    parser.add_argument("--heads", default=None,
+                        help="Comma-separated subset of heads (duration,rate) to retrain "
+                             "for --phase; the other head's artifacts and metadata are "
+                             "carried forward untouched.")
     args = parser.parse_args()
 
     loader = CacheLoader() if args.use_cache else None
+    heads = [h.strip() for h in args.heads.split(",")] if args.heads else None
     if args.phase:
-        await train_phase(args.phase, loader=loader)
+        await train_phase(args.phase, loader=loader, heads=heads)
     else:
+        if heads:
+            raise SystemExit("--heads needs --phase; a partial retrain is one phase at a time")
         await train_all(loader=loader)
 
 

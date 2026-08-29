@@ -23,14 +23,14 @@
       "target": "recruitment_rate",
       "kind": "single",
       "transform": "log",
-      "qhat": 0.10617948447033188,
+      "qhat": 0.24092256957410063,
       "quantiles": [
         0.1,
         0.5,
         0.9
       ],
-      "n_fit": 7467,
-      "coverage_nominal": 0.8,
+      "n_fit": 7409,
+      "coverage_nominal": 0.85,
       "ipcw_applied": false
     }
   },

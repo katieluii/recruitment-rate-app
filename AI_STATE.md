@@ -58,16 +58,29 @@ so every published number measured an unweighted model that was not the one serv
   nominal (P1HV no longer labelled "0.80 nominal"); docs show `achieved (nominal)`.
 - Rate head, horizon fold, `lgbm_rate` (= the shipped `ConformalQuantileModel(transform="log")`):
   P1 / P2 / P3 pass (MAE 11.70 / 3.76 / 10.52 patients·site⁻¹·month⁻¹, skill +0.19 / +0.30 / +0.30);
-  **P1HV FAILS coverage 0.744 < 0.75** (skill +0.09) and is published AS failing in the new
-  `published_metrics_rate` block (README, RESULTS) and `published_metrics.json["rate"]`.
+  **P1HV failed coverage 0.744 < 0.75** (skill +0.09) — Katie's call, same evening: recalibrate.
+  `lgbm_rate_cov85` covers 0.800 at MAE unchanged (row 352); `trainer.RATE_COVERAGE_TARGET =
+  {"P1HV": 0.85}`, `publish_metrics.RATE_SHIPPED` per phase, and a test binds the two to each other
+  (with its rejecting case). Rate block lives in `published_metrics_rate` (README, RESULTS) and
+  `published_metrics.json["rate"]`. All eight gates pass.
+- **Partial retrain is now a thing:** `python -m scripts.train_models --phase P1HV --use-cache
+  --heads rate` rewrote only the rate pickles and `metadata.json["heads"]["rate"]`; the duration
+  block (n_fit 7467, band_scale 1.2482, IPCW true) and the corpus keys carried forward byte-for-byte
+  [verified: metadata diff before/after]. Rate n_fit is 7409 (cache corpus) beside duration's 7467
+  (fresh pull) — recorded, not a defect. The API's single `confidence_pct` reads the DURATION head's
+  nominal; keep a phase's two heads on the same target or that label lies about the rate band.
 - `data/cache/EARLY_PHASE1_PHASE1.ongoing.parquet` fetched 2026-08-29 (4,551 rows) — P1/P1HV had no
   ongoing cache before; `--use-cache` training for those phases would have stopped loudly.
-- Flagged, NOT done: (a) the present-day censoring frame contains the 2018-20 test trials — a
-  marginal-KM leak only, and `censoring_backtest.py` has the vantage-date construction if a
-  leak-free variant is wanted; (b) the enrol stage looks its IPCW weight up at enrol-months against
-  a KM over TOTAL duration (`quantile_model._ipcw_weights`, shipped behaviour, questionable);
-  (c) P3's test fold moved 1709→1706 rows on the same cache file — some date-relative filter in
-  `clean()`, unverified.
+- (a) The leak, MEASURED and closed (Katie: measure, don't ship): `two_stage_l2_ipcw_vantage` /
+  `_cov85_ipcw_vantage` re-censor the frame at 2018-01-01 (`dataset.load_vantage_censoring_frame`,
+  via `censoring_backtest.apply_retrospective_censoring`; P2 frame 20,479 → 12,024 rows). R² moves
+  ≤0.006 and not in one direction — P1 0.6443 vs 0.6448, P2 0.4244 vs 0.4228, P3 0.3895 vs 0.3915,
+  P1HV 0.3274 vs 0.3331 (rows 353-356). Parity stays the published set; the vantage configs are
+  measurement-only and the ledger says so.
+- Flagged, NOT done: (b) the enrol stage looks its IPCW weight up at enrol-months against a KM
+  over TOTAL duration (`quantile_model._ipcw_weights`, shipped behaviour, questionable); (c) P3's
+  test fold moved 1709→1706 rows on the same cache file — some date-relative filter in `clean()`,
+  unverified.
 
 **Scoring moved to the horizon fold**: train <2018, test 2018-2020, where trials
 have had 5.4-8.6 years to finish against a corpus whose p95 duration is 5.9. The old
@@ -247,9 +260,8 @@ delivered both contracts to `analyst/artifacts/` — `endpoint_combinations.json
 
 ## Exact Next Steps
 
-0. (Done 2026-08-30: IPCW parity + rate head — see the S318 entry.) Open from it: decide whether
-   the P1HV rate head's coverage failure (0.744) gets a recalibration config like the duration
-   head's, and whether the censoring frame should be re-censored at the fold's vantage date.
+0. (Done 2026-08-30, S318: IPCW parity, rate head published, P1HV rate recalibrated to 0.85,
+   vantage leak measured at ≤0.006 R² and closed. Nothing open from it.)
 
 1. Chase the under-prediction bias — the largest open problem, and the ceiling finding
    above suggests it is calibration rather than missing signal. Start with

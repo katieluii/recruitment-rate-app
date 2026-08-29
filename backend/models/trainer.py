@@ -196,9 +196,18 @@ async def _censoring_frame(phase_key: str,
 
 
 COVERAGE_TARGET = {"P1HV": 0.85}
+#: Same idea for the rate head. Empty means every phase aims at 0.80. Change here
+#: AND in experiments/publish_metrics.RATE_SHIPPED — the two must name the same setting.
+#: The API reports ONE confidence_pct, read from the DURATION head's coverage_nominal
+#: (inference.py); keep a phase's two heads on the same target or that label lies
+#: about the rate band.
+# P1HV: at 0.80 nominal the rate band covered 0.744 on the horizon fold (ledger row 345,
+# under the 0.75 gate); a 0.85 target lands 0.800 with MAE unchanged (2026-08-30).
+RATE_COVERAGE_TARGET: dict[str, float] = {"P1HV": 0.85}
 
 
-async def train_phase(phase_key: str, loader=None) -> None:
+async def train_phase(phase_key: str, loader=None,
+                      heads: "list[str] | None" = None) -> None:
     """Fit and save one phase's artifacts.
 
     `loader` supplies the raw frames instead of the CT.gov API. Passing the
@@ -206,8 +215,18 @@ async def train_phase(phase_key: str, loader=None) -> None:
     fetches that retraining four phases would otherwise issue, and it makes the
     model train on EXACTLY the corpus the experiment harness measured, which is
     the point of keeping the fitted class in backend/ in the first place.
+
+    `heads` restricts the run to a subset of HEADS. A partial run rewrites only
+    those heads' pickles and their `metadata.json["heads"]` blocks; every other
+    key of an existing metadata.json — the other head, n_train, feature
+    defaults/ranges — is carried forward untouched, so recalibrating one head
+    cannot silently swap the corpus the other was fitted on.
     """
     log.info("Training %s ...", phase_key)
+    if heads is not None:
+        unknown = set(heads) - set(HEADS)
+        if unknown:
+            raise ValueError(f"Unknown heads {sorted(unknown)}; expected from {list(HEADS)}")
     raw = loader.completed(phase_key) if loader is not None else await get_raw_dataframe(phase_key)
     df = clean(raw, phase_key)
 
@@ -215,14 +234,23 @@ async def train_phase(phase_key: str, loader=None) -> None:
     if "is_hv" in df.columns:
         df = df[df["is_hv"] == int(hv_flag)].reset_index(drop=True)
 
-    censoring = await _censoring_frame(phase_key, loader=loader)
+    partial = heads is not None and set(heads) != set(HEADS)
+    censoring = (await _censoring_frame(phase_key, loader=loader)
+                 if (heads is None or "duration" in heads) else None)
 
     base = _phase_dir(phase_key)
     base.mkdir(parents=True, exist_ok=True)
 
-    meta: dict = {"n_train": int(len(df)), "heads": {}}
+    meta_path = base / "metadata.json"
+    if partial and meta_path.exists():
+        meta = json.loads(meta_path.read_text())
+        meta.setdefault("heads", {})
+    else:
+        meta = {"n_train": int(len(df)), "heads": {}}
 
     for head, (target, transform) in HEADS.items():
+        if heads is not None and head not in heads:
+            continue
         sub = df[df[target].notna()].reset_index(drop=True)
         if len(sub) < 50:
             log.warning("%s/%s: only %d usable rows — skipping head",
@@ -267,7 +295,9 @@ async def train_phase(phase_key: str, loader=None) -> None:
         # The rate head's censored rows carry no usable rate — their Enrollment
         # field is the target, not what has been recruited — so there is nothing
         # to reweight toward and IPCW would be noise.
-        model = ConformalQuantileModel(phase_key, transform=transform)
+        model = ConformalQuantileModel(
+            phase_key, transform=transform,
+            coverage=RATE_COVERAGE_TARGET.get(phase_key, 0.80))
         model.fit(sub, target)
 
         for alpha, pipe in model.models.items():
@@ -285,6 +315,13 @@ async def train_phase(phase_key: str, loader=None) -> None:
         }
         log.info("Saved %s/%s (n=%d, qhat=%.4f)", phase_key, head, len(sub), model.qhat_)
 
+    if partial and meta_path.exists():
+        # Carry the corpus-level keys forward: they describe the corpus the OTHER
+        # head was fitted on, and this run did not refit it.
+        meta_path.write_text(json.dumps(meta, indent=2))
+        log.info("%s: partial retrain of %s — corpus keys carried forward", phase_key, heads)
+        return
+
     X = build_features(df, phase_key)
     meta["feature_defaults"] = _feature_defaults(X)
     meta["feature_ranges"] = _feature_ranges(X)
@@ -295,7 +332,7 @@ async def train_phase(phase_key: str, loader=None) -> None:
     meta["rmse"] = float(np.sqrt(np.mean(
         (df["duration_days"] - df["duration_days"].median()) ** 2)))
 
-    (base / "metadata.json").write_text(json.dumps(meta, indent=2))
+    meta_path.write_text(json.dumps(meta, indent=2))
     (base / "analytics.json").write_text(json.dumps(_build_analytics(df)))
 
     # Site-level priors are derived from the same cleaned frame, so they are

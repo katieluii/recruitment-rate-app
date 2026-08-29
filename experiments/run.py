@@ -21,7 +21,9 @@ from experiments.baselines import ALL_BASELINES, PRIMARY_BASELINE
 from experiments.candidates import (HorizonMatched, LGBMPoint, LGBMQuantile,
                                     ShippedArtifact, StratifiedTwoStage,
                                     TwoStageDuration, V1Recipe)
-from experiments.dataset import load_censoring_frame, load_clean
+from experiments.dataset import (load_censoring_frame, load_clean,
+                                 load_vantage_censoring_frame)
+from experiments.splits import HORIZON_CUTOFF
 from experiments.metrics import GATES, check_gates, evaluate, skill_score
 from experiments.splits import check_split_viability, get_split
 
@@ -44,6 +46,10 @@ CONFIGS = {
     "lgbm_conformal_recent": (lambda p: LGBMQuantile(p, calib_strategy="recent"), False),
     # Rate head: strictly-positive multiplicative target needs plain log.
     "lgbm_rate":            (lambda p: LGBMQuantile(p, transform="log"), False),
+    # Rate-head recalibration (2026-08-30): on the horizon fold the P1HV rate band
+    # covers 0.744 at 0.80 nominal, under the 0.75 gate (ledger row 345). Same
+    # remedy the duration head took — aim higher, pay in width.
+    "lgbm_rate_cov85":      (lambda p: LGBMQuantile(p, transform="log", coverage=0.85), False),
     "two_stage":            (lambda p: TwoStageDuration(
         p, country_mix=False, criteria_text=False), False),
     "two_stage_geo":        (lambda p: TwoStageDuration(p, country_mix=True), False),
@@ -73,6 +79,16 @@ CONFIGS = {
     "two_stage_l2_cov85_ipcw": (lambda p: TwoStageDuration(
         p, point_objective="l2", coverage=0.85,
         censoring_frame=load_censoring_frame(p)), False),
+    # Leak measurement (2026-08-30), NOT a shipping candidate: the frame above is
+    # a present-day snapshot and so contains the 2018-20 test trials (marginal
+    # KM only). These re-censor it at the fold's vantage date; the gap to the
+    # `_ipcw` rows IS the size of the leak.
+    "two_stage_l2_ipcw_vantage": (lambda p: TwoStageDuration(
+        p, point_objective="l2",
+        censoring_frame=load_vantage_censoring_frame(p, HORIZON_CUTOFF)), False),
+    "two_stage_l2_cov85_ipcw_vantage": (lambda p: TwoStageDuration(
+        p, point_objective="l2", coverage=0.85,
+        censoring_frame=load_vantage_censoring_frame(p, HORIZON_CUTOFF)), False),
     # ── Lever 1: the MIN_ENROL_FRACTION floor (docs/OPEN_LEVERS.md §1) ────────
     # ~1 training row in 6 has its enrolment target set by the constant 0.25
     # rather than by data. Three tests, each its own ledger row.

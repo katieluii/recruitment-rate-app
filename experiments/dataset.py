@@ -97,6 +97,25 @@ def load_censoring_frame(phase_key: str, refresh: bool = False) -> pd.DataFrame 
                                  phase_key)
 
 
+def load_vantage_censoring_frame(phase_key: str, as_of: str) -> pd.DataFrame | None:
+    """`load_censoring_frame` re-censored as it would have looked on `as_of`.
+
+    MEASUREMENT ONLY — nothing ships from this. The shipped frame is a present-day
+    snapshot, so on the horizon fold it contains the 2018-20 test trials (through
+    the marginal censoring KM alone, no features). This variant hides everything
+    unfinished by the fold's vantage date so the size of that leak can be measured.
+    """
+    from experiments.censoring_backtest import apply_retrospective_censoring
+
+    frame = load_censoring_frame(phase_key)
+    if frame is None:
+        return None
+    out = apply_retrospective_censoring(frame, as_of)
+    out["duration_days"] = out["duration_days_asof"]
+    out["event_observed"] = out["event_observed_asof"]
+    return out.drop(columns=["duration_days_asof", "event_observed_asof"])
+
+
 def load_raw(phase_key: str, refresh: bool = False) -> pd.DataFrame:
     """Return the raw (pre-clean) study frame for a phase key.
 

@@ -125,37 +125,38 @@
     }
   },
   "rate": {
-    "config": "lgbm_rate",
     "target": "recruitment_rate",
     "unit": "patients per site per month",
     "phases": {
       "P1HV": {
-        "ledger_row": 345,
-        "run_ts": "2026-08-29T23:24:24",
+        "config": "lgbm_rate_cov85",
+        "ledger_row": 352,
+        "run_ts": "2026-08-29T23:51:26",
         "n_train": 4143,
         "n_test": 1212,
         "mae": 21.0649,
         "rmse": 44.136,
         "skill_vs_ta_median": 0.093,
-        "interval_coverage": 0.744,
-        "interval_nominal": 0.8,
+        "interval_coverage": 0.8,
+        "interval_nominal": 0.85,
         "coverage_gate": {
-          "value": 0.744,
+          "value": 0.8,
           "threshold": [
             0.75,
             0.9
           ],
-          "pass": false
+          "pass": true
         },
         "skill_gate": {
           "value": 0.093,
           "threshold": 0.0,
           "pass": true
         },
-        "all_gates_pass": false,
+        "all_gates_pass": true,
         "baseline_mae": 23.2239
       },
       "P1": {
+        "config": "lgbm_rate",
         "ledger_row": 346,
         "run_ts": "2026-08-29T23:24:24",
         "n_train": 9968,
@@ -182,6 +183,7 @@
         "baseline_mae": 14.3832
       },
       "P2": {
+        "config": "lgbm_rate",
         "ledger_row": 347,
         "run_ts": "2026-08-29T23:24:24",
         "n_train": 11807,
@@ -208,6 +210,7 @@
         "baseline_mae": 5.3738
       },
       "P3": {
+        "config": "lgbm_rate",
         "ledger_row": 348,
         "run_ts": "2026-08-29T23:24:24",
         "n_train": 11685,
@@ -239,7 +242,5 @@
     0.773,
     0.793
   ],
-  "gates_failing": [
-    "P1HV rate"
-  ]
+  "gates_failing": []
 }
