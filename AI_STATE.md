@@ -38,8 +38,36 @@ coverage gate. Now:
   (0.746). `trainer.COVERAGE_TARGET = {"P1HV": 0.85}`; artifact retrained on a fresh CT.gov pull
   (n_fit 7467, IPCW applied, band scale 1.25). `inference.py` now labels `confidence_pct` from the
   artifact's `coverage_nominal` (was a constant 80 — an 85% band would have read as 80%).
-- Still open: the eval configs pass no `censoring_frame`, so measured ≠ shipped (IPCW parity);
-  the rate head has no horizon-fold row at all (README rate MAE therefore not published).
+- ~~Still open: IPCW parity; rate head unpublished~~ → done 2026-08-30, below.
+
+**2026-08-30 (S318) — the published figures now score the SHIPPED model.** Every eval config had
+passed no `censoring_frame`, while `trainer.train_phase` reweights the duration head with IPCW —
+so every published number measured an unweighted model that was not the one serving. Now:
+- `two_stage_l2_ipcw` (P1/P2/P3) and `two_stage_l2_cov85_ipcw` (P1HV, `trainer.COVERAGE_TARGET`)
+  build their frame with `trainer.build_censoring_frame` — extracted from `_censoring_frame` so the
+  harness calls the SAME function — via `experiments.dataset.load_censoring_frame`. NOT
+  `load_clean_censored`: that HV-filters (it feeds the survival models), the trainer does not, so
+  P1 and P1HV share one censoring frame. That is the shipped behaviour and the harness mirrors it.
+- Parity rows, horizon fold, all gates pass: P1HV 3.26 mo / R² 0.333 / cov 0.79 @ 0.85 nominal
+  (row 350); P1 7.71 / 0.645 / 0.78 (336); P2 9.52 / 0.423 / 0.79 (339); P3 10.09 / 0.392 / 0.77
+  (340). R² up 0.010–0.028 on the unweighted rows; MAE level. The log proves the weights fired
+  (`P2 IPCW weights: min 0.87 max 2.79`), and each row records `ipcw_applied`.
+- `publish_metrics` REFUSES a duration row whose `ipcw_applied` is not True (exit 2, row named;
+  fixture `tests/fixtures/ledger_parity.jsonl`, 5 tests). `latest()` keys on target — the newer
+  rate-head `ta_median` row was able to shadow the duration baseline. Rows carry the band's own
+  nominal (P1HV no longer labelled "0.80 nominal"); docs show `achieved (nominal)`.
+- Rate head, horizon fold, `lgbm_rate` (= the shipped `ConformalQuantileModel(transform="log")`):
+  P1 / P2 / P3 pass (MAE 11.70 / 3.76 / 10.52 patients·site⁻¹·month⁻¹, skill +0.19 / +0.30 / +0.30);
+  **P1HV FAILS coverage 0.744 < 0.75** (skill +0.09) and is published AS failing in the new
+  `published_metrics_rate` block (README, RESULTS) and `published_metrics.json["rate"]`.
+- `data/cache/EARLY_PHASE1_PHASE1.ongoing.parquet` fetched 2026-08-29 (4,551 rows) — P1/P1HV had no
+  ongoing cache before; `--use-cache` training for those phases would have stopped loudly.
+- Flagged, NOT done: (a) the present-day censoring frame contains the 2018-20 test trials — a
+  marginal-KM leak only, and `censoring_backtest.py` has the vantage-date construction if a
+  leak-free variant is wanted; (b) the enrol stage looks its IPCW weight up at enrol-months against
+  a KM over TOTAL duration (`quantile_model._ipcw_weights`, shipped behaviour, questionable);
+  (c) P3's test fold moved 1709→1706 rows on the same cache file — some date-relative filter in
+  `clean()`, unverified.
 
 **Scoring moved to the horizon fold**: train <2018, test 2018-2020, where trials
 have had 5.4-8.6 years to finish against a corpus whose p95 duration is 5.9. The old
@@ -47,14 +75,15 @@ have had 5.4-8.6 years to finish against a corpus whose p95 duration is 5.9. The
 predicted shorter. `--split temporal` reproduces pre-2026-08-04 rows; the two folds
 are NOT comparable and the leaderboard refuses to mix them.
 
-Current bar to beat, horizon fold, `two_stage_l2`:
+Current bar to beat, horizon fold, `two_stage_l2_ipcw` (P1HV: `two_stage_l2_cov85_ipcw`) —
+the parity rows, 2026-08-30. A candidate must ALSO pass a censoring frame or it is not comparable:
 
 | phase | R2 | RMSE (days) |
 |---|---|---|
-| P1 | 0.6292 | 357.1 |
-| P2 | 0.4025 | 413.5 |
-| P3 | 0.3631 | 438.7 |
-| P1HV | 0.3187 | 177.1 |
+| P1 | 0.6448 | 349.9 |
+| P2 | 0.4228 | 408.1 |
+| P3 | 0.3915 | 426.9 |
+| P1HV | 0.3331 | 175.3 |
 
 Still settled, do not re-propose: per-indication stratified models, phase-purity
 contamination, AACT as a second source, per-site enrolment, country recruitment
@@ -63,8 +92,9 @@ speed. Nothing ships without a row in `experiments/ledger.jsonl`.
 Environment note for a machine that has not run this repo: there is no committed
 venv and the parquet cache is gitignored. Bootstrap is
 `/usr/bin/python3 -m venv .venv` (3.9.6), `pip install -r requirements.txt`, and
-`brew install libomp` — LightGBM will not import without libomp. All seven caches
-exist locally (completed for four phases, ongoing for P1/P2/P3); a cold machine needs
+`brew install libomp` — LightGBM will not import without libomp. All six caches
+exist locally (completed: EARLY_PHASE1_PHASE1 / PHASE2 / PHASE3, shared by P1+P1HV;
+ongoing for the same three — the P1 one only since 2026-08-29); a cold machine needs
 a fetch, one phase per run. Train from them with
 `python -m scripts.train_models --use-cache`, which avoids twelve back-to-back CT.gov
 fetches and fits the model on exactly the corpus the harness measured.
@@ -217,9 +247,9 @@ delivered both contracts to `analyst/artifacts/` — `endpoint_combinations.json
 
 ## Exact Next Steps
 
-1. IPCW parity: add an eval config that passes `censoring_frame=load_clean_censored(p)` so the
-   measured model equals the shipped one, then re-run publish_metrics (numbers may move).
-2. Rate head on the horizon fold (`lgbm_rate`, `--split horizon`) before any rate MAE is quoted.
+0. (Done 2026-08-30: IPCW parity + rate head — see the S318 entry.) Open from it: decide whether
+   the P1HV rate head's coverage failure (0.744) gets a recalibration config like the duration
+   head's, and whether the censoring frame should be re-censored at the fold's vantage date.
 
 1. Chase the under-prediction bias — the largest open problem, and the ceiling finding
    above suggests it is calibration rather than missing signal. Start with
