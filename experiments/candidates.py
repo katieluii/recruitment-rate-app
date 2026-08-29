@@ -403,6 +403,68 @@ class IPCWLGBMQuantile(LGBMQuantile):
 from backend.models.quantile_model import TwoStageDuration  # noqa: E402,F401
 
 
+class DerivedRate:
+    """The recruitment rate the API actually SERVES, scored as a rate model.
+
+    Since Task 13 (`6a20fd5`) `inference.py` does not serve the rate head's
+    prediction: it derives the rate from the duration head's enrolment window —
+    Enrollment / (sites × enrolment months) — and inverts the duration band for
+    the rate band. The standalone rate head reaches a response only as
+    `recruitment_rate_crosscheck`, a point with no interval. So the `lgbm_rate`
+    rows measure a model whose band nobody is served, and the honest rate figure
+    is THIS one. Every line below mirrors `inference.py` lines 255-281, rounding
+    included, so measured == served; keep them in step.
+
+    One divergence, counted and logged: when the enrolment window rounds to 0.0
+    months inference falls back to the rate head, which this wrapper does not
+    fit. Those rows are scored with the window floored at 0.1 months instead.
+    """
+
+    name = "derived_rate"
+    _DAYS = 30.44
+
+    def __init__(self, phase_key: str, **two_stage_kwargs):
+        self.phase_key = phase_key
+        self.duration = TwoStageDuration(phase_key, **two_stage_kwargs)
+        # Exposed so run._model_attr can read ipcw_applied_ / coverage off the
+        # stage that carries the censoring frame, exactly as for TwoStageDuration.
+        self.enrol = self.duration.enrol
+        self.coverage = self.duration.coverage
+        self.n_window_floored_ = 0
+
+    def fit(self, train: pd.DataFrame, target: str = "recruitment_rate"):
+        # The duration model is what ships; the rate target is never fitted.
+        self.duration.fit(train, "duration_days")
+        return self
+
+    def _pieces(self, test: pd.DataFrame):
+        e, f = self.duration.predict_components(test)
+        lo, hi = self.duration.predict_interval(test)
+        enrol_m = np.round(np.asarray(e, dtype=float) / self._DAYS, 1)
+        fu_m = np.round(np.asarray(f, dtype=float) / self._DAYS, 1)
+        floored = enrol_m <= 0
+        self.n_window_floored_ = int(floored.sum())
+        if self.n_window_floored_:
+            log.info("%s derived rate: %d/%d rows have a 0.0-month window (inference "
+                     "would serve the rate head there); floored at 0.1",
+                     self.phase_key, self.n_window_floored_, len(enrol_m))
+        enrol_m = np.where(floored, 0.1, enrol_m)
+        sites = pd.to_numeric(test["site_count"], errors="coerce").to_numpy(dtype=float)
+        n = pd.to_numeric(test["Enrollment"], errors="coerce").to_numpy(dtype=float)
+        return enrol_m, fu_m, np.asarray(lo, float), np.asarray(hi, float), sites, n
+
+    def predict(self, test: pd.DataFrame) -> np.ndarray:
+        enrol_m, _, _, _, sites, n = self._pieces(test)
+        return n / (sites * enrol_m)
+
+    def predict_interval(self, test: pd.DataFrame):
+        _, fu_m, lo, hi, sites, n = self._pieces(test)
+        # Bounds invert: a longer window means a slower rate.
+        e_lo = np.maximum(lo / self._DAYS - fu_m, 0.1)
+        e_hi = np.maximum(hi / self._DAYS - fu_m, 0.1)
+        return n / (sites * np.maximum(e_hi, 0.1)), n / (sites * np.maximum(e_lo, 0.1))
+
+
 class StratifiedTwoStage:
     """One model per (phase x therapeutic area) instead of one per phase.
 

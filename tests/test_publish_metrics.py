@@ -24,6 +24,14 @@ def test_parity_gate_refuses_unweighted_duration_row():
     assert "P2" in msg and "row 2" in msg and "ipcw_applied=False" in msg
 
 
+def test_parity_gate_refuses_unweighted_served_rate_row():
+    r = rows()
+    r[1]["ipcw_applied"] = True          # duration row passes ...
+    with pytest.raises(pm.ParityError) as e:
+        pm.build(r)                      # ... so the served-rate row (row 5) is what refuses
+    assert "P2 served rate" in e.value.args[0] and "row 5" in e.value.args[0]
+
+
 def test_parity_gate_refuses_missing_ipcw_flag():
     r = rows()
     del r[1]["ipcw_applied"]
@@ -39,36 +47,44 @@ def test_latest_filters_by_target():
     assert pm.latest(r, "ta_median", "P2", target=pm.RATE)["ledger_row"] == 3
 
 
-def test_publishes_weighted_row_and_rate_block():
+def _passing_rows():
     r = rows()
     r[1]["ipcw_applied"] = True
     r[1]["interval_nominal"] = 0.85
+    r[4]["ipcw_applied"] = True
+    return r
+
+
+def test_publishes_weighted_row_and_rate_block():
+    r = _passing_rows()
     pub = pm.build(r)
     p2 = pub["phases"]["P2"]
     assert p2["ipcw_applied"] is True and p2["ledger_row"] == 2
     assert p2["baseline_mae_months"] == 12.0  # not the rate baseline's 4.0
-    rate = pub["rate"]["phases"]["P2"]
-    assert rate["mae"] == 2.2 and rate["baseline_mae"] == 4.0
-    assert rate["all_gates_pass"] is False
-    assert pub["gates_failing"] == ["P2 rate"]
+    served = pub["rate"]["phases"]["P2"]
+    assert served["config"] == "derived_rate_ipcw" and served["mae"] == 3.1
+    assert served["baseline_mae"] == 4.0 and served["all_gates_pass"] is True
+    head = pub["rate_head"]["phases"]["P2"]
+    assert head["config"] == "lgbm_rate" and head["mae"] == 2.2
+    assert head["all_gates_pass"] is False
+    assert pub["gates_failing"] == ["P2 rate_head"]
     for ph in ("P1HV", "P1", "P3"):
         assert pub["phases"][ph]["status"].startswith("NOT MEASURED")
     md = pm.markdown(pub)
     assert "0.80 (0.85)" in md  # achieved (nominal) — P1HV's 0.85 band must not read as 0.80
     md_rate = pm.markdown_rate(pub)
     assert "**FAIL** (coverage 0.6 outside 0.75–0.9)" in md_rate
+    assert md_rate.index("Served rate") < md_rate.index("| P2 | 3.10 |") < md_rate.index("Cross-check") < md_rate.index("| P2 | 2.20 |")
 
 
 def test_fill_docs_replaces_both_blocks(tmp_path):
-    r = rows()
-    r[1]["ipcw_applied"] = True
-    pub = pm.build(r)
+    pub = pm.build(_passing_rows())
     doc = tmp_path / "X.md"
     doc.write_text("a\n<!-- published_metrics:start -->\nOLD\n<!-- published_metrics:end -->\n"
                    "b\n<!-- published_metrics_rate:start -->\nOLD\n<!-- published_metrics_rate:end -->\n")
     assert pm.fill_docs(pub, docs=[doc]) == ["X.md"]
     text = doc.read_text()
-    assert "OLD" not in text and "| P2 | 9.00 mo |" in text and "| P2 | 2.20 |" in text
+    assert "OLD" not in text and "| P2 | 9.00 mo |" in text and "| P2 | 3.10 |" in text
     assert pm.fill_docs(pub, docs=[doc], write=False) == []  # idempotent
 
 
@@ -86,6 +102,10 @@ def test_shipped_configs_name_the_trainer_targets():
         assert _nominal_of(cfg) == trainer.COVERAGE_TARGET.get(ph, 0.80), (ph, cfg)
         assert cfg.endswith("_ipcw"), f"{ph}: shipped duration config must be an IPCW-parity config"
     for ph, cfg in pm.RATE_SHIPPED.items():
+        # The served rate is the duration band inverted, so it follows the DURATION target.
+        assert _nominal_of(cfg) == trainer.COVERAGE_TARGET.get(ph, 0.80), (ph, cfg)
+        assert cfg.startswith("derived_rate") and cfg.endswith("_ipcw"), (ph, cfg)
+    for ph, cfg in pm.RATE_HEAD_SHIPPED.items():
         assert _nominal_of(cfg) == trainer.RATE_COVERAGE_TARGET.get(ph, 0.80), (ph, cfg)
 
 

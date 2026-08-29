@@ -71,6 +71,20 @@ so every published number measured an unweighted model that was not the one serv
   nominal; keep a phase's two heads on the same target or that label lies about the rate band.
 - `data/cache/EARLY_PHASE1_PHASE1.ongoing.parquet` fetched 2026-08-29 (4,551 rows) — P1/P1HV had no
   ongoing cache before; `--use-cache` training for those phases would have stopped loudly.
+- **The rate head is a DARK SEAT, and the published rate figure now scores what ships.** Verifying
+  the P1HV rate recalibration on Railway showed the served rate band unchanged (2.12–40.53 before
+  and after) — because since Task 13 (`6a20fd5`) `inference.py` DERIVES the rate from the duration
+  head's enrolment window (enrollment / (sites × window), band inverted from the duration band) and
+  the rate head reaches a response only as `recruitment_rate_crosscheck`, a point with no band. All
+  four artifacts are two-stage, so the `elif` that serves the head is dead. Katie's ruling: measure
+  what ships. `DerivedRate` (`experiments/candidates.py`) mirrors the derivation line for line;
+  `derived_rate_ipcw` / `derived_rate_cov85_ipcw` on the horizon fold, `--target recruitment_rate`:
+  P1HV 21.04 / cov 0.85@0.85, P1 11.73 / 0.84, P2 3.68 / 0.82, P3 10.58 / 0.81 — all gates pass
+  (rows P1HV=362, P1=366, P2=367, P3=368). `publish_metrics.RATE_SHIPPED` names these (parity-gated — the served rate is the
+  IPCW duration head inverted); the standalone head is `RATE_HEAD_SHIPPED`, published as a labelled
+  cross-check. The consistency test now binds RATE_SHIPPED to the DURATION coverage target. The
+  P1HV rate-head recalibration stays (it is what the cross-check point is fitted from) but changes
+  nothing a caller sees. Zero test rows hit the 0.0-month-window fallback the wrapper cannot mirror.
 - (a) The leak, MEASURED and closed (Katie: measure, don't ship): `two_stage_l2_ipcw_vantage` /
   `_cov85_ipcw_vantage` re-censor the frame at 2018-01-01 (`dataset.load_vantage_censoring_frame`,
   via `censoring_backtest.apply_retrospective_censoring`; P2 frame 20,479 → 12,024 rows). R² moves
@@ -260,8 +274,8 @@ delivered both contracts to `analyst/artifacts/` — `endpoint_combinations.json
 
 ## Exact Next Steps
 
-0. (Done 2026-08-30, S318: IPCW parity, rate head published, P1HV rate recalibrated to 0.85,
-   vantage leak measured at ≤0.006 R² and closed. Nothing open from it.)
+0. (Done 2026-08-30, S318: IPCW parity; rate figure = the SERVED derived rate, head as cross-check;
+   P1HV rate head recalibrated to 0.85; vantage leak measured at ≤0.006 R² and closed. Nothing open.)
 
 1. Chase the under-prediction bias — the largest open problem, and the ceiling finding
    above suggests it is calibration rather than missing signal. Start with

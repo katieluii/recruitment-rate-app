@@ -127,6 +127,126 @@
   "rate": {
     "target": "recruitment_rate",
     "unit": "patients per site per month",
+    "what": "the rate the API serves \u2014 derived from the duration head's enrolment window, band inverted from the duration band",
+    "phases": {
+      "P1HV": {
+        "config": "derived_rate_cov85_ipcw",
+        "ledger_row": 362,
+        "run_ts": "2026-08-30T00:11:23",
+        "n_train": 4143,
+        "n_test": 1212,
+        "ipcw_applied": true,
+        "mae": 21.0357,
+        "rmse": 44.433,
+        "skill_vs_ta_median": 0.094,
+        "interval_coverage": 0.849,
+        "interval_nominal": 0.85,
+        "coverage_gate": {
+          "value": 0.849,
+          "threshold": [
+            0.75,
+            0.9
+          ],
+          "pass": true
+        },
+        "skill_gate": {
+          "value": 0.094,
+          "threshold": 0.0,
+          "pass": true
+        },
+        "all_gates_pass": true,
+        "baseline_mae": 23.2239
+      },
+      "P1": {
+        "config": "derived_rate_ipcw",
+        "ledger_row": 366,
+        "run_ts": "2026-08-30T00:14:33",
+        "n_train": 9968,
+        "n_test": 2449,
+        "ipcw_applied": true,
+        "mae": 11.7299,
+        "rmse": 34.8169,
+        "skill_vs_ta_median": 0.184,
+        "interval_coverage": 0.842,
+        "interval_nominal": 0.8,
+        "coverage_gate": {
+          "value": 0.842,
+          "threshold": [
+            0.75,
+            0.9
+          ],
+          "pass": true
+        },
+        "skill_gate": {
+          "value": 0.184,
+          "threshold": 0.0,
+          "pass": true
+        },
+        "all_gates_pass": true,
+        "baseline_mae": 14.3832
+      },
+      "P2": {
+        "config": "derived_rate_ipcw",
+        "ledger_row": 367,
+        "run_ts": "2026-08-30T00:14:33",
+        "n_train": 11807,
+        "n_test": 2134,
+        "ipcw_applied": true,
+        "mae": 3.6809,
+        "rmse": 13.3822,
+        "skill_vs_ta_median": 0.315,
+        "interval_coverage": 0.817,
+        "interval_nominal": 0.8,
+        "coverage_gate": {
+          "value": 0.817,
+          "threshold": [
+            0.75,
+            0.9
+          ],
+          "pass": true
+        },
+        "skill_gate": {
+          "value": 0.315,
+          "threshold": 0.0,
+          "pass": true
+        },
+        "all_gates_pass": true,
+        "baseline_mae": 5.3738
+      },
+      "P3": {
+        "config": "derived_rate_ipcw",
+        "ledger_row": 368,
+        "run_ts": "2026-08-30T00:14:33",
+        "n_train": 11685,
+        "n_test": 1706,
+        "ipcw_applied": true,
+        "mae": 10.5834,
+        "rmse": 39.4606,
+        "skill_vs_ta_median": 0.299,
+        "interval_coverage": 0.812,
+        "interval_nominal": 0.8,
+        "coverage_gate": {
+          "value": 0.812,
+          "threshold": [
+            0.75,
+            0.9
+          ],
+          "pass": true
+        },
+        "skill_gate": {
+          "value": 0.299,
+          "threshold": 0.0,
+          "pass": true
+        },
+        "all_gates_pass": true,
+        "baseline_mae": 15.1036
+      }
+    }
+  },
+  "rate_head": {
+    "target": "recruitment_rate",
+    "unit": "patients per site per month",
+    "what": "the standalone rate head, served only as recruitment_rate_crosscheck (a point, no band)",
     "phases": {
       "P1HV": {
         "config": "lgbm_rate_cov85",
@@ -134,6 +254,7 @@
         "run_ts": "2026-08-29T23:51:26",
         "n_train": 4143,
         "n_test": 1212,
+        "ipcw_applied": false,
         "mae": 21.0649,
         "rmse": 44.136,
         "skill_vs_ta_median": 0.093,
@@ -161,6 +282,7 @@
         "run_ts": "2026-08-29T23:24:24",
         "n_train": 9968,
         "n_test": 2449,
+        "ipcw_applied": false,
         "mae": 11.7028,
         "rmse": 34.7636,
         "skill_vs_ta_median": 0.186,
@@ -188,6 +310,7 @@
         "run_ts": "2026-08-29T23:24:24",
         "n_train": 11807,
         "n_test": 2134,
+        "ipcw_applied": false,
         "mae": 3.7642,
         "rmse": 13.5844,
         "skill_vs_ta_median": 0.3,
@@ -215,6 +338,7 @@
         "run_ts": "2026-08-29T23:24:24",
         "n_train": 11685,
         "n_test": 1706,
+        "ipcw_applied": false,
         "mae": 10.5191,
         "rmse": 39.2492,
         "skill_vs_ta_median": 0.304,

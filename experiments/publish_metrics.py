@@ -45,11 +45,17 @@ DURATION, RATE = "duration_days", "recruitment_rate"
 # 0.75 gate; a 0.85 target landed 0.795 at +1.6 months of width (ledger row 333, 2026-08-29).
 SHIPPED = {"P1HV": "two_stage_l2_cov85_ipcw", "P1": "two_stage_l2_ipcw",
            "P2": "two_stage_l2_ipcw", "P3": "two_stage_l2_ipcw"}
-# The rate head ships unweighted by design: a censored row's Enrollment field is the target,
-# not what has been recruited, so there is nothing for IPCW to reweight toward. P1HV ships the
-# 0.85-nominal band (trainer.RATE_COVERAGE_TARGET): at 0.80 it covered 0.744 on this fold, under
-# the 0.75 gate; 0.85 lands 0.800 with MAE unchanged (2026-08-30).
-RATE_SHIPPED = {"P1HV": "lgbm_rate_cov85", "P1": "lgbm_rate", "P2": "lgbm_rate", "P3": "lgbm_rate"}
+# The rate the API SERVES is derived from the duration head's enrolment window (inference.py,
+# Task 13 `6a20fd5`), band inverted from the duration band — so the served rate inherits the
+# duration configs, censoring frame and coverage target included. `DerivedRate` in
+# experiments/candidates.py mirrors that derivation line for line.
+RATE_SHIPPED = {"P1HV": "derived_rate_cov85_ipcw", "P1": "derived_rate_ipcw",
+                "P2": "derived_rate_ipcw", "P3": "derived_rate_ipcw"}
+# The standalone rate head reaches a response only as `recruitment_rate_crosscheck` — a point,
+# never its band. Published as a labelled cross-check, not as the rate figure. It trains
+# unweighted by design (a censored row's Enrollment is the target, not what was recruited).
+# P1HV's head aims at 0.85 (trainer.RATE_COVERAGE_TARGET): 0.744 at 0.80, 0.800 at 0.85.
+RATE_HEAD_SHIPPED = {"P1HV": "lgbm_rate_cov85", "P1": "lgbm_rate", "P2": "lgbm_rate", "P3": "lgbm_rate"}
 BASELINE = "ta_median"
 FOLD_TEXT = ("horizon fold — train on trials starting before 2018, test on 2018–2020 starts, "
              "which have had 5.4–8.6 years to finish against a corpus whose p95 duration is 5.9")
@@ -89,22 +95,53 @@ def _gates(r: dict) -> dict:
             "all_gates_pass": r.get("gate_pass")}
 
 
+def _parity(ph: str, r: dict, config: str, what: str) -> None:
+    if r.get("ipcw_applied") is not True:
+        raise ParityError(
+            f"{ph} {what}: ledger row {r['ledger_row']} ({config}, {r.get('ts')}) has "
+            f"ipcw_applied={r.get('ipcw_applied')!r}. The shipped duration head trains with "
+            f"IPCW weights (backend/models/trainer.train_phase), so this row measures a model "
+            f"nobody serves. Refusing to publish it. Re-run: python -m experiments.run "
+            f"--config {config} --phases {ph} --split {SPLIT}"
+            + (f" --target {RATE}" if what != "duration" else ""))
+
+
+def _rate_entry(rows: list, ph: str, config: str) -> dict:
+    r = latest(rows, config, ph, target=RATE)
+    b = latest(rows, BASELINE, ph, target=RATE)
+    if r is None:
+        return {"status": "NOT MEASURED on this fold"}
+    return {
+        "config": config, "ledger_row": r["ledger_row"], "run_ts": r.get("ts"),
+        "n_train": r.get("n_train"), "n_test": r.get("n_test"),
+        "ipcw_applied": r.get("ipcw_applied"),
+        "mae": r.get("mae_raw"), "rmse": r.get("rmse_raw", r.get("rmse_days")),
+        "skill_vs_ta_median": r.get("skill_vs_ta_median"),
+        "interval_coverage": r.get("interval_coverage"),
+        "interval_nominal": r.get("interval_nominal"),
+        **_gates(r),
+        "baseline_mae": b.get("mae_raw") if b else None,
+    }
+
+
 def build(rows: list) -> dict:
     out = {"split": SPLIT, "fold": FOLD_TEXT, "generated_from": str(LEDGER.relative_to(ROOT)),
-           "phases": {}, "rate": {"target": RATE, "unit": RATE_UNIT, "phases": {}}}
+           "phases": {},
+           "rate": {"target": RATE, "unit": RATE_UNIT,
+                    "what": "the rate the API serves — derived from the duration head's "
+                            "enrolment window, band inverted from the duration band",
+                    "phases": {}},
+           "rate_head": {"target": RATE, "unit": RATE_UNIT,
+                         "what": "the standalone rate head, served only as "
+                                 "recruitment_rate_crosscheck (a point, no band)",
+                         "phases": {}}}
     for ph in PHASE_ORDER:
         r = latest(rows, SHIPPED[ph], ph)
         b = latest(rows, BASELINE, ph)
         if r is None:
             out["phases"][ph] = {"status": "NOT MEASURED on this fold"}
             continue
-        if r.get("ipcw_applied") is not True:
-            raise ParityError(
-                f"{ph}: ledger row {r['ledger_row']} ({SHIPPED[ph]}, {r.get('ts')}) has "
-                f"ipcw_applied={r.get('ipcw_applied')!r}. The shipped duration head trains with "
-                f"IPCW weights (backend/models/trainer.train_phase), so this row measures a model "
-                f"nobody serves. Refusing to publish it. Re-run: python -m experiments.run "
-                f"--config {SHIPPED[ph]} --phases {ph} --split {SPLIT}")
+        _parity(ph, r, SHIPPED[ph], "duration")
         out["phases"][ph] = {
             "config": SHIPPED[ph], "ledger_row": r["ledger_row"], "run_ts": r.get("ts"),
             "n_train": r.get("n_train"), "n_test": r.get("n_test"),
@@ -118,27 +155,21 @@ def build(rows: list) -> dict:
             "baseline_mae_months": b.get("mae_months") if b else None,
         }
     for ph in PHASE_ORDER:
-        r = latest(rows, RATE_SHIPPED[ph], ph, target=RATE)
-        b = latest(rows, BASELINE, ph, target=RATE)
-        if r is None:
-            out["rate"]["phases"][ph] = {"status": "NOT MEASURED on this fold"}
-            continue
-        out["rate"]["phases"][ph] = {
-            "config": RATE_SHIPPED[ph], "ledger_row": r["ledger_row"], "run_ts": r.get("ts"),
-            "n_train": r.get("n_train"), "n_test": r.get("n_test"),
-            "mae": r.get("mae_raw"), "rmse": r.get("rmse_raw", r.get("rmse_days")),
-            "skill_vs_ta_median": r.get("skill_vs_ta_median"),
-            "interval_coverage": r.get("interval_coverage"),
-            "interval_nominal": r.get("interval_nominal"),
-            **_gates(r),
-            "baseline_mae": b.get("mae_raw") if b else None,
-        }
+        e = _rate_entry(rows, ph, RATE_SHIPPED[ph])
+        if "mae" in e:
+            # The served rate is the duration head's window inverted, so it carries the
+            # duration head's parity obligation.
+            _parity(ph, e, RATE_SHIPPED[ph], "served rate")
+        out["rate"]["phases"][ph] = e
+        out["rate_head"]["phases"][ph] = _rate_entry(rows, ph, RATE_HEAD_SHIPPED[ph])
     covs = [p["interval_coverage"] for p in out["phases"].values()
             if p.get("interval_coverage") is not None]
     out["coverage_range"] = [min(covs), max(covs)] if covs else None
     out["gates_failing"] = (
         [ph for ph, p in out["phases"].items() if p.get("all_gates_pass") is False]
         + [f"{ph} rate" for ph, p in out["rate"]["phases"].items()
+           if p.get("all_gates_pass") is False]
+        + [f"{ph} rate_head" for ph, p in out["rate_head"]["phases"].items()
            if p.get("all_gates_pass") is False])
     return out
 
@@ -182,17 +213,26 @@ def markdown(pub: dict) -> str:
     return "\n".join(lines)
 
 
-def markdown_rate(pub: dict) -> str:
-    lines = [f"| Phase | rate MAE ({RATE_UNIT}) | baseline MAE | skill | coverage (nominal) | gate |",
+def _rate_table(phases: dict, label: str) -> list:
+    lines = [f"| Phase | {label} MAE ({RATE_UNIT}) | baseline MAE | skill | coverage (nominal) | gate |",
              "|-------|------------------------------------|--------------|-------|--------------------|------|"]
     for ph in PHASE_ORDER:
-        p = pub["rate"]["phases"][ph]
+        p = phases[ph]
         if "mae" not in p:
             lines.append(f"| {ph} | — | — | — | — | not measured |"); continue
         base = f"{p['baseline_mae']:.2f}" if p.get("baseline_mae") is not None else "—"
         lines.append(f"| {ph} | {p['mae']:.2f} | {base} | {p['skill_vs_ta_median']:+.2f} | "
                      f"{_cov(p)} | {_gate_text(p)} |")
-    lines += ["", _rows_line(pub, pub["rate"]["phases"])]
+    return lines
+
+
+def markdown_rate(pub: dict) -> str:
+    lines = ["**Served rate** — " + pub["rate"]["what"] + ":", ""]
+    lines += _rate_table(pub["rate"]["phases"], "served rate")
+    lines += ["", _rows_line(pub, pub["rate"]["phases"]), "",
+              "**Cross-check** — " + pub["rate_head"]["what"] + ":", ""]
+    lines += _rate_table(pub["rate_head"]["phases"], "rate-head")
+    lines += ["", _rows_line(pub, pub["rate_head"]["phases"])]
     return "\n".join(lines)
 
 

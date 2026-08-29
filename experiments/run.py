@@ -18,7 +18,7 @@ import pandas as pd
 from backend.constants import PHASES
 from experiments import ledger
 from experiments.baselines import ALL_BASELINES, PRIMARY_BASELINE
-from experiments.candidates import (HorizonMatched, LGBMPoint, LGBMQuantile,
+from experiments.candidates import (DerivedRate, HorizonMatched, LGBMPoint, LGBMQuantile,
                                     ShippedArtifact, StratifiedTwoStage,
                                     TwoStageDuration, V1Recipe)
 from experiments.dataset import (load_censoring_frame, load_clean,
@@ -50,6 +50,15 @@ CONFIGS = {
     # covers 0.744 at 0.80 nominal, under the 0.75 gate (ledger row 345). Same
     # remedy the duration head took — aim higher, pay in width.
     "lgbm_rate_cov85":      (lambda p: LGBMQuantile(p, transform="log", coverage=0.85), False),
+    # What the API SERVES as the rate (2026-08-30): derived from the parity
+    # duration model's enrolment window, band inverted from the duration band
+    # (inference.py, Task 13). Run with --target recruitment_rate. The lgbm_rate
+    # rows above score the standalone head, which ships only as a cross-check.
+    "derived_rate_ipcw":    (lambda p: DerivedRate(
+        p, point_objective="l2", censoring_frame=load_censoring_frame(p)), False),
+    "derived_rate_cov85_ipcw": (lambda p: DerivedRate(
+        p, point_objective="l2", coverage=0.85,
+        censoring_frame=load_censoring_frame(p)), False),
     "two_stage":            (lambda p: TwoStageDuration(
         p, country_mix=False, criteria_text=False), False),
     "two_stage_geo":        (lambda p: TwoStageDuration(p, country_mix=True), False),
