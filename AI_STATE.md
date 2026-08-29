@@ -18,10 +18,28 @@ ledger row with a later one; re-measure instead.
 **There is no absolute R2 gate any more (Katie, 2026-08-04).** The 0.70 bar was
 unreachable from this feature set and was retired. R2 and RMSE are OPTIMISATION
 TARGETS - R2 up, RMSE down - and the bar is each phase's own best recorded value,
-held by `experiments/leaderboard.py`. Two absolute gates remain and both currently
-pass: `skill_vs_ta_median > 0` (does the model beat a per-therapeutic-area median
+held by `experiments/leaderboard.py`. Two absolute gates remain and both pass as of
+2026-08-29 (P1HV coverage FAILED 0.729 < 0.75 from 2026-08-04 until then; see below):
+`skill_vs_ta_median > 0` (does the model beat a per-therapeutic-area median
 lookup table, which decides whether it deserves to exist) and interval coverage
 within 0.75-0.90.
+
+**2026-08-29 — published figures moved to the horizon fold; P1HV recalibrated.** The
+cc-exchange "circular validation" audit found every PUBLIC surface (README table, RESULTS.md,
+`provenance.py`'s hardcoded `"0.82-0.89"`, the portfolio `TrialPredictorVersions.tsx`) still
+quoting the 2021+ fold, while the horizon fold (rows 323-330) was worse and P1HV failed its
+coverage gate. Now:
+- `experiments/publish_metrics.py` is the ONE source: it selects the shipped row per phase from
+  the ledger, writes `experiments/published_metrics.json`, and fills the marked blocks in
+  README.md and RESULTS.md (`--check` exits 1 if either is stale). `provenance.py` reads the
+  JSON at request time — a missing file degrades to "not measured", never to a remembered number.
+- P1HV: three recalibration configs run on the horizon fold (rows 332-334). `coverage=0.85`
+  clears the gate (0.795, +1.6 mo width, MAE 3.27, R² 0.324); `calib_frac=0.3` alone did not
+  (0.746). `trainer.COVERAGE_TARGET = {"P1HV": 0.85}`; artifact retrained on a fresh CT.gov pull
+  (n_fit 7467, IPCW applied, band scale 1.25). `inference.py` now labels `confidence_pct` from the
+  artifact's `coverage_nominal` (was a constant 80 — an 85% band would have read as 80%).
+- Still open: the eval configs pass no `censoring_frame`, so measured ≠ shipped (IPCW parity);
+  the rate head has no horizon-fold row at all (README rate MAE therefore not published).
 
 **Scoring moved to the horizon fold**: train <2018, test 2018-2020, where trials
 have had 5.4-8.6 years to finish against a corpus whose p95 duration is 5.9. The old
@@ -198,6 +216,10 @@ delivered both contracts to `analyst/artifacts/` — `endpoint_combinations.json
   on `PredictRequest`. No frontend caller.
 
 ## Exact Next Steps
+
+1. IPCW parity: add an eval config that passes `censoring_frame=load_clean_censored(p)` so the
+   measured model equals the shipped one, then re-run publish_metrics (numbers may move).
+2. Rate head on the horizon fold (`lgbm_rate`, `--split horizon`) before any rate MAE is quoted.
 
 1. Chase the under-prediction bias — the largest open problem, and the ceiling finding
    above suggests it is calibration rather than missing signal. Start with

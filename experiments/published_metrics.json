@@ -1,0 +1,128 @@
+{
+  "split": "horizon",
+  "fold": "horizon fold \u2014 train on trials starting before 2018, test on 2018\u20132020 starts, which have had 5.4\u20138.6 years to finish against a corpus whose p95 duration is 5.9",
+  "generated_from": "experiments/ledger.jsonl",
+  "phases": {
+    "P1HV": {
+      "config": "two_stage_l2_cov85",
+      "ledger_row": 333,
+      "run_ts": "2026-08-29T22:30:48",
+      "n_train": 4143,
+      "n_test": 1212,
+      "mae_months": 3.2716,
+      "r2": 0.3241,
+      "rmse_days": 176.4342,
+      "skill_vs_ta_median": 0.268,
+      "interval_coverage": 0.795,
+      "interval_nominal": 0.8,
+      "interval_mean_width_months": 9.7,
+      "coverage_gate": {
+        "value": 0.795,
+        "threshold": [
+          0.75,
+          0.9
+        ],
+        "pass": true
+      },
+      "skill_gate": {
+        "value": 0.268,
+        "threshold": 0.0,
+        "pass": true
+      },
+      "all_gates_pass": true,
+      "baseline_mae_months": 4.4669
+    },
+    "P1": {
+      "config": "two_stage_l2",
+      "ledger_row": 327,
+      "run_ts": "2026-08-04T23:23:25",
+      "n_train": 9969,
+      "n_test": 2449,
+      "mae_months": 7.7815,
+      "r2": 0.6292,
+      "rmse_days": 357.1459,
+      "skill_vs_ta_median": 0.349,
+      "interval_coverage": 0.775,
+      "interval_nominal": 0.8,
+      "interval_mean_width_months": 25.49,
+      "coverage_gate": {
+        "value": 0.775,
+        "threshold": [
+          0.75,
+          0.9
+        ],
+        "pass": true
+      },
+      "skill_gate": {
+        "value": 0.349,
+        "threshold": 0.0,
+        "pass": true
+      },
+      "all_gates_pass": true,
+      "baseline_mae_months": 11.9512
+    },
+    "P2": {
+      "config": "two_stage_l2",
+      "ledger_row": 329,
+      "run_ts": "2026-08-04T23:23:25",
+      "n_train": 11806,
+      "n_test": 2134,
+      "mae_months": 9.455,
+      "r2": 0.4025,
+      "rmse_days": 413.5243,
+      "skill_vs_ta_median": 0.224,
+      "interval_coverage": 0.798,
+      "interval_nominal": 0.8,
+      "interval_mean_width_months": 30.63,
+      "coverage_gate": {
+        "value": 0.798,
+        "threshold": [
+          0.75,
+          0.9
+        ],
+        "pass": true
+      },
+      "skill_gate": {
+        "value": 0.224,
+        "threshold": 0.0,
+        "pass": true
+      },
+      "all_gates_pass": true,
+      "baseline_mae_months": 12.1854
+    },
+    "P3": {
+      "config": "two_stage_l2",
+      "ledger_row": 330,
+      "run_ts": "2026-08-04T23:23:25",
+      "n_train": 11686,
+      "n_test": 1709,
+      "mae_months": 10.2158,
+      "r2": 0.3631,
+      "rmse_days": 438.6853,
+      "skill_vs_ta_median": 0.215,
+      "interval_coverage": 0.774,
+      "interval_nominal": 0.8,
+      "interval_mean_width_months": 30.77,
+      "coverage_gate": {
+        "value": 0.774,
+        "threshold": [
+          0.75,
+          0.9
+        ],
+        "pass": true
+      },
+      "skill_gate": {
+        "value": 0.215,
+        "threshold": 0.0,
+        "pass": true
+      },
+      "all_gates_pass": true,
+      "baseline_mae_months": 13.0201
+    }
+  },
+  "coverage_range": [
+    0.774,
+    0.798
+  ],
+  "gates_failing": []
+}

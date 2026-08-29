@@ -1,5 +1,5 @@
 {
-  "n_train": 7416,
+  "n_train": 7467,
   "heads": {
     "duration": {
       "target": "duration_days",
@@ -9,27 +9,27 @@
         "followup"
       ],
       "transform": "log1p",
-      "band_scale": 1.0809045226130654,
+      "band_scale": 1.2482412060301509,
       "quantiles": [
         0.1,
         0.5,
         0.9
       ],
-      "n_fit": 7416,
-      "coverage_nominal": 0.8,
+      "n_fit": 7467,
+      "coverage_nominal": 0.85,
       "ipcw_applied": true
     },
     "rate": {
       "target": "recruitment_rate",
       "kind": "single",
       "transform": "log",
-      "qhat": 0.10435220652136312,
+      "qhat": 0.10617948447033188,
       "quantiles": [
         0.1,
         0.5,
         0.9
       ],
-      "n_fit": 7416,
+      "n_fit": 7467,
       "coverage_nominal": 0.8,
       "ipcw_applied": false
     }
@@ -54,11 +54,11 @@
     "followup_months": 0.92,
     "min_age_years": 18.0,
     "age_span_years": 37.0,
-    "criteria_chars": 1891.5,
+    "criteria_chars": 1889.0,
     "n_inclusion_criteria": 4.0,
     "n_exclusion_criteria": 9.0,
     "n_collaborators": 0.0,
-    "enrollment_per_site": 31.5,
+    "enrollment_per_site": 31.0,
     "outcomes_total": 6.0,
     "endpoint_has_SURVIVAL": 0.0,
     "endpoint_has_EVENT_COMPOSITE": 0.0,
@@ -175,13 +175,13 @@
   "feature_ranges": {
     "Enrollment": {
       "p01": 6.0,
-      "p99": 251.70000000000073,
+      "p99": 254.6800000000003,
       "min": 6.0,
       "max": 395.0
     },
     "site_count": {
       "p01": 1.0,
-      "p99": 5.0,
+      "p99": 5.3400000000001455,
       "min": 1.0,
       "max": 35.0
     },
@@ -193,7 +193,7 @@
     },
     "total_primary_outcomes": {
       "p01": 1.0,
-      "p99": 22.850000000000364,
+      "p99": 23.0,
       "min": 0.0,
       "max": 161.0
     },
@@ -228,8 +228,8 @@
       "max": 124.0
     },
     "criteria_chars": {
-      "p01": 122.15,
-      "p99": 8618.65000000001,
+      "p01": 122.66,
+      "p99": 8645.78000000001,
       "min": 30.0,
       "max": 18703.0
     },
@@ -253,13 +253,13 @@
     },
     "enrollment_per_site": {
       "p01": 6.0,
-      "p99": 179.85000000000036,
+      "p99": 180.0,
       "min": 1.5,
       "max": 395.0
     },
     "outcomes_total": {
       "p01": 1.0,
-      "p99": 41.850000000000364,
+      "p99": 41.340000000000146,
       "min": 0.0,
       "max": 191.0
     },
@@ -799,7 +799,7 @@
     },
     "csite_New Zealand": {
       "p01": 0.0,
-      "p99": 0.03712500000000697,
+      "p99": 0.02735000000000279,
       "min": 0.0,
       "max": 1.0
     },
@@ -954,32 +954,32 @@
       "enrollment_per_site": 25.625
     },
     "Dermatology/Connective Tissue Diseases": {
-      "n": 22,
-      "Enrollment": 82.0,
-      "site_count": 2.5,
+      "n": 23,
+      "Enrollment": 83.0,
+      "site_count": 2.0,
       "country_count": 1.0,
-      "followup_months": 3.25,
+      "followup_months": 3.005,
       "number_of_arms": 4.0,
       "total_primary_outcomes": 2.0,
-      "total_secondary_outcomes": 7.5,
-      "n_inclusion_criteria": 7.5,
-      "n_exclusion_criteria": 9.5,
-      "criteria_chars": 2871.0,
-      "enrollment_per_site": 27.625
+      "total_secondary_outcomes": 7.0,
+      "n_inclusion_criteria": 7.0,
+      "n_exclusion_criteria": 10.0,
+      "criteria_chars": 2878.0,
+      "enrollment_per_site": 32.0
     },
     "Gastroenterology": {
-      "n": 90,
-      "Enrollment": 28.5,
+      "n": 93,
+      "Enrollment": 29.0,
       "site_count": 2.0,
       "country_count": 1.0,
       "followup_months": 0.39,
-      "number_of_arms": 3.5,
+      "number_of_arms": 3.0,
       "total_primary_outcomes": 3.0,
       "total_secondary_outcomes": 3.0,
       "n_inclusion_criteria": 8.0,
       "n_exclusion_criteria": 9.0,
-      "criteria_chars": 2291.0,
-      "enrollment_per_site": 12.416666666666668
+      "criteria_chars": 2248.0,
+      "enrollment_per_site": 12.333333333333334
     },
     "Haematology": {
       "n": 17,
@@ -996,46 +996,46 @@
       "enrollment_per_site": 28.0
     },
     "Immunology": {
-      "n": 24,
-      "Enrollment": 62.0,
+      "n": 25,
+      "Enrollment": 64.0,
       "site_count": 1.0,
       "country_count": 1.0,
       "followup_months": 3.68,
       "number_of_arms": 3.0,
       "total_primary_outcomes": 1.0,
-      "total_secondary_outcomes": 3.5,
+      "total_secondary_outcomes": 4.0,
       "n_inclusion_criteria": 4.0,
       "n_exclusion_criteria": 6.0,
-      "criteria_chars": 1179.5,
+      "criteria_chars": 1181.0,
       "enrollment_per_site": 32.0
     },
     "Infectious Diseases": {
-      "n": 35,
-      "Enrollment": 72.0,
+      "n": 36,
+      "Enrollment": 73.5,
       "site_count": 2.0,
       "country_count": 1.0,
-      "followup_months": 1.035,
+      "followup_months": 1.15,
       "number_of_arms": 3.0,
-      "total_primary_outcomes": 3.0,
-      "total_secondary_outcomes": 2.0,
-      "n_inclusion_criteria": 6.0,
+      "total_primary_outcomes": 4.5,
+      "total_secondary_outcomes": 2.5,
+      "n_inclusion_criteria": 5.5,
       "n_exclusion_criteria": 16.0,
-      "criteria_chars": 2835.0,
-      "enrollment_per_site": 30.5
+      "criteria_chars": 3164.0,
+      "enrollment_per_site": 30.442307692307693
     },
     "Metabolic": {
-      "n": 172,
-      "Enrollment": 40.5,
+      "n": 175,
+      "Enrollment": 42.0,
       "site_count": 1.0,
       "country_count": 1.0,
-      "followup_months": 0.87,
+      "followup_months": 0.92,
       "number_of_arms": 2.0,
       "total_primary_outcomes": 1.0,
       "total_secondary_outcomes": 4.0,
       "n_inclusion_criteria": 4.0,
       "n_exclusion_criteria": 6.0,
-      "criteria_chars": 1352.0,
-      "enrollment_per_site": 34.5
+      "criteria_chars": 1355.0,
+      "enrollment_per_site": 35.0
     },
     "Respiratory": {
       "n": 30,
@@ -1066,7 +1066,7 @@
       "enrollment_per_site": 14.0
     },
     "Other": {
-      "n": 7373,
+      "n": 7423,
       "Enrollment": 32.0,
       "site_count": 1.0,
       "country_count": 1.0,
@@ -1076,9 +1076,9 @@
       "total_secondary_outcomes": 3.0,
       "n_inclusion_criteria": 4.0,
       "n_exclusion_criteria": 9.0,
-      "criteria_chars": 1891.0,
+      "criteria_chars": 1887.0,
       "enrollment_per_site": 31.0
     }
   },
-  "rmse": 196.56719688454223
+  "rmse": 197.00251358186608
 }

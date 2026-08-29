@@ -305,6 +305,12 @@ def predict(
         model_used="LightGBM conformalised quantile",
         rmse_days=round(entry.get("rmse", 0.0), 1),
         n_train=entry["n_train"],
+        # The band's nominal target is whatever the artifact was calibrated to — P1HV
+        # aims at 0.85 since 2026-08-29 — so the label must come from metadata, never
+        # the dataclass default. A constant 80 on an 85% band is a mislabel.
+        confidence_pct=int(round(100 * float(
+            ((entry.get("meta", {}).get("heads", {}) or {}).get("duration", {}) or {})
+            .get("coverage_nominal", 0.80)))),
         extrapolation_warnings=warnings,
         recruitment_rate=rate,
         recruitment_rate_lower=rate_lo,

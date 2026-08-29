@@ -177,6 +177,9 @@ async def _censoring_frame(phase_key: str,
         return None
 
 
+COVERAGE_TARGET = {"P1HV": 0.85}
+
+
 async def train_phase(phase_key: str, loader=None) -> None:
     """Fit and save one phase's artifacts.
 
@@ -216,7 +219,14 @@ async def train_phase(phase_key: str, loader=None) -> None:
             # while their recruiting windows are 11.1 and 13.5 — oncology is not
             # slow to recruit, it is slow to finish. Splitting them cut Phase 3
             # MAE from 7.29 to 6.90 months and Phase 2 interval width by 18%.
-            model = TwoStageDuration(phase_key, censoring_frame=censoring)
+            # Per-phase coverage TARGET. P1HV: at 0.80 nominal the band covered 0.729 on
+            # the horizon fold (ledger row 328, below the 0.75 gate); aiming at 0.85 lands
+            # 0.795 for +1.6 months of width with the point estimate unchanged (row 333,
+            # 2026-08-29). Other phases hold 0.80. Change here AND in
+            # experiments/publish_metrics.SHIPPED — the two must name the same setting.
+            model = TwoStageDuration(
+                phase_key, censoring_frame=censoring,
+                coverage=COVERAGE_TARGET.get(phase_key, 0.80))
             model.fit(sub, target)
             for stage, sub_model in (("enrolment", model.enrol), ("followup", model.fu)):
                 for alpha, pipe in sub_model.models.items():

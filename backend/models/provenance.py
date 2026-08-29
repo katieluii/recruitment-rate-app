@@ -60,6 +60,33 @@ def _artifact_built(phase_key: str) -> str | None:
     return date.fromtimestamp(path.stat().st_mtime).isoformat()
 
 
+_PUBLISHED = Path(__file__).resolve().parents[2] / "experiments" / "published_metrics.json"
+
+
+def _measured_coverage(phase_key: str) -> str:
+    """The coverage figure a reader sees is READ from experiments/published_metrics.json,
+    which `experiments/publish_metrics.py` derives from the ledger — never a literal.
+    Until 2026-08-29 this was the string "0.82-0.89 on a temporal holdout", typed by hand
+    from a fold the method's own assumption invalidates; nothing recomputed it when the
+    honest fold was run. A missing file degrades VISIBLY, not to a remembered number."""
+    try:
+        pub = json.loads(_PUBLISHED.read_text())
+    except (OSError, ValueError):
+        return "not measured — experiments/published_metrics.json is missing or unreadable"
+    p = pub.get("phases", {}).get(phase_key, {})
+    cov = p.get("interval_coverage")
+    if cov is None:
+        return f"not measured for {phase_key} on the {pub.get('split', '?')} fold"
+    nominal = p.get("interval_nominal") or 0.80
+    text = (f"{cov:.2f} on the {pub.get('split', '?')} fold (ledger row {p.get('ledger_row')}), "
+            f"against {nominal:.2f} nominal")
+    gate = p.get("coverage_gate") or {}
+    if gate and gate.get("pass") is False:
+        lo = (gate.get("threshold") or ["?"])[0]
+        text += f" — BELOW the {lo} coverage gate; recalibration pending"
+    return text
+
+
 def build_sources(phase_key: str) -> list[dict]:
     meta = _artifact_meta(phase_key)
     heads = meta.get("heads", {})
@@ -236,7 +263,7 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
             f"{prediction.confidence_pct}% band from the 0.1 and 0.9 quantile "
             "models, combined across the two stages in quadrature and scaled to "
             "hit nominal coverage on held-out trials"),
-        "measured_coverage": "0.82-0.89 on a temporal holdout, against 0.80 nominal",
+        "measured_coverage": _measured_coverage(phase_key),
     }
 
     if prediction.recruitment_rate is not None:

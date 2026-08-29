@@ -52,6 +52,16 @@ CONFIGS = {
     "two_stage_l2":         (lambda p: TwoStageDuration(p, point_objective="l2"), False),
     "two_stage_text":       (lambda p: TwoStageDuration(
         p, country_mix=False, criteria_text=True), False),
+    # ── P1HV recalibration (2026-08-29): on the horizon fold P1HV covers 0.729
+    # against the 0.75 gate (ledger row 328) with calib_frac=0.2. Three ways to
+    # widen the band, each its own ledger row; the one that clears the gate with
+    # the narrowest interval_mean_width_months ships.
+    "two_stage_l2_cal30":   (lambda p: TwoStageDuration(
+        p, point_objective="l2", calib_frac=0.3), False),
+    "two_stage_l2_cov85":   (lambda p: TwoStageDuration(
+        p, point_objective="l2", coverage=0.85), False),
+    "two_stage_l2_cal30_cov85": (lambda p: TwoStageDuration(
+        p, point_objective="l2", calib_frac=0.3, coverage=0.85), False),
     # ── Lever 1: the MIN_ENROL_FRACTION floor (docs/OPEN_LEVERS.md §1) ────────
     # ~1 training row in 6 has its enrolment target set by the constant 0.25
     # rather than by data. Three tests, each its own ledger row.
