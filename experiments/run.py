@@ -21,7 +21,7 @@ from experiments.baselines import ALL_BASELINES, PRIMARY_BASELINE
 from experiments.candidates import (HorizonMatched, LGBMPoint, LGBMQuantile,
                                     ShippedArtifact, StratifiedTwoStage,
                                     TwoStageDuration, V1Recipe)
-from experiments.dataset import load_clean
+from experiments.dataset import load_censoring_frame, load_clean
 from experiments.metrics import GATES, check_gates, evaluate, skill_score
 from experiments.splits import check_split_viability, get_split
 
@@ -62,6 +62,17 @@ CONFIGS = {
         p, point_objective="l2", coverage=0.85), False),
     "two_stage_l2_cal30_cov85": (lambda p: TwoStageDuration(
         p, point_objective="l2", calib_frac=0.3, coverage=0.85), False),
+    # ── IPCW parity (2026-08-30): what SHIPS. trainer.train_phase fits
+    # TwoStageDuration with a censoring frame; every config above passes none,
+    # so their rows measure an unweighted model that is not the one serving.
+    # These two mirror trainer exactly — same class, same frame builder, and
+    # P1HV's 0.85 target from trainer.COVERAGE_TARGET. publish_metrics.SHIPPED
+    # names these and refuses a duration row whose ipcw_applied is not True.
+    "two_stage_l2_ipcw":    (lambda p: TwoStageDuration(
+        p, point_objective="l2", censoring_frame=load_censoring_frame(p)), False),
+    "two_stage_l2_cov85_ipcw": (lambda p: TwoStageDuration(
+        p, point_objective="l2", coverage=0.85,
+        censoring_frame=load_censoring_frame(p)), False),
     # ── Lever 1: the MIN_ENROL_FRACTION floor (docs/OPEN_LEVERS.md §1) ────────
     # ~1 training row in 6 has its enrolment target set by the constant 0.25
     # rather than by data. Three tests, each its own ledger row.
@@ -142,9 +153,18 @@ def run_one(config: str, phase_key: str, split: str, cutoff: str,
     except (NotImplementedError, AttributeError):
         lower = upper = None
 
+    # The band's own target, not a constant 0.80: P1HV ships an 0.85 band and a
+    # row labelled "0.80 nominal" would misstate what its coverage was aimed at.
+    nominal = _model_attr(model, "coverage")
     metrics = evaluate(test, y_true, y_pred, lower, upper,
-                       unit=TARGET_UNITS.get(target, "raw"))
+                       unit=TARGET_UNITS.get(target, "raw"),
+                       nominal=0.80 if nominal is None else float(nominal))
     per_ta = metrics.pop("_per_ta")
+    # Three states, deliberately: True / False = the head reported whether IPCW
+    # weights were applied; None = this model class has no such head. The
+    # publish gate treats anything but True on a duration row as "not the
+    # shipped model".
+    ipcw = _model_attr(model, "ipcw_applied_")
 
     return {
         "config": config,
@@ -154,9 +174,22 @@ def run_one(config: str, phase_key: str, split: str, cutoff: str,
         "target": target,
         "n_train": int(len(train)),
         "n_test": int(len(test)),
+        "ipcw_applied": None if ipcw is None else bool(ipcw),
         **metrics,
         "per_ta": per_ta,
     }
+
+
+def _model_attr(model, name: str):
+    """Read an attribute off a candidate or the shipped model it wraps.
+
+    Candidates wrap the shipped classes at different depths — `LGBMQuantile`
+    holds `.model`, `TwoStageDuration` holds `.enrol` (the stage that carries
+    the censoring frame). Look at the wrapper first, then those two."""
+    for obj in (model, getattr(model, "enrol", None), getattr(model, "model", None)):
+        if obj is not None and getattr(obj, name, None) is not None:
+            return getattr(obj, name)
+    return None
 
 
 def _mae(row: dict):

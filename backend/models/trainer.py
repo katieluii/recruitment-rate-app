@@ -140,6 +140,33 @@ def _feature_ranges(X: pd.DataFrame) -> dict:
     return out
 
 
+def build_censoring_frame(completed: pd.DataFrame, ongoing: pd.DataFrame,
+                          phase_key: str) -> pd.DataFrame | None:
+    """The frame the duration head's IPCW weights are estimated against.
+
+    Pure and synchronous on purpose: `experiments/run.py` calls THIS function
+    (via `experiments.dataset.load_censoring_frame`) so that the model the
+    harness measures and the model that ships reweight against a frame built
+    the same way. Until 2026-08-30 the eval configs passed no censoring frame
+    at all, so every published figure measured an unweighted model that was
+    not the one serving.
+
+    Note what this does NOT do: no healthy-volunteer filter. P1 and P1HV share
+    one censoring frame (the whole PHASE1/EARLY_PHASE1 cohort). That is the
+    shipped behaviour and the harness mirrors it rather than "fixing" it here.
+    """
+    if ongoing.empty:
+        return None
+    for frame, flag in ((completed, 0), (ongoing, 1)):
+        if "is_ongoing" not in frame.columns:
+            frame["is_ongoing"] = flag
+    combined = pd.concat([completed, ongoing], ignore_index=True, sort=False)
+    frame = clean(combined, phase_key, censored=True)
+    log.info("%s censoring frame: %d rows, %.0f%% censored", phase_key,
+             len(frame), 100 * (1 - frame["event_observed"].mean()))
+    return frame
+
+
 async def _censoring_frame(phase_key: str,
                            loader=None) -> pd.DataFrame | None:
     """Completed + still-running trials, for the IPCW censoring correction.
@@ -161,16 +188,7 @@ async def _censoring_frame(phase_key: str,
                                       statuses=ONGOING_STATUSES)
             ongoing = pd.DataFrame(
                 [r for s in raw if (r := flatten_study(s)) is not None])
-        if ongoing.empty:
-            return None
-        for frame, flag in ((completed, 0), (ongoing, 1)):
-            if "is_ongoing" not in frame.columns:
-                frame["is_ongoing"] = flag
-        combined = pd.concat([completed, ongoing], ignore_index=True, sort=False)
-        frame = clean(combined, phase_key, censored=True)
-        log.info("%s censoring frame: %d rows, %.0f%% censored", phase_key,
-                 len(frame), 100 * (1 - frame["event_observed"].mean()))
-        return frame
+        return build_censoring_frame(completed, ongoing, phase_key)
     except Exception as exc:
         log.warning("%s: could not build censoring frame (%s) — the duration head "
                     "will train without the IPCW correction", phase_key, exc)

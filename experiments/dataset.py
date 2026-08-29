@@ -81,6 +81,22 @@ def load_clean_censored(phase_key: str, refresh: bool = False) -> pd.DataFrame:
     return df
 
 
+def load_censoring_frame(phase_key: str, refresh: bool = False) -> pd.DataFrame | None:
+    """The frame the SHIPPED duration head reweights against, built by the
+    trainer's own `build_censoring_frame` — so measured == shipped by
+    construction, not by a copy that can drift.
+
+    Not the same as `load_clean_censored`: that applies the healthy-volunteer
+    filter (it feeds the survival models), the trainer does not. Passing the
+    filtered frame here would measure a model nobody serves.
+    """
+    from backend.models.trainer import build_censoring_frame
+
+    return build_censoring_frame(load_raw(phase_key, refresh=refresh),
+                                 load_ongoing(phase_key, refresh=refresh),
+                                 phase_key)
+
+
 def load_raw(phase_key: str, refresh: bool = False) -> pd.DataFrame:
     """Return the raw (pre-clean) study frame for a phase key.
 

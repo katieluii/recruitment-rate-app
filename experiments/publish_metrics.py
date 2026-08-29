@@ -8,14 +8,21 @@ When the honest horizon fold was run (2026-08-04) nothing downstream moved.
 
 This module reads `experiments/ledger.jsonl` — every figure traces to a recorded run —
 selects the row that ships per phase, and writes `experiments/published_metrics.json`.
-`provenance.py` reads that file at request time; README.md / RESULTS.md paste the
-markdown this prints. Re-run after any ledger change that should reach a reader:
+`provenance.py` reads that file at request time; README.md / RESULTS.md carry the markdown
+this prints inside marker blocks. Re-run after any ledger change that should reach a reader:
 
-    .venv/bin/python -m experiments.publish_metrics            # write JSON + print markdown
-    .venv/bin/python -m experiments.publish_metrics --check    # exit 1 if JSON is stale
+    .venv/bin/python -m experiments.publish_metrics            # write JSON + fill docs
+    .venv/bin/python -m experiments.publish_metrics --check    # exit 1 if JSON/docs are stale
 
 The fold is named on every output. A phase whose gate fails is published AS failing —
 never dropped, never rounded up.
+
+PARITY GATE (2026-08-30): the shipped duration head trains with IPCW censoring weights
+(`trainer.train_phase` passes a censoring frame). Until this date every eval config passed
+none, so every published number measured an unweighted model that was not the one serving.
+A duration row now publishes only if its `ipcw_applied` is True — anything else (False,
+missing, an older config) exits 2 with the row named. "Not measured" stays allowed; "measured
+the wrong model" does not.
 """
 from __future__ import annotations
 
@@ -28,27 +35,44 @@ ROOT = Path(__file__).resolve().parents[1]
 LEDGER = ROOT / "experiments" / "ledger.jsonl"
 OUT = ROOT / "experiments" / "published_metrics.json"
 DOCS = [ROOT / "README.md", ROOT / "RESULTS.md"]
-MARK_START, MARK_END = "<!-- published_metrics:start", "<!-- published_metrics:end -->"
 
 # What ships, per phase. Change here, re-run, and every surface follows.
 SPLIT = "horizon"
-# P1HV ships the 0.85-nominal band (ledger row 333, 2026-08-29): at 0.80 nominal it covered
-# 0.729 on the horizon fold, below the 0.75 gate; a 0.85 target lands 0.795 at +1.6 months of
-# width with the point estimate unchanged. calib_frac=0.3 alone reached only 0.746 (row 332).
-SHIPPED = {"P1HV": "two_stage_l2_cov85", "P1": "two_stage_l2", "P2": "two_stage_l2", "P3": "two_stage_l2"}
+DURATION, RATE = "duration_days", "recruitment_rate"
+# Both configs construct TwoStageDuration exactly as trainer.train_phase does — same class,
+# same censoring-frame builder (trainer.build_censoring_frame). P1HV ships the 0.85-nominal
+# band (trainer.COVERAGE_TARGET): at 0.80 nominal it covered 0.729 on this fold, below the
+# 0.75 gate; a 0.85 target landed 0.795 at +1.6 months of width (ledger row 333, 2026-08-29).
+SHIPPED = {"P1HV": "two_stage_l2_cov85_ipcw", "P1": "two_stage_l2_ipcw",
+           "P2": "two_stage_l2_ipcw", "P3": "two_stage_l2_ipcw"}
+# The rate head ships unweighted by design: a censored row's Enrollment field is the target,
+# not what has been recruited, so there is nothing for IPCW to reweight toward.
+RATE_SHIPPED = "lgbm_rate"
 BASELINE = "ta_median"
 FOLD_TEXT = ("horizon fold — train on trials starting before 2018, test on 2018–2020 starts, "
              "which have had 5.4–8.6 years to finish against a corpus whose p95 duration is 5.9")
 PHASE_ORDER = ["P1HV", "P1", "P2", "P3"]
+RATE_UNIT = "patients per site per month"
 
 
-def load_rows() -> list:
-    return [json.loads(l) for l in LEDGER.read_text().splitlines() if l.strip()]
+class ParityError(RuntimeError):
+    """A shipped-config row that does not measure the shipped model."""
 
 
-def latest(rows: list, config: str, phase: str, split: str = SPLIT) -> dict | None:
+def load_rows(path: Path = LEDGER) -> list:
+    return [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+
+
+def latest(rows: list, config: str, phase: str, target: str = DURATION,
+           split: str = SPLIT) -> dict | None:
+    """Newest ledger row for (config, phase, target, split), 1-indexed row attached.
+
+    `target` is part of the key: the baseline runs under both targets, and without
+    it a newer rate-head baseline row would silently stand in for the duration one."""
     hits = [(i, r) for i, r in enumerate(rows, 1)
-            if r.get("config") == config and r.get("phase") == phase and r.get("split") == split]
+            if r.get("config") == config and r.get("phase") == phase
+            and r.get("split") == split and r.get("target", DURATION) == target
+            and not r.get("skipped") and not r.get("error")]
     if not hits:
         return None
     i, r = max(hits, key=lambda t: (t[1].get("ts", ""), t[0]))
@@ -56,65 +80,141 @@ def latest(rows: list, config: str, phase: str, split: str = SPLIT) -> dict | No
     return r
 
 
+def _gates(r: dict) -> dict:
+    g = r.get("gates", {})
+    return {"coverage_gate": g.get("interval_coverage", {}),
+            "skill_gate": g.get("skill_vs_ta_median", {}),
+            "all_gates_pass": r.get("gate_pass")}
+
+
 def build(rows: list) -> dict:
     out = {"split": SPLIT, "fold": FOLD_TEXT, "generated_from": str(LEDGER.relative_to(ROOT)),
-           "phases": {}}
+           "phases": {}, "rate": {"config": RATE_SHIPPED, "target": RATE, "unit": RATE_UNIT,
+                                  "phases": {}}}
     for ph in PHASE_ORDER:
         r = latest(rows, SHIPPED[ph], ph)
         b = latest(rows, BASELINE, ph)
         if r is None:
             out["phases"][ph] = {"status": "NOT MEASURED on this fold"}
             continue
-        g = r.get("gates", {})
+        if r.get("ipcw_applied") is not True:
+            raise ParityError(
+                f"{ph}: ledger row {r['ledger_row']} ({SHIPPED[ph]}, {r.get('ts')}) has "
+                f"ipcw_applied={r.get('ipcw_applied')!r}. The shipped duration head trains with "
+                f"IPCW weights (backend/models/trainer.train_phase), so this row measures a model "
+                f"nobody serves. Refusing to publish it. Re-run: python -m experiments.run "
+                f"--config {SHIPPED[ph]} --phases {ph} --split {SPLIT}")
         out["phases"][ph] = {
             "config": SHIPPED[ph], "ledger_row": r["ledger_row"], "run_ts": r.get("ts"),
             "n_train": r.get("n_train"), "n_test": r.get("n_test"),
+            "ipcw_applied": True,
             "mae_months": r.get("mae_months"), "r2": r.get("r2"), "rmse_days": r.get("rmse_days"),
             "skill_vs_ta_median": r.get("skill_vs_ta_median"),
             "interval_coverage": r.get("interval_coverage"),
             "interval_nominal": r.get("interval_nominal"),
             "interval_mean_width_months": r.get("interval_mean_width_months"),
-            "coverage_gate": g.get("interval_coverage", {}),
-            "skill_gate": g.get("skill_vs_ta_median", {}),
-            "all_gates_pass": r.get("gate_pass"),
+            **_gates(r),
             "baseline_mae_months": b.get("mae_months") if b else None,
         }
-    covs = [p["interval_coverage"] for p in out["phases"].values() if p.get("interval_coverage") is not None]
+    for ph in PHASE_ORDER:
+        r = latest(rows, RATE_SHIPPED, ph, target=RATE)
+        b = latest(rows, BASELINE, ph, target=RATE)
+        if r is None:
+            out["rate"]["phases"][ph] = {"status": "NOT MEASURED on this fold"}
+            continue
+        out["rate"]["phases"][ph] = {
+            "ledger_row": r["ledger_row"], "run_ts": r.get("ts"),
+            "n_train": r.get("n_train"), "n_test": r.get("n_test"),
+            "mae": r.get("mae_raw"), "rmse": r.get("rmse_raw", r.get("rmse_days")),
+            "skill_vs_ta_median": r.get("skill_vs_ta_median"),
+            "interval_coverage": r.get("interval_coverage"),
+            "interval_nominal": r.get("interval_nominal"),
+            **_gates(r),
+            "baseline_mae": b.get("mae_raw") if b else None,
+        }
+    covs = [p["interval_coverage"] for p in out["phases"].values()
+            if p.get("interval_coverage") is not None]
     out["coverage_range"] = [min(covs), max(covs)] if covs else None
-    out["gates_failing"] = [ph for ph, p in out["phases"].items() if p.get("all_gates_pass") is False]
+    out["gates_failing"] = (
+        [ph for ph, p in out["phases"].items() if p.get("all_gates_pass") is False]
+        + [f"{ph} rate" for ph, p in out["rate"]["phases"].items()
+           if p.get("all_gates_pass") is False])
     return out
 
 
+def _gate_text(p: dict) -> str:
+    if p["all_gates_pass"]:
+        return "pass"
+    cg, sg = p["coverage_gate"], p["skill_gate"]
+    why = []
+    if cg and cg.get("pass") is False:
+        lo, hi = (cg.get("threshold") or ["?", "?"])[:2]
+        why.append(f"coverage {cg.get('value')} outside {lo}–{hi}")
+    if sg and sg.get("pass") is False:
+        why.append(f"skill {sg.get('value')} ≤ {sg.get('threshold')}")
+    return "**FAIL** (" + "; ".join(why or ["gate not evaluated"]) + ")"
+
+
+def _cov(p: dict) -> str:
+    nom = p.get("interval_nominal")
+    return f"{p['interval_coverage']:.2f} ({nom:.2f})" if nom is not None else f"{p['interval_coverage']:.2f}"
+
+
+def _rows_line(pub: dict, phases: dict) -> str:
+    return (f"Fold: {pub['fold']}. Rows " +
+            ", ".join(f"{ph}={phases[ph].get('ledger_row')}" for ph in PHASE_ORDER) +
+            f" of `{pub['generated_from']}`. Regenerate: `python -m experiments.publish_metrics`.")
+
+
 def markdown(pub: dict) -> str:
-    lines = ["| Phase | duration MAE | skill | R² | coverage (0.80 nominal) | gate |",
-             "|-------|--------------|-------|----|-------------------------|------|"]
+    lines = ["| Phase | duration MAE | skill | R² | coverage (nominal) | gate |",
+             "|-------|--------------|-------|----|--------------------|------|"]
     for ph in PHASE_ORDER:
         p = pub["phases"][ph]
         if "mae_months" not in p:
             lines.append(f"| {ph} | — | — | — | — | not measured |"); continue
-        cg = p["coverage_gate"]
-        gate = "pass" if p["all_gates_pass"] else f"**FAIL** (coverage {cg.get('value')} < {cg.get('threshold', ['?'])[0]})"
         lines.append(f"| {ph} | {p['mae_months']:.2f} mo | {p['skill_vs_ta_median']:+.2f} | "
-                     f"{p['r2']:.3f} | {p['interval_coverage']:.2f} | {gate} |")
-    lines.append("")
-    lines.append(f"Fold: {pub['fold']}. Rows " +
-                 ", ".join(f"{ph}={pub['phases'][ph].get('ledger_row')}" for ph in PHASE_ORDER) +
-                 f" of `{pub['generated_from']}`. Regenerate: `python -m experiments.publish_metrics`.")
+                     f"{p['r2']:.3f} | {_cov(p)} | {_gate_text(p)} |")
+    lines += ["", _rows_line(pub, pub["phases"]) +
+              " Every row measures the shipped configuration — IPCW censoring weights applied, "
+              "as in `trainer.train_phase`."]
     return "\n".join(lines)
 
 
-def fill_docs(md: str, docs=DOCS, write: bool = True) -> list:
-    """Replace the marked block in each doc. Returns the docs that were (or would be) changed;
-    a doc without both markers is skipped loudly — a silent skip would leave a stale table."""
+def markdown_rate(pub: dict) -> str:
+    lines = [f"| Phase | rate MAE ({RATE_UNIT}) | baseline MAE | skill | coverage (nominal) | gate |",
+             "|-------|------------------------------------|--------------|-------|--------------------|------|"]
+    for ph in PHASE_ORDER:
+        p = pub["rate"]["phases"][ph]
+        if "mae" not in p:
+            lines.append(f"| {ph} | — | — | — | — | not measured |"); continue
+        base = f"{p['baseline_mae']:.2f}" if p.get("baseline_mae") is not None else "—"
+        lines.append(f"| {ph} | {p['mae']:.2f} | {base} | {p['skill_vs_ta_median']:+.2f} | "
+                     f"{_cov(p)} | {_gate_text(p)} |")
+    lines += ["", _rows_line(pub, pub["rate"]["phases"])]
+    return "\n".join(lines)
+
+
+#: marker name → renderer. Each doc carries `<!-- <name>:start … -->` … `<!-- <name>:end -->`.
+BLOCKS = {"published_metrics": markdown, "published_metrics_rate": markdown_rate}
+
+
+def fill_docs(pub: dict, docs=DOCS, write: bool = True) -> list:
+    """Replace every marker block in each doc. Returns the docs that were (or would be)
+    changed; a doc missing a block is skipped loudly — a silent skip would leave a stale table."""
     changed = []
     for doc in docs:
         text = doc.read_text()
-        i, j = text.find(MARK_START), text.find(MARK_END)
-        if i < 0 or j < 0 or j < i:
-            print(f"publish_metrics: {doc.name} has no marker block — NOT updated", file=sys.stderr)
-            continue
-        line_end = text.index("\n", i) + 1
-        new = text[:line_end] + md + "\n" + text[j:]
+        new = text
+        for name, render in BLOCKS.items():
+            start, end = f"<!-- {name}:start", f"<!-- {name}:end -->"
+            i, j = new.find(start), new.find(end)
+            if i < 0 or j < 0 or j < i:
+                print(f"publish_metrics: {doc.name} has no {name} block — NOT updated",
+                      file=sys.stderr)
+                continue
+            line_end = new.index("\n", i) + 1
+            new = new[:line_end] + render(pub) + "\n" + new[j:]
         if new != text:
             changed.append(doc.name)
             if write:
@@ -127,21 +227,26 @@ def main() -> int:
     ap.add_argument("--check", action="store_true",
                     help="exit 1 if published_metrics.json or a doc block is stale")
     a = ap.parse_args()
-    pub = build(load_rows())
+    try:
+        pub = build(load_rows())
+    except ParityError as exc:
+        print(f"PARITY: {exc}", file=sys.stderr)
+        return 2
     text = json.dumps(pub, indent=2) + "\n"
-    md = markdown(pub)
     if a.check:
         cur = OUT.read_text() if OUT.exists() else ""
-        stale = fill_docs(md, write=False)
+        stale = fill_docs(pub, write=False)
         if cur != text or stale:
-            print(f"STALE against the ledger: json={'yes' if cur != text else 'no'} docs={stale} — re-run publish_metrics", file=sys.stderr)
+            print(f"STALE against the ledger: json={'yes' if cur != text else 'no'} docs={stale} "
+                  f"— re-run publish_metrics", file=sys.stderr)
             return 1
         print("published_metrics.json and doc blocks match the ledger")
         return 0
     OUT.write_text(text)
-    print(md)
-    print(f"docs updated: {fill_docs(md)}", file=sys.stderr)
-    print(f"\nwrote {OUT.relative_to(ROOT)} · coverage range {pub['coverage_range']} · gates failing: {pub['gates_failing']}", file=sys.stderr)
+    print(markdown(pub)); print(); print(markdown_rate(pub))
+    print(f"docs updated: {fill_docs(pub)}", file=sys.stderr)
+    print(f"\nwrote {OUT.relative_to(ROOT)} · coverage range {pub['coverage_range']} · "
+          f"gates failing: {pub['gates_failing']}", file=sys.stderr)
     return 0
 
 

@@ -266,13 +266,15 @@ def bias_by_start_year(df_test: pd.DataFrame, y_true, y_pred,
 
 
 def evaluate(df_test: pd.DataFrame, y_true, y_pred,
-             lower=None, upper=None, unit: str = "days") -> dict:
-    """Full metric bundle for one (phase, config) pair."""
+             lower=None, upper=None, unit: str = "days",
+             nominal: float = 0.80) -> dict:
+    """Full metric bundle for one (phase, config) pair. `nominal` is the
+    coverage the band was AIMED at, recorded beside what it achieved."""
     per_ta = per_ta_errors(df_test, y_true, y_pred, unit=unit)
     out = point_metrics(y_true, y_pred, unit=unit)
     out.update(ta_differentiation(per_ta))
     if lower is not None and upper is not None:
-        out.update(interval_calibration(y_true, lower, upper))
+        out.update(interval_calibration(y_true, lower, upper, nominal=nominal))
         if unit != "days":
             out.pop("interval_mean_width_months", None)
     out["_per_ta"] = per_ta.to_dict(orient="records")
