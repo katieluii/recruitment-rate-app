@@ -113,7 +113,7 @@ export function renderPhaseComparison(containerId, phaseSummaries) {
 }
 
 // ── Prediction error bar (inline SVG-based) ───────────────────────────────────
-export function renderErrorBar(lower, predicted, upper, containerId) {
+export function renderErrorBar(lower, predicted, upper, containerId, confidencePct = 80) {
   const el = document.getElementById(containerId);
   if (!el) return;
   const range = upper - lower;
@@ -123,7 +123,7 @@ export function renderErrorBar(lower, predicted, upper, containerId) {
 
   el.innerHTML = `
     <div class="error-bar-label">
-      80% Prediction Interval &nbsp;·&nbsp;
+      ${confidencePct}% prediction interval &nbsp;·&nbsp;
       <span style="color:var(--accent)">${lower.toFixed(1)} – ${upper.toFixed(1)} months</span>
     </div>
     <div class="error-bar-track">

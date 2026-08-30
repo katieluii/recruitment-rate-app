@@ -7,7 +7,7 @@ current models on 2026-08-05 (n_train asserted per phase, not inferred from a
 successful response). The four levers in `docs/OPEN_LEVERS.md` are all resolved and
 none raised R2.
 
-**2026-08-31 — frontend copy pass (UNCOMMITTED in the working tree; a push deploys).** Every
+**2026-08-31 — frontend copy pass (committed to `main` 2026-08-31 via `claude/copy-pass`; Railway deploys on push).** Every
 user-facing string was rewritten concise/direct: `frontend/index.html`, `app.js`, `charts.js`, plus the
 backend strings the UI renders — `provenance.py` (`derivation`, `gaps`), `inference.py` (extrapolation
 warnings; the `col=value` prefix is kept because `test_eligibility_and_guard` pins it), `predict.py`

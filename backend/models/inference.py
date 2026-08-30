@@ -195,14 +195,12 @@ def _check_extrapolation(X: pd.DataFrame, phase_key: str) -> list[str]:
         if val < bounds["min"] or val > bounds["max"]:
             out.append(
                 f"{col}={val:g} is outside the trained range "
-                f"[{bounds['min']:g}, {bounds['max']:g}] — this prediction is an "
-                f"extrapolation and should be treated as indicative only"
+                f"[{bounds['min']:g}, {bounds['max']:g}]: extrapolated, indicative only"
             )
         elif val < lo or val > hi:
             out.append(
-                f"{col}={val:g} sits in the sparse tail of the training data "
-                f"(typical range [{lo:g}, {hi:g}]) — fewer than 1 in 50 trials "
-                f"look like this, so treat the prediction as indicative"
+                f"{col}={val:g} is in the sparse tail (typical range "
+                f"[{lo:g}, {hi:g}], under 2% of trials): indicative only"
             )
     return out
 
@@ -231,10 +229,7 @@ def predict(
 
     entry = registry.load(phase_key)
     if entry is None:
-        raise FileNotFoundError(
-            f"No trained model found for {phase_key}. "
-            "Run scripts/train_models.py first."
-        )
+        raise FileNotFoundError(f"No trained model for {phase_key}.")
     heads = entry["heads"]
     if "duration" not in heads:
         raise FileNotFoundError(f"No duration head trained for {phase_key}.")
