@@ -432,6 +432,10 @@ class DerivedRate:
         self.coverage = self.duration.coverage
         self.n_window_floored_ = 0
 
+    @property
+    def ipcw_applied_(self):
+        return getattr(self.duration, "ipcw_applied_", None)
+
     def fit(self, train: pd.DataFrame, target: str = "recruitment_rate"):
         # The duration model is what ships; the rate target is never fitted.
         self.duration.fit(train, "duration_days")

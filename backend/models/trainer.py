@@ -196,6 +196,14 @@ async def _censoring_frame(phase_key: str,
 
 
 COVERAGE_TARGET = {"P1HV": 0.85}
+#: Where the duration head's IPCW correction is applied — see TwoStageDuration.ipcw_scope.
+#: "enrol" is what shipped through 2026-08-30 (enrolment stage only, looked up at the wrong
+#: quantity); "total" weights both stages from total duration. Measured on the horizon fold
+#: (ledger rows 370, 376-378 vs the parity rows 350, 336, 339, 340): R2 +0.004 / +0.002 /
+#: +0.007 on P1 / P2 / P3, level on P1HV (-0.002), start-year bias less negative on all four.
+#: Change here AND in experiments/publish_metrics.SHIPPED — the harness config must name
+#: the same scope.
+IPCW_SCOPE = "total"
 #: Same idea for the rate head. Empty means every phase aims at 0.80. Change here
 #: AND in experiments/publish_metrics.RATE_SHIPPED — the two must name the same setting.
 #: The API reports ONE confidence_pct, read from the DURATION head's coverage_nominal
@@ -272,7 +280,8 @@ async def train_phase(phase_key: str, loader=None,
             # experiments/publish_metrics.SHIPPED — the two must name the same setting.
             model = TwoStageDuration(
                 phase_key, censoring_frame=censoring,
-                coverage=COVERAGE_TARGET.get(phase_key, 0.80))
+                coverage=COVERAGE_TARGET.get(phase_key, 0.80),
+                ipcw_scope=IPCW_SCOPE)
             model.fit(sub, target)
             for stage, sub_model in (("enrolment", model.enrol), ("followup", model.fu)):
                 for alpha, pipe in sub_model.models.items():
@@ -286,7 +295,8 @@ async def train_phase(phase_key: str, loader=None,
                 "quantiles": list(QUANTILES),
                 "n_fit": int(len(sub)),
                 "coverage_nominal": model.coverage,
-                "ipcw_applied": bool(getattr(model.enrol, "ipcw_applied_", False)),
+                "ipcw_applied": bool(model.ipcw_applied_),
+                "ipcw_scope": model.ipcw_scope,
             }
             log.info("Saved %s/duration two-stage (n=%d, band scale %.2f)",
                      phase_key, len(sub), model.scale_)

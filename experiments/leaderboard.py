@@ -30,7 +30,13 @@ OBJECTIVES = {"r2": True, "rmse_days": False}
 NOISE = {"r2": 0.005, "rmse_days": 1.0}
 
 
-def _rows(split: str, cutoff: str | None = None) -> list[dict]:
+#: Rows carry a `target` since the rate head was first scored (2026-07-25); older
+#: rows are all duration rows.
+DEFAULT_TARGET = "duration_days"
+
+
+def _rows(split: str, cutoff: str | None = None,
+          target: str = DEFAULT_TARGET) -> list[dict]:
     if not LEDGER.exists():
         return []
     out = []
@@ -43,6 +49,10 @@ def _rows(split: str, cutoff: str | None = None) -> list[dict]:
             continue
         if r.get("skipped") or r.get("error") or r.get("split") != split:
             continue
+        # A rate row's rmse is in patients/site/month; letting it into the
+        # duration table once made every duration run read "worse, prev 44.1".
+        if r.get("target", DEFAULT_TARGET) != target:
+            continue
         if cutoff is not None and r.get("cutoff") != cutoff:
             continue
         if r.get("r2") is None:
@@ -51,10 +61,12 @@ def _rows(split: str, cutoff: str | None = None) -> list[dict]:
     return out
 
 
-def best(split: str = "horizon", cutoff: str | None = None) -> dict:
-    """{phase: {metric: {value, config, ts}}} over comparable ledger rows."""
+def best(split: str = "horizon", cutoff: str | None = None,
+         target: str = DEFAULT_TARGET) -> dict:
+    """{phase: {metric: {value, config, ts}}} over comparable ledger rows —
+    same split, same cutoff, same TARGET."""
     table: dict[str, dict] = {}
-    for r in _rows(split, cutoff):
+    for r in _rows(split, cutoff, target):
         phase = r.get("phase")
         slot = table.setdefault(phase, {})
         for metric, higher_better in OBJECTIVES.items():

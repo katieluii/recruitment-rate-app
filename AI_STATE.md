@@ -85,16 +85,27 @@ so every published number measured an unweighted model that was not the one serv
   cross-check. The consistency test now binds RATE_SHIPPED to the DURATION coverage target. The
   P1HV rate-head recalibration stays (it is what the cross-check point is fitted from) but changes
   nothing a caller sees. Zero test rows hit the 0.0-month-window fallback the wrapper cannot mirror.
+- **IPCW scope fixed and shipped (S318, last act).** Flag (b) below was real: `TwoStageDuration`
+  handed the censoring frame to the ENROLMENT stage only, which looked G up at the enrolment window
+  (days) against a KM over TOTAL duration — a weight for a trial that does not exist — and the
+  follow-up stage trained unweighted. `ipcw_scope="total"` (now `trainer.IPCW_SCOPE`) computes one
+  weight per trial from its total duration and hands it to both stages; `_stage_weights` is pure and
+  pinned by `tests/test_ipcw_scope.py` (the old behaviour is asserted as the defect). Horizon fold vs
+  the parity rows: P1 R² 0.6448→0.6484, P2 0.4228→0.4246, P3 0.3915→0.3988 (RMSE −1.7 / −0.6 / −2.6 d),
+  P1HV 0.3331→0.3310 (inside noise; MAE −0.004); start-year bias less negative on all four (P3 2018:
+  −4.0→−3.7). SHIPPED / RATE_SHIPPED name the `_total` configs (rows 370, 376-378; served rate 372,
+  382-384) and the consistency test binds them to `trainer.IPCW_SCOPE`. All four artifacts retrained
+  `--use-cache` — P1HV's duration head therefore now reports the cache corpus (n_fit ~7409), not the
+  2026-08-29 fresh pull (7467). Also fixed: `leaderboard.best` ignored `target`, so every duration run
+  printed "rmse worse, prev 44.1" against a rate row (test added).
 - (a) The leak, MEASURED and closed (Katie: measure, don't ship): `two_stage_l2_ipcw_vantage` /
   `_cov85_ipcw_vantage` re-censor the frame at 2018-01-01 (`dataset.load_vantage_censoring_frame`,
   via `censoring_backtest.apply_retrospective_censoring`; P2 frame 20,479 → 12,024 rows). R² moves
   ≤0.006 and not in one direction — P1 0.6443 vs 0.6448, P2 0.4244 vs 0.4228, P3 0.3895 vs 0.3915,
   P1HV 0.3274 vs 0.3331 (rows 353-356). Parity stays the published set; the vantage configs are
   measurement-only and the ledger says so.
-- Flagged, NOT done: (b) the enrol stage looks its IPCW weight up at enrol-months against a KM
-  over TOTAL duration (`quantile_model._ipcw_weights`, shipped behaviour, questionable); (c) P3's
-  test fold moved 1709→1706 rows on the same cache file — some date-relative filter in `clean()`,
-  unverified.
+- Flagged, NOT done: (c) P3's test fold moved 1709→1706 rows on the same cache file — some
+  date-relative filter in `clean()`, unverified. ((b), the IPCW lookup unit, is fixed above.)
 
 **Scoring moved to the horizon fold**: train <2018, test 2018-2020, where trials
 have had 5.4-8.6 years to finish against a corpus whose p95 duration is 5.9. The old
@@ -102,15 +113,16 @@ have had 5.4-8.6 years to finish against a corpus whose p95 duration is 5.9. The
 predicted shorter. `--split temporal` reproduces pre-2026-08-04 rows; the two folds
 are NOT comparable and the leaderboard refuses to mix them.
 
-Current bar to beat, horizon fold, `two_stage_l2_ipcw` (P1HV: `two_stage_l2_cov85_ipcw`) —
-the parity rows, 2026-08-30. A candidate must ALSO pass a censoring frame or it is not comparable:
+Current bar to beat, horizon fold, `two_stage_l2_ipcw_total` (P1HV: `two_stage_l2_cov85_ipcw_total`)
+— rows 376-378 / 370, 2026-08-30. A candidate must ALSO pass a censoring frame with
+`ipcw_scope="total"` or it is not comparable:
 
 | phase | R2 | RMSE (days) |
 |---|---|---|
-| P1 | 0.6448 | 349.9 |
-| P2 | 0.4228 | 408.1 |
-| P3 | 0.3915 | 426.9 |
-| P1HV | 0.3331 | 175.3 |
+| P1 | 0.6484 | 348.1 |
+| P2 | 0.4246 | 407.5 |
+| P3 | 0.3988 | 424.4 |
+| P1HV | 0.3310 | 175.5 |
 
 Still settled, do not re-propose: per-indication stratified models, phase-purity
 contamination, AACT as a second source, per-site enrolment, country recruitment
@@ -275,7 +287,8 @@ delivered both contracts to `analyst/artifacts/` — `endpoint_combinations.json
 ## Exact Next Steps
 
 0. (Done 2026-08-30, S318: IPCW parity; rate figure = the SERVED derived rate, head as cross-check;
-   P1HV rate head recalibrated to 0.85; vantage leak measured at ≤0.006 R² and closed. Nothing open.)
+   P1HV rate head recalibrated to 0.85; vantage leak measured at ≤0.006 R² and closed; IPCW scope
+   fixed → `total`, +0.002–0.007 R² on P1-P3. Nothing open.)
 
 1. Chase the under-prediction bias — the largest open problem, and the ceiling finding
    above suggests it is calibration rather than missing signal. Start with

@@ -62,3 +62,24 @@ def test_comparing_against_an_identical_value_is_level_not_record():
 @pytest.mark.parametrize("metric", ["r2", "rmse_days"])
 def test_every_objective_is_reported(metric):
     assert metric in leaderboard.compare(_row(0.62, 290.0), TABLE)
+
+
+def test_best_keys_on_target(tmp_path, monkeypatch):
+    """A rate-head row (rmse in patients/site/month) must never become the duration
+    table's best — it once made every duration run print "rmse worse, prev 44.1"."""
+    import json
+    from experiments import leaderboard
+    ledger = tmp_path / "ledger.jsonl"
+    ledger.write_text("\n".join(json.dumps(r) for r in [
+        {"ts": "2026-08-30T00:00:01", "config": "two_stage_l2_ipcw", "phase": "P1HV", "split": "horizon",
+         "target": "duration_days", "r2": 0.33, "rmse_days": 175.0},
+        {"ts": "2026-08-30T00:00:02", "config": "lgbm_rate", "phase": "P1HV", "split": "horizon",
+         "target": "recruitment_rate", "r2": 0.13, "rmse_days": 44.0},
+        {"ts": "2026-08-01T00:00:00", "config": "legacy_row_without_target", "phase": "P1HV",
+         "split": "horizon", "r2": 0.30, "rmse_days": 180.0},
+    ]) + "\n")
+    monkeypatch.setattr(leaderboard, "LEDGER", ledger)
+    dur = leaderboard.best("horizon")
+    assert dur["P1HV"]["rmse_days"]["value"] == 175.0 and dur["P1HV"]["r2"]["value"] == 0.33
+    rate = leaderboard.best("horizon", target="recruitment_rate")
+    assert rate["P1HV"]["rmse_days"]["value"] == 44.0

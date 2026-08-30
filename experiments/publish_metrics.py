@@ -43,14 +43,17 @@ DURATION, RATE = "duration_days", "recruitment_rate"
 # same censoring-frame builder (trainer.build_censoring_frame). P1HV ships the 0.85-nominal
 # band (trainer.COVERAGE_TARGET): at 0.80 nominal it covered 0.729 on this fold, below the
 # 0.75 gate; a 0.85 target landed 0.795 at +1.6 months of width (ledger row 333, 2026-08-29).
-SHIPPED = {"P1HV": "two_stage_l2_cov85_ipcw", "P1": "two_stage_l2_ipcw",
-           "P2": "two_stage_l2_ipcw", "P3": "two_stage_l2_ipcw"}
+# `_total` (2026-08-30): one IPCW weight per trial from TOTAL duration, applied to both stages
+# (trainer.IPCW_SCOPE). The plain `_ipcw` configs are the earlier scope — the enrolment stage
+# alone, looked up at the enrolment window — kept for the record, not shipped.
+SHIPPED = {"P1HV": "two_stage_l2_cov85_ipcw_total", "P1": "two_stage_l2_ipcw_total",
+           "P2": "two_stage_l2_ipcw_total", "P3": "two_stage_l2_ipcw_total"}
 # The rate the API SERVES is derived from the duration head's enrolment window (inference.py,
 # Task 13 `6a20fd5`), band inverted from the duration band — so the served rate inherits the
 # duration configs, censoring frame and coverage target included. `DerivedRate` in
 # experiments/candidates.py mirrors that derivation line for line.
-RATE_SHIPPED = {"P1HV": "derived_rate_cov85_ipcw", "P1": "derived_rate_ipcw",
-                "P2": "derived_rate_ipcw", "P3": "derived_rate_ipcw"}
+RATE_SHIPPED = {"P1HV": "derived_rate_cov85_ipcw_total", "P1": "derived_rate_ipcw_total",
+                "P2": "derived_rate_ipcw_total", "P3": "derived_rate_ipcw_total"}
 # The standalone rate head reaches a response only as `recruitment_rate_crosscheck` — a point,
 # never its band. Published as a labelled cross-check, not as the rate figure. It trains
 # unweighted by design (a censored row's Enrollment is the target, not what was recruited).

@@ -71,6 +71,38 @@ DEFAULT_PARAMS = {
 }
 
 
+def ipcw_weights(frame: pd.DataFrame | None, t: np.ndarray, weight_cap: float = 10.0,
+                 phase_key: str = "") -> np.ndarray | None:
+    """1/G(t) for each training time `t`, G estimated by reverse Kaplan-Meier
+    over `frame`'s censoring distribution. Normalised to mean 1, capped.
+
+    `t` must be in the SAME unit and of the SAME quantity as `frame["duration_days"]`
+    — total trial duration in days. Looking G up at a different quantity (the
+    enrolment window, say) returns a weight for a trial that does not exist.
+    Returns None when there is nothing to correct for.
+    """
+    if frame is None or "event_observed" not in frame.columns:
+        return None
+    if frame["event_observed"].nunique() < 2:
+        log.info("%s: censoring frame has no censored rows — skipping IPCW", phase_key)
+        return None
+
+    from lifelines import KaplanMeierFitter
+
+    kmf = KaplanMeierFitter()
+    # Flip the indicator: here the "event" is being censored.
+    kmf.fit(frame["duration_days"].to_numpy(dtype=float),
+            event_observed=1 - frame["event_observed"].to_numpy(dtype=int))
+
+    t = np.asarray(t, dtype=float)
+    g = np.clip(kmf.survival_function_at_times(t).to_numpy(), 1.0 / weight_cap, 1.0)
+    w = np.clip(1.0 / g, 1.0, weight_cap)
+    w = w / w.mean()  # hold the effective sample size steady
+    log.info("%s IPCW weights: min %.2f max %.2f (%.0f%% of the frame censored)",
+             phase_key, w.min(), w.max(), 100 * (1 - frame["event_observed"].mean()))
+    return w
+
+
 class ConformalQuantileModel:
     """Fit/predict with calibrated prediction intervals."""
 
@@ -182,30 +214,8 @@ class ConformalQuantileModel:
             IPCW             P2 11.70 / −2.61    P3 10.87 / −0.93
             survival (GBSA)  P2 12.53 / −1.27    P3 11.37 / +1.22
         """
-        frame = self.censoring_frame
-        if frame is None or "event_observed" not in frame.columns:
-            return None
-        if frame["event_observed"].nunique() < 2:
-            log.info("%s: censoring frame has no censored rows — skipping IPCW",
-                     self.phase_key)
-            return None
-
-        from lifelines import KaplanMeierFitter
-
-        kmf = KaplanMeierFitter()
-        # Flip the indicator: here the "event" is being censored.
-        kmf.fit(frame["duration_days"].to_numpy(dtype=float),
-                event_observed=1 - frame["event_observed"].to_numpy(dtype=int))
-
-        t = train[target].to_numpy(dtype=float)
-        g = np.clip(kmf.survival_function_at_times(t).to_numpy(),
-                    1.0 / self.weight_cap, 1.0)
-        w = np.clip(1.0 / g, 1.0, self.weight_cap)
-        w = w / w.mean()  # hold the effective sample size steady
-        log.info("%s IPCW weights: min %.2f max %.2f (%.0f%% of the frame censored)",
-                 self.phase_key, w.min(), w.max(),
-                 100 * (1 - frame["event_observed"].mean()))
-        return w
+        return ipcw_weights(self.censoring_frame, train[target].to_numpy(dtype=float),
+                            weight_cap=self.weight_cap, phase_key=self.phase_key)
 
     def fit(self, train: pd.DataFrame, target: str,
             sample_weight: np.ndarray | None = None):
@@ -303,14 +313,28 @@ class TwoStageDuration:
                  point_objective: str = "l2",
                  min_enrol_fraction: float | None = None,
                  clip_policy: str = "keep", clip_weight: float = 0.25,
-                 clip_scope: str = "enrol", clip_seed: int = 42):
+                 clip_scope: str = "enrol", clip_seed: int = 42,
+                 ipcw_scope: str = "enrol", weight_cap: float = 10.0):
         if clip_policy not in ("keep", "drop", "weight", "drop_random"):
             raise ValueError(f"Unknown clip_policy {clip_policy!r}")
         if clip_scope not in ("enrol", "both"):
             raise ValueError(f"Unknown clip_scope {clip_scope!r}")
+        if ipcw_scope not in ("enrol", "total"):
+            raise ValueError(f"Unknown ipcw_scope {ipcw_scope!r}")
         self.phase_key = phase_key
         self.coverage = coverage
         self.calib_frac = calib_frac
+        # Where the censoring correction is applied (2026-08-30):
+        #   enrol — the frame is handed to the ENROLMENT stage, which looks G up
+        #           at the enrolment window (days) against a KM over TOTAL
+        #           duration, and the follow-up stage trains unweighted. What
+        #           shipped until the scope was measured.
+        #   total — one weight per trial from its TOTAL duration, the quantity
+        #           censoring actually acts on, applied to BOTH stages.
+        self.ipcw_scope = ipcw_scope
+        self.censoring_frame = censoring_frame
+        self.weight_cap = weight_cap
+        self.ipcw_applied_ = False
         # For ~1 row in 6 the enrolment target is the floor constant rather than
         # a measurement (docs/OPEN_LEVERS.md §1). `clip_policy` decides what to
         # do about it: fit on it anyway, drop it, or down-weight it. The floor
@@ -328,7 +352,8 @@ class TwoStageDuration:
         # assembled from both spreads and scaled once to hit nominal coverage.
         self.enrol = ConformalQuantileModel(
             phase_key, transform="log1p", params=params, conformal=False,
-            censoring_frame=censoring_frame, country_mix=country_mix,
+            censoring_frame=censoring_frame if ipcw_scope == "enrol" else None,
+            weight_cap=weight_cap, country_mix=country_mix,
             criteria_text=criteria_text, point_objective=point_objective)
         # Follow-up is set by the protocol's endpoint, not by geography, so the
         # site mix is deliberately withheld from that stage.
@@ -344,6 +369,48 @@ class TwoStageDuration:
         total = df["duration_days"] / 30.44
         enrol = recruiting_months(df, min_fraction=self.min_enrol_fraction)
         return enrol, (total - enrol).clip(lower=0.0)
+
+    def _stage_weights(self, total_days: np.ndarray, clipped: np.ndarray):
+        """Per-row sample weights and keep-masks for the two stages.
+
+        Pure so it can be tested without fitting anything. `total_days` is the
+        training rows' TOTAL duration; `clipped` marks rows whose enrolment
+        target is the floor constant. Returns (e_w, f_w, e_keep, f_keep) where a
+        weight of None means "unweighted" and each keep mask is aligned to the
+        rows BEFORE it is applied.
+        """
+        n = len(total_days)
+        e_keep = f_keep = np.ones(n, dtype=bool)
+        e_w = f_w = None
+
+        if self.clip_policy in ("drop", "drop_random"):
+            if self.clip_policy == "drop":
+                keep = ~clipped
+            else:
+                rng = np.random.default_rng(self.clip_seed)
+                keep = np.ones(n, dtype=bool)
+                keep[rng.choice(n, size=int(clipped.sum()), replace=False)] = False
+            e_keep = keep
+            if self.clip_scope == "both":
+                f_keep = keep
+        elif self.clip_policy == "weight":
+            e_w = np.where(clipped, self.clip_weight, 1.0)
+            if self.clip_scope == "both":
+                f_w = e_w
+
+        ipcw = None
+        if self.ipcw_scope == "total":
+            ipcw = ipcw_weights(self.censoring_frame, total_days,
+                                weight_cap=self.weight_cap, phase_key=self.phase_key)
+            self.ipcw_applied_ = ipcw is not None
+
+        def combine(policy_w, keep):
+            w = ipcw
+            if policy_w is not None:
+                w = policy_w if w is None else w * policy_w
+            return None if w is None else np.asarray(w, dtype=float)[keep]
+
+        return combine(e_w, e_keep), combine(f_w, f_keep), e_keep, f_keep
 
     def _clipped(self, df: pd.DataFrame) -> np.ndarray:
         from backend.preprocessing.cleaner import clipped_by_floor
@@ -390,22 +457,10 @@ class TwoStageDuration:
         self.n_clipped_train_ = int(clipped.sum())
         self.clipped_share_ = float(clipped.mean()) if len(clipped) else 0.0
 
-        e_w = f_w = None
-        if self.clip_policy in ("drop", "drop_random"):
-            if self.clip_policy == "drop":
-                keep = ~clipped
-            else:
-                rng = np.random.default_rng(self.clip_seed)
-                keep = np.ones(len(clipped), dtype=bool)
-                keep[rng.choice(len(clipped), size=int(clipped.sum()),
-                                replace=False)] = False
-            e_frame = e_frame[keep].reset_index(drop=True)
-            if self.clip_scope == "both":
-                f_frame = f_frame[keep].reset_index(drop=True)
-        elif self.clip_policy == "weight":
-            e_w = np.where(clipped, self.clip_weight, 1.0)
-            if self.clip_scope == "both":
-                f_w = e_w
+        e_w, f_w, e_keep, f_keep = self._stage_weights(
+            tr[target].to_numpy(dtype=float), clipped)
+        e_frame = e_frame[e_keep].reset_index(drop=True)
+        f_frame = f_frame[f_keep].reset_index(drop=True)
         if self.clip_policy != "keep":
             from backend.preprocessing.cleaner import MIN_ENROL_FRACTION
 
@@ -418,6 +473,8 @@ class TwoStageDuration:
 
         self.enrol.fit(e_frame, "_t", sample_weight=e_w)
         self.fu.fit(f_frame, "_t", sample_weight=f_w)
+        if self.ipcw_scope == "enrol":
+            self.ipcw_applied_ = bool(getattr(self.enrol, "ipcw_applied_", False))
 
         cal = train.iloc[cal_idx].reset_index(drop=True)
         y = cal[target].to_numpy(dtype=float)

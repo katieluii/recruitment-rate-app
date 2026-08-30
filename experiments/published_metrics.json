@@ -4,21 +4,21 @@
   "generated_from": "experiments/ledger.jsonl",
   "phases": {
     "P1HV": {
-      "config": "two_stage_l2_cov85_ipcw",
-      "ledger_row": 350,
-      "run_ts": "2026-08-29T23:24:32",
+      "config": "two_stage_l2_cov85_ipcw_total",
+      "ledger_row": 370,
+      "run_ts": "2026-08-30T00:37:02",
       "n_train": 4143,
       "n_test": 1212,
       "ipcw_applied": true,
-      "mae_months": 3.2633,
-      "r2": 0.3331,
-      "rmse_days": 175.2612,
-      "skill_vs_ta_median": 0.269,
-      "interval_coverage": 0.793,
+      "mae_months": 3.2597,
+      "r2": 0.331,
+      "rmse_days": 175.532,
+      "skill_vs_ta_median": 0.27,
+      "interval_coverage": 0.794,
       "interval_nominal": 0.85,
-      "interval_mean_width_months": 9.82,
+      "interval_mean_width_months": 9.6,
       "coverage_gate": {
-        "value": 0.793,
+        "value": 0.794,
         "threshold": [
           0.75,
           0.9
@@ -26,7 +26,7 @@
         "pass": true
       },
       "skill_gate": {
-        "value": 0.269,
+        "value": 0.27,
         "threshold": 0.0,
         "pass": true
       },
@@ -34,21 +34,21 @@
       "baseline_mae_months": 4.4669
     },
     "P1": {
-      "config": "two_stage_l2_ipcw",
-      "ledger_row": 336,
-      "run_ts": "2026-08-29T23:20:55",
+      "config": "two_stage_l2_ipcw_total",
+      "ledger_row": 376,
+      "run_ts": "2026-08-30T00:43:42",
       "n_train": 9968,
       "n_test": 2449,
       "ipcw_applied": true,
-      "mae_months": 7.7107,
-      "r2": 0.6448,
-      "rmse_days": 349.8595,
+      "mae_months": 7.7205,
+      "r2": 0.6484,
+      "rmse_days": 348.1167,
       "skill_vs_ta_median": 0.355,
-      "interval_coverage": 0.783,
+      "interval_coverage": 0.785,
       "interval_nominal": 0.8,
-      "interval_mean_width_months": 26.71,
+      "interval_mean_width_months": 27.16,
       "coverage_gate": {
-        "value": 0.783,
+        "value": 0.785,
         "threshold": [
           0.75,
           0.9
@@ -64,21 +64,21 @@
       "baseline_mae_months": 11.9623
     },
     "P2": {
-      "config": "two_stage_l2_ipcw",
-      "ledger_row": 339,
-      "run_ts": "2026-08-29T23:23:51",
+      "config": "two_stage_l2_ipcw_total",
+      "ledger_row": 377,
+      "run_ts": "2026-08-30T00:43:42",
       "n_train": 11807,
       "n_test": 2134,
       "ipcw_applied": true,
-      "mae_months": 9.5185,
-      "r2": 0.4228,
-      "rmse_days": 408.0738,
-      "skill_vs_ta_median": 0.22,
-      "interval_coverage": 0.793,
+      "mae_months": 9.5434,
+      "r2": 0.4246,
+      "rmse_days": 407.467,
+      "skill_vs_ta_median": 0.218,
+      "interval_coverage": 0.785,
       "interval_nominal": 0.8,
-      "interval_mean_width_months": 32.73,
+      "interval_mean_width_months": 33.16,
       "coverage_gate": {
-        "value": 0.793,
+        "value": 0.785,
         "threshold": [
           0.75,
           0.9
@@ -86,7 +86,7 @@
         "pass": true
       },
       "skill_gate": {
-        "value": 0.22,
+        "value": 0.218,
         "threshold": 0.0,
         "pass": true
       },
@@ -94,21 +94,21 @@
       "baseline_mae_months": 12.2049
     },
     "P3": {
-      "config": "two_stage_l2_ipcw",
-      "ledger_row": 340,
-      "run_ts": "2026-08-29T23:23:51",
+      "config": "two_stage_l2_ipcw_total",
+      "ledger_row": 378,
+      "run_ts": "2026-08-30T00:43:42",
       "n_train": 11685,
       "n_test": 1706,
       "ipcw_applied": true,
-      "mae_months": 10.0882,
-      "r2": 0.3915,
-      "rmse_days": 426.9188,
-      "skill_vs_ta_median": 0.222,
-      "interval_coverage": 0.773,
+      "mae_months": 10.0344,
+      "r2": 0.3988,
+      "rmse_days": 424.3501,
+      "skill_vs_ta_median": 0.226,
+      "interval_coverage": 0.783,
       "interval_nominal": 0.8,
-      "interval_mean_width_months": 32.3,
+      "interval_mean_width_months": 34.01,
       "coverage_gate": {
-        "value": 0.773,
+        "value": 0.783,
         "threshold": [
           0.75,
           0.9
@@ -116,7 +116,7 @@
         "pass": true
       },
       "skill_gate": {
-        "value": 0.222,
+        "value": 0.226,
         "threshold": 0.0,
         "pass": true
       },
@@ -130,19 +130,19 @@
     "what": "the rate the API serves \u2014 derived from the duration head's enrolment window, band inverted from the duration band",
     "phases": {
       "P1HV": {
-        "config": "derived_rate_cov85_ipcw",
-        "ledger_row": 362,
-        "run_ts": "2026-08-30T00:11:23",
+        "config": "derived_rate_cov85_ipcw_total",
+        "ledger_row": 372,
+        "run_ts": "2026-08-30T00:37:08",
         "n_train": 4143,
         "n_test": 1212,
         "ipcw_applied": true,
-        "mae": 21.0357,
-        "rmse": 44.433,
-        "skill_vs_ta_median": 0.094,
-        "interval_coverage": 0.849,
+        "mae": 20.8977,
+        "rmse": 44.2171,
+        "skill_vs_ta_median": 0.1,
+        "interval_coverage": 0.847,
         "interval_nominal": 0.85,
         "coverage_gate": {
-          "value": 0.849,
+          "value": 0.847,
           "threshold": [
             0.75,
             0.9
@@ -150,7 +150,7 @@
           "pass": true
         },
         "skill_gate": {
-          "value": 0.094,
+          "value": 0.1,
           "threshold": 0.0,
           "pass": true
         },
@@ -158,19 +158,19 @@
         "baseline_mae": 23.2239
       },
       "P1": {
-        "config": "derived_rate_ipcw",
-        "ledger_row": 366,
-        "run_ts": "2026-08-30T00:14:33",
+        "config": "derived_rate_ipcw_total",
+        "ledger_row": 382,
+        "run_ts": "2026-08-30T00:44:06",
         "n_train": 9968,
         "n_test": 2449,
         "ipcw_applied": true,
-        "mae": 11.7299,
-        "rmse": 34.8169,
-        "skill_vs_ta_median": 0.184,
-        "interval_coverage": 0.842,
+        "mae": 11.7443,
+        "rmse": 34.8857,
+        "skill_vs_ta_median": 0.183,
+        "interval_coverage": 0.84,
         "interval_nominal": 0.8,
         "coverage_gate": {
-          "value": 0.842,
+          "value": 0.84,
           "threshold": [
             0.75,
             0.9
@@ -178,7 +178,7 @@
           "pass": true
         },
         "skill_gate": {
-          "value": 0.184,
+          "value": 0.183,
           "threshold": 0.0,
           "pass": true
         },
@@ -186,19 +186,19 @@
         "baseline_mae": 14.3832
       },
       "P2": {
-        "config": "derived_rate_ipcw",
-        "ledger_row": 367,
-        "run_ts": "2026-08-30T00:14:33",
+        "config": "derived_rate_ipcw_total",
+        "ledger_row": 383,
+        "run_ts": "2026-08-30T00:44:06",
         "n_train": 11807,
         "n_test": 2134,
         "ipcw_applied": true,
-        "mae": 3.6809,
-        "rmse": 13.3822,
-        "skill_vs_ta_median": 0.315,
-        "interval_coverage": 0.817,
+        "mae": 3.7062,
+        "rmse": 13.5041,
+        "skill_vs_ta_median": 0.31,
+        "interval_coverage": 0.813,
         "interval_nominal": 0.8,
         "coverage_gate": {
-          "value": 0.817,
+          "value": 0.813,
           "threshold": [
             0.75,
             0.9
@@ -206,7 +206,7 @@
           "pass": true
         },
         "skill_gate": {
-          "value": 0.315,
+          "value": 0.31,
           "threshold": 0.0,
           "pass": true
         },
@@ -214,19 +214,19 @@
         "baseline_mae": 5.3738
       },
       "P3": {
-        "config": "derived_rate_ipcw",
-        "ledger_row": 368,
-        "run_ts": "2026-08-30T00:14:33",
+        "config": "derived_rate_ipcw_total",
+        "ledger_row": 384,
+        "run_ts": "2026-08-30T00:44:06",
         "n_train": 11685,
         "n_test": 1706,
         "ipcw_applied": true,
-        "mae": 10.5834,
-        "rmse": 39.4606,
-        "skill_vs_ta_median": 0.299,
-        "interval_coverage": 0.812,
+        "mae": 10.5665,
+        "rmse": 39.7957,
+        "skill_vs_ta_median": 0.3,
+        "interval_coverage": 0.822,
         "interval_nominal": 0.8,
         "coverage_gate": {
-          "value": 0.812,
+          "value": 0.822,
           "threshold": [
             0.75,
             0.9
@@ -234,7 +234,7 @@
           "pass": true
         },
         "skill_gate": {
-          "value": 0.299,
+          "value": 0.3,
           "threshold": 0.0,
           "pass": true
         },
@@ -363,8 +363,8 @@
     }
   },
   "coverage_range": [
-    0.773,
-    0.793
+    0.783,
+    0.794
   ],
   "gates_failing": []
 }

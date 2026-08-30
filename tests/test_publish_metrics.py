@@ -62,7 +62,7 @@ def test_publishes_weighted_row_and_rate_block():
     assert p2["ipcw_applied"] is True and p2["ledger_row"] == 2
     assert p2["baseline_mae_months"] == 12.0  # not the rate baseline's 4.0
     served = pub["rate"]["phases"]["P2"]
-    assert served["config"] == "derived_rate_ipcw" and served["mae"] == 3.1
+    assert served["config"] == "derived_rate_ipcw_total" and served["mae"] == 3.1
     assert served["baseline_mae"] == 4.0 and served["all_gates_pass"] is True
     head = pub["rate_head"]["phases"]["P2"]
     assert head["config"] == "lgbm_rate" and head["mae"] == 2.2
@@ -100,13 +100,24 @@ def test_shipped_configs_name_the_trainer_targets():
 
     for ph, cfg in pm.SHIPPED.items():
         assert _nominal_of(cfg) == trainer.COVERAGE_TARGET.get(ph, 0.80), (ph, cfg)
-        assert cfg.endswith("_ipcw"), f"{ph}: shipped duration config must be an IPCW-parity config"
+        assert "_ipcw" in cfg, f"{ph}: shipped duration config must be an IPCW-parity config"
+        assert cfg.endswith("_ipcw_total") == (trainer.IPCW_SCOPE == "total"), (
+            f"{ph}: {cfg} does not name trainer.IPCW_SCOPE={trainer.IPCW_SCOPE!r}")
     for ph, cfg in pm.RATE_SHIPPED.items():
         # The served rate is the duration band inverted, so it follows the DURATION target.
         assert _nominal_of(cfg) == trainer.COVERAGE_TARGET.get(ph, 0.80), (ph, cfg)
-        assert cfg.startswith("derived_rate") and cfg.endswith("_ipcw"), (ph, cfg)
+        assert cfg.startswith("derived_rate") and "_ipcw" in cfg, (ph, cfg)
+        assert cfg.endswith("_ipcw_total") == (trainer.IPCW_SCOPE == "total"), (ph, cfg)
     for ph, cfg in pm.RATE_HEAD_SHIPPED.items():
         assert _nominal_of(cfg) == trainer.RATE_COVERAGE_TARGET.get(ph, 0.80), (ph, cfg)
+
+
+def test_shipped_scope_mismatch_is_caught(monkeypatch):
+    from backend.models import trainer
+
+    monkeypatch.setattr(trainer, "IPCW_SCOPE", "enrol")
+    with pytest.raises(AssertionError):
+        test_shipped_configs_name_the_trainer_targets()
 
 
 def test_shipped_target_mismatch_is_caught(monkeypatch):

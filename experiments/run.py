@@ -88,6 +88,21 @@ CONFIGS = {
     "two_stage_l2_cov85_ipcw": (lambda p: TwoStageDuration(
         p, point_objective="l2", coverage=0.85,
         censoring_frame=load_censoring_frame(p)), False),
+    # IPCW scope (2026-08-30): weight BOTH stages from total duration instead of
+    # the enrolment stage alone looked up at the enrolment window. Candidate
+    # against the `_ipcw` parity bar; trainer.IPCW_SCOPE flips only if it wins.
+    "two_stage_l2_ipcw_total": (lambda p: TwoStageDuration(
+        p, point_objective="l2", ipcw_scope="total",
+        censoring_frame=load_censoring_frame(p)), False),
+    "two_stage_l2_cov85_ipcw_total": (lambda p: TwoStageDuration(
+        p, point_objective="l2", coverage=0.85, ipcw_scope="total",
+        censoring_frame=load_censoring_frame(p)), False),
+    "derived_rate_ipcw_total": (lambda p: DerivedRate(
+        p, point_objective="l2", ipcw_scope="total",
+        censoring_frame=load_censoring_frame(p)), False),
+    "derived_rate_cov85_ipcw_total": (lambda p: DerivedRate(
+        p, point_objective="l2", coverage=0.85, ipcw_scope="total",
+        censoring_frame=load_censoring_frame(p)), False),
     # Leak measurement (2026-08-30), NOT a shipping candidate: the frame above is
     # a present-day snapshot and so contains the 2018-20 test trials (marginal
     # KM only). These re-censor it at the fold's vantage date; the gap to the
@@ -354,7 +369,8 @@ def main() -> None:
     # against itself and reports "level" forever.
     from experiments import leaderboard
     prior_best = leaderboard.best(
-        args.split, args.cutoff if args.split == "temporal" else None)
+        args.split, args.cutoff if args.split == "temporal" else None,
+        target=args.target)
 
     for row in rows:
         ledger.append({k: v for k, v in row.items() if k != "per_ta"})
