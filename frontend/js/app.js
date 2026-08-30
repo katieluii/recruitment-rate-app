@@ -1,5 +1,5 @@
-import { api } from './api.js?v=10';
-import { renderErrorBar } from './charts.js?v=10';
+import { api } from './api.js?v=9';
+import { renderErrorBar } from './charts.js?v=9';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const phaseSelect = document.getElementById('phase-select');
@@ -24,7 +24,7 @@ async function init() {
     ]);
 
     phaseSelect.options.length = 0;
-    phaseSelect.add(new Option('Select phase…', '', true, true));
+    phaseSelect.add(new Option('Select a phase…', '', true, true));
     phaseSelect.options[0].disabled = true;
 
     phases.forEach(p => {
@@ -34,7 +34,7 @@ async function init() {
     });
 
     taSelect.options.length = 0;
-    taSelect.add(new Option('Select area…', '', true, true));
+    taSelect.add(new Option('Select a therapeutic area…', '', true, true));
     taSelect.options[0].disabled = true;
 
     areas.forEach(ta => taSelect.add(new Option(ta, ta)));
@@ -49,7 +49,7 @@ async function init() {
 
     predictBtn.disabled = false;
   } catch (err) {
-    showError(`Backend unreachable: ${err.message}`);
+    showError(`Could not reach backend: ${err.message}. Is the server running?`);
   }
 }
 
@@ -87,7 +87,7 @@ async function runPrediction({ scroll = false } = {}) {
     return true;
   } catch (err) {
     if (err.message.includes('model')) {
-      showWarn(err.message + ' Train with <code>python -m scripts.train_models</code>.');
+      showWarn(err.message + ' Run <code>python -m scripts.train_models</code> to train.');
     } else {
       showError(`Prediction failed: ${err.message}`);
     }
@@ -167,16 +167,13 @@ function displayResult(r, { scroll = false } = {}) {
   document.getElementById('stat-days').textContent   = `${r.predicted_days.toFixed(0)} d`;
   // The interval is now a genuine conformalised quantile range, so show the
   // range itself rather than a single global RMSE that applied to every input.
-  // The band's nominal comes from the artifact (P1HV is 85%), never a literal.
-  document.getElementById('stat-interval-label').textContent = `${r.confidence_pct}% interval`;
   document.getElementById('stat-interval').textContent =
     `${r.lower_months.toFixed(1)}–${r.upper_months.toFixed(1)} mo`;
   document.getElementById('stat-ntrain').textContent = r.n_train.toLocaleString();
   document.getElementById('result-model').textContent =
     `${r.model_used} · ${r.confidence_pct}% prediction interval`;
 
-  renderErrorBar(r.lower_months, r.predicted_months, r.upper_months, 'error-bar-container',
-                 r.confidence_pct);
+  renderErrorBar(r.lower_months, r.predicted_months, r.upper_months, 'error-bar-container');
   displayRate(r);
   displaySplit(r);
   displayProvenance(r.provenance);
@@ -186,7 +183,7 @@ function displayResult(r, { scroll = false } = {}) {
   // this both raises and clears them, without an intermediate hidden state that
   // would reflow the page between every pair of responses during a drag.
   if (r.extrapolation_warnings && r.extrapolation_warnings.length) {
-    showWarn('Outside the trained range — indicative only:<br>' +
+    showWarn('Outside the trained range — treat as indicative only:<br>' +
              r.extrapolation_warnings.map(w => `· ${escapeHtml(w)}`).join('<br>'));
   } else {
     warnNotice.classList.remove('visible');
@@ -234,10 +231,10 @@ function displayProvenance(p) {
   // filled from an area median are not the same kind of input.
   document.getElementById('prov-inputs').innerHTML =
     Object.entries(p.inputs || {}).map(([key, v]) => {
-      const n = v.evidence_n_trials ? ` · ${v.evidence_n_trials.toLocaleString()} trials` : '';
+      const n = v.evidence_n_trials ? ` from ${v.evidence_n_trials} trials` : '';
       return `<tr><td>${labelFor(key)}</td>
         <td>${v.value == null ? '—' : escapeHtml(String(v.value))}</td>
-        <td><span class="origin ${v.origin}">${originLabel(v.origin)}</span>${n}</td></tr>`;
+        <td><span class="origin ${v.origin}">${v.origin.replace('_', ' ')}</span>${n}</td></tr>`;
     }).join('');
 
   document.getElementById('prov-sources').innerHTML =
@@ -261,24 +258,11 @@ function labelFor(key) {
     interval: 'Prediction interval',
     recruitment_rate: 'Recruitment rate',
     enrollment: 'Target enrolment',
-    num_sites: 'Sites',
+    num_sites: 'Number of sites',
     drug_type: 'Intervention type',
     region: 'Region',
     endpoint_archetype: 'Primary endpoint type',
-    endpoint_archetypes: 'Endpoint combination',
   })[key] || key.replace(/_/g, ' ');
-}
-
-// Origin keys are API identifiers; this is what the reader sees.
-function originLabel(origin) {
-  return ({
-    user: 'supplied',
-    ta_default: 'area median',
-    phase_default: 'phase median',
-    derived: 'derived',
-    constant: 'fixed',
-    missing: 'missing',
-  })[origin] || origin.replace(/_/g, ' ');
 }
 
 // ── Recruitment rate ──────────────────────────────────────────────────────────
@@ -289,7 +273,7 @@ function displayRate(r) {
   panel.hidden = false;
   document.getElementById('rate-value').textContent = r.recruitment_rate.toFixed(2);
   document.getElementById('rate-range').textContent =
-    `${r.confidence_pct}% interval ${r.recruitment_rate_lower.toFixed(2)}–${r.recruitment_rate_upper.toFixed(2)}`;
+    `80% interval ${r.recruitment_rate_lower.toFixed(2)}–${r.recruitment_rate_upper.toFixed(2)}`;
   // The caveat ships with the number, not in a footnote. This figure is modelled
   // from trial-level data, not observed per-site enrolment.
   document.getElementById('rate-note').textContent = r.rate_note || '';

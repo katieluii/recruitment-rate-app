@@ -206,12 +206,6 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
             return "unknown"
         return f"{v:g}" if isinstance(v, (int, float)) else str(v)
 
-    def _n(key: str, noun: str) -> str:
-        """'1 site', '11 sites' — the derivation is read, not parsed."""
-        v = (inputs.get(key) or {}).get("value")
-        one = isinstance(v, (int, float)) and float(v) == 1.0
-        return f"{_fmt(key)} {noun}{'' if one else 's'}"
-
     values: dict[str, dict] = {}
 
     if prediction.enrolment_months is not None and prediction.followup_months is not None:
@@ -222,9 +216,9 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
             "value_verified": False,
             "source_id": [dur_src],
             "derivation": (
-                f"{prediction.enrolment_months} mo recruiting "
-                f"+ {prediction.followup_months} mo follow-up "
-                f"= {prediction.predicted_months} mo"),
+                f"enrolment window {prediction.enrolment_months} months "
+                f"+ follow-up {prediction.followup_months} months "
+                f"= {prediction.predicted_months} months"),
             "note": ("The two stages are modelled separately because they are "
                      "near-independent (r = +0.03) and driven by different "
                      "things — geography and eligibility move enrolment, the "
@@ -236,9 +230,9 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
             "verification": "inference",
             "value_verified": False,
             "source_id": [dur_src],
-            "derivation": ("median of the recruiting-window model at "
-                           f"{_n('enrollment', 'patient')} across "
-                           f"{_n('num_sites', 'site')}"),
+            "derivation": ("median of the enrolment-window quantile model, given "
+                           f"enrolment {_fmt('enrollment')} across "
+                           f"{_fmt('num_sites')} sites"),
         }
         values["followup_months"] = {
             "value": prediction.followup_months,
@@ -246,8 +240,8 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
             "verification": "inference",
             "value_verified": False,
             "source_id": [dur_src],
-            "derivation": ("median of the follow-up model; set by the primary "
-                           "endpoint type"),
+            "derivation": ("median of the follow-up quantile model, driven by the "
+                           "primary endpoint type"),
         }
     else:
         values["predicted_months"] = {
@@ -256,7 +250,7 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
             "verification": "inference",
             "value_verified": False,
             "source_id": [dur_src],
-            "derivation": "median of the duration model",
+            "derivation": "median of the duration quantile model",
         }
 
     values["interval"] = {
@@ -266,8 +260,9 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
         "value_verified": False,
         "source_id": [dur_src],
         "derivation": (
-            f"{prediction.confidence_pct}% band: 0.1–0.9 quantile models, stages "
-            "combined in quadrature, scaled to nominal coverage on held-out trials"),
+            f"{prediction.confidence_pct}% band from the 0.1 and 0.9 quantile "
+            "models, combined across the two stages in quadrature and scaled to "
+            "hit nominal coverage on held-out trials"),
         "measured_coverage": _measured_coverage(phase_key),
     }
 
@@ -279,7 +274,7 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
             "value_verified": False,
             "source_id": [dur_src],
             "derivation": (
-                f"{_n('enrollment', 'patient')} / ({_n('num_sites', 'site')} x "
+                f"{_fmt('enrollment')} patients / ({_fmt('num_sites')} sites x "
                 f"{prediction.enrolment_months} recruiting months) "
                 f"= {prediction.recruitment_rate}"),
             "note": ("Derived from the enrolment window rather than predicted "
@@ -307,14 +302,18 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
         values["recruitment_rate"] = entry
 
     gaps = [
-        "No figure here is observed site performance: ClinicalTrials.gov and AACT "
-        "publish no per-site enrolment.",
-        "Enrolment here is a target; the model trained mostly on achieved enrolment "
-        "(reported by 88% of completed trials, ~4% above target, r = 0.95 in logs). "
-        "A plan missed by more than ~10% is outside the training data.",
-        "Country recruitment speed is not identifiable: multi-country trials report "
-        "one shared enrolment window, and countries with few domestic-only trials "
-        "(Poland 0.4%, Latvia 0%) are never observed alone.",
+        "Per-site enrolment is not published by ClinicalTrials.gov or AACT, so no "
+        "figure here is an observed site performance.",
+        "Enrolment supplied here is a TARGET. The model largely learned on ACHIEVED "
+        "enrolment, which 88% of completed trials report and which runs about 4% "
+        "higher than the original registered target. The two correlate closely "
+        "(0.95 in logs) so the effect is small, but a plan that is missed by more "
+        "than about 10% sits outside what the training data represents.",
+        "Country recruitment speed is not identifiable from this data: a "
+        "multi-country trial reports one enrolment window shared by every "
+        "participating country, and countries that never run domestic-only trials "
+        "(Poland 0.4%, Latvia 0%) can never be observed apart from their "
+        "co-participants.",
     ]
     if prediction.extrapolation_warnings:
         gaps.extend(prediction.extrapolation_warnings)

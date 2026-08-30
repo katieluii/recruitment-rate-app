@@ -95,11 +95,12 @@ class PredictResponse(BaseModel):
     provenance: Optional[dict] = None
 
 
-# Rendered under the rate figure. The rate is DERIVED from the recruiting
-# window (inference.py), so the note describes that, not the retired rate head.
 _RATE_NOTE = (
-    "Modelled, not observed — no per-site enrolment is published. Largely set "
-    "by site count (slope ≈ −1), so compare like-sized trials."
+    "Patients per site per month, modelled — no per-site enrolment is published "
+    "in ClinicalTrials.gov or AACT. The denominator is the full "
+    "start-to-primary-completion span, so trials with long follow-up have their "
+    "rate understated and `rate_implied_total_months` reconstructs total "
+    "duration rather than the enrolment period alone."
 )
 
 
