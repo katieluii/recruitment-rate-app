@@ -362,6 +362,156 @@
       }
     }
   },
+  "versions": {
+    "fold": "horizon fold \u2014 train on trials starting before 2018, test on 2018\u20132020 starts, which have had 5.4\u20138.6 years to finish against a corpus whose p95 duration is 5.9",
+    "rows": {
+      "baseline": {
+        "config": "ta_median",
+        "phases": {
+          "P1HV": {
+            "ledger_row": 401,
+            "mae_months": 4.4669,
+            "r2": -0.1718,
+            "rmse_days": 232.3135
+          },
+          "P1": {
+            "ledger_row": 402,
+            "mae_months": 11.9623,
+            "r2": 0.2144,
+            "rmse_days": 520.3171
+          },
+          "P2": {
+            "ledger_row": 403,
+            "mae_months": 12.2049,
+            "r2": 0.0678,
+            "rmse_days": 518.6086
+          },
+          "P3": {
+            "ledger_row": 404,
+            "mae_months": 12.9626,
+            "r2": -0.0085,
+            "rmse_days": 549.5822
+          }
+        }
+      },
+      "v1": {
+        "config": "v1_recipe",
+        "phases": {
+          "P1HV": {
+            "ledger_row": 389,
+            "mae_months": 3.1608,
+            "r2": 0.4521,
+            "rmse_days": 158.8462
+          },
+          "P1": {
+            "ledger_row": 390,
+            "mae_months": 7.801,
+            "r2": 0.6677,
+            "rmse_days": 338.3903
+          },
+          "P2": {
+            "ledger_row": 391,
+            "mae_months": 9.6973,
+            "r2": 0.4555,
+            "rmse_days": 396.3695
+          },
+          "P3": {
+            "ledger_row": 392,
+            "mae_months": 9.8962,
+            "r2": 0.4667,
+            "rmse_days": 399.6703
+          }
+        }
+      },
+      "v2": {
+        "config": "lgbm_conformal_recent",
+        "phases": {
+          "P1HV": {
+            "ledger_row": 397,
+            "mae_months": 3.274,
+            "r2": 0.3434,
+            "rmse_days": 173.8977
+          },
+          "P1": {
+            "ledger_row": 398,
+            "mae_months": 7.6486,
+            "r2": 0.6494,
+            "rmse_days": 347.5869
+          },
+          "P2": {
+            "ledger_row": 399,
+            "mae_months": 9.5122,
+            "r2": 0.4289,
+            "rmse_days": 405.9365
+          },
+          "P3": {
+            "ledger_row": 400,
+            "mae_months": 10.1254,
+            "r2": 0.396,
+            "rmse_days": 425.3108
+          }
+        }
+      },
+      "v3": {
+        "config": "two_stage",
+        "phases": {
+          "P1HV": {
+            "ledger_row": 405,
+            "mae_months": 3.2716,
+            "r2": 0.3241,
+            "rmse_days": 176.4342
+          },
+          "P1": {
+            "ledger_row": 406,
+            "mae_months": 7.7571,
+            "r2": 0.6299,
+            "rmse_days": 357.1265
+          },
+          "P2": {
+            "ledger_row": 407,
+            "mae_months": 9.5138,
+            "r2": 0.4029,
+            "rmse_days": 415.0788
+          },
+          "P3": {
+            "ledger_row": 408,
+            "mae_months": 10.1364,
+            "r2": 0.3672,
+            "rmse_days": 435.3391
+          }
+        }
+      },
+      "v4": {
+        "config": "shipped (see phases)",
+        "phases": {
+          "P1HV": {
+            "ledger_row": 370,
+            "mae_months": 3.2597,
+            "r2": 0.331,
+            "rmse_days": 175.532
+          },
+          "P1": {
+            "ledger_row": 376,
+            "mae_months": 7.7205,
+            "r2": 0.6484,
+            "rmse_days": 348.1167
+          },
+          "P2": {
+            "ledger_row": 377,
+            "mae_months": 9.5434,
+            "r2": 0.4246,
+            "rmse_days": 407.467
+          },
+          "P3": {
+            "ledger_row": 378,
+            "mae_months": 10.0344,
+            "r2": 0.3988,
+            "rmse_days": 424.3501
+          }
+        }
+      }
+    }
+  },
   "coverage_range": [
     0.783,
     0.794

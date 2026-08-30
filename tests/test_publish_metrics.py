@@ -127,3 +127,16 @@ def test_shipped_target_mismatch_is_caught(monkeypatch):
     monkeypatch.setitem(trainer.RATE_COVERAGE_TARGET, "P1HV", 0.80)
     with pytest.raises(AssertionError):
         test_shipped_configs_name_the_trainer_targets()
+
+
+def test_version_ladder_reads_each_version_on_the_same_fold():
+    r = _passing_rows()
+    r.append({"ts": "2026-08-31T00:00:00", "config": "v1_recipe", "phase": "P2", "split": "horizon",
+              "target": "duration_days", "mae_months": 13.0, "r2": 0.1, "rmse_days": 600.0})
+    pub = pm.build(r)
+    v = pub["versions"]["rows"]
+    assert list(v) == ["baseline", "v1", "v2", "v3", "v4"]
+    assert v["v1"]["phases"]["P2"] == {"ledger_row": len(r), "mae_months": 13.0, "r2": 0.1, "rmse_days": 600.0}
+    assert v["baseline"]["phases"]["P2"]["mae_months"] == 12.0
+    assert v["v2"]["phases"]["P2"]["status"].startswith("NOT MEASURED")
+    assert v["v4"]["phases"]["P2"]["ledger_row"] == 2 and v["v4"]["phases"]["P2"]["r2"] == 0.4

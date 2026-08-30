@@ -7,6 +7,19 @@ current models on 2026-08-05 (n_train asserted per phase, not inferred from a
 successful response). The four levers in `docs/OPEN_LEVERS.md` are all resolved and
 none raised R2.
 
+**2026-08-31 — frontend copy pass (UNCOMMITTED in the working tree; a push deploys).** Every
+user-facing string was rewritten concise/direct: `frontend/index.html`, `app.js`, `charts.js`, plus the
+backend strings the UI renders — `provenance.py` (`derivation`, `gaps`), `inference.py` (extrapolation
+warnings; the `col=value` prefix is kept because `test_eligibility_and_guard` pins it), `predict.py`
+(`_RATE_NOTE`). Two factual fixes rode along: `_RATE_NOTE` described the retired rate head (full
+start-to-completion denominator) while the served rate divides by the RECRUITING window — corrected;
+and the UI hardcoded "80%" for the interval while P1HV's band is 85% — now reads `confidence_pct`.
+Cache-bust `?v=10`. Verified: 78/78 tests, headless-Chrome screenshots of P2 and P1HV, rendered prose
+272→169 words. NOT rewritten: API-only prose fields (`note`/`caveat`/`explanation`/`measured_coverage`,
+never rendered), `docs/*.html` (not served), the portfolio page. Pre-existing and untouched: default
+inputs on P1HV Metabolic fire `outcomes_total=0` / `Other=0` sparse-tail warnings; `drug_type`/`region`
+show "supplied" though the UI never asks for them.
+
 **The corpus was roughly half its true size until 2026-08-04.** `parse_dates` called
 `pd.to_datetime` without a format against a column holding BOTH `2015-10` and
 `2022-10-21`; pandas inferred one format from the first value and the `dropna` two
@@ -113,16 +126,28 @@ have had 5.4-8.6 years to finish against a corpus whose p95 duration is 5.9. The
 predicted shorter. `--split temporal` reproduces pre-2026-08-04 rows; the two folds
 are NOT comparable and the leaderboard refuses to mix them.
 
-Current bar to beat, horizon fold, `two_stage_l2_ipcw_total` (P1HV: `two_stage_l2_cov85_ipcw_total`)
-— rows 376-378 / 370, 2026-08-30. A candidate must ALSO pass a censoring frame with
-`ipcw_scope="total"` or it is not comparable:
+**2026-08-31 — the version ladder on the mature fold, and the bar is no longer the shipped model.**
+To give the portfolio page ONE results table, v1–v3 were refit on today's corpus and scored on the
+horizon fold (`publish_metrics.VERSION_LADDER`; rows 389-408). `v1_recipe` — the leak-removed
+RandomForest on the current feature pipeline — took NEW BEST on R² AND RMSE for all four phases
+(P1HV 0.452 / P1 0.668 / P2 0.456 / P3 0.467 vs shipped 0.331 / 0.648 / 0.425 / 0.399) and best MAE on
+P1HV (3.16) and P3 (9.90). Its start-year bias is a fraction of v4's (P3 2018: −0.7 vs −3.7 months).
+Hypothesis, NOT yet disproved: the LightGBM heads fit `log1p(duration)` and invert, returning
+something near the geometric mean — biased LOW on a right-skewed target — while the forest fits raw
+days and returns the arithmetic mean, which R² and the horizon fold reward. v2/v3/v4 are within noise
+of each other on MAE and R²; v4's edge is calibration (only version passing coverage on every phase)
+and bias. It fails coverage on P2/P3 (0.72/0.70 — the old rmse-scaled band). Katie's decision on what
+to do with this is pending (see meta_pm S318).
 
-| phase | R2 | RMSE (days) |
-|---|---|---|
-| P1 | 0.6484 | 348.1 |
-| P2 | 0.4246 | 407.5 |
-| P3 | 0.3988 | 424.4 |
-| P1HV | 0.3310 | 175.5 |
+Current bar to beat, horizon fold — R²/RMSE held by `v1_recipe` (rows 389-392); MAE by
+`v1_recipe` on P1HV/P3 and `lgbm_conformal_recent` on P1/P2:
+
+| phase | R2 (v1_recipe) | RMSE (days) | shipped v4 R2 |
+|---|---|---|---|
+| P1 | 0.6677 | 338.4 | 0.6484 |
+| P2 | 0.4555 | 396.4 | 0.4246 |
+| P3 | 0.4667 | 399.7 | 0.3988 |
+| P1HV | 0.4521 | 158.8 | 0.3310 |
 
 Still settled, do not re-propose: per-indication stratified models, phase-purity
 contamination, AACT as a second source, per-site enrolment, country recruitment

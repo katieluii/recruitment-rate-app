@@ -15,7 +15,7 @@
   <!-- Header -->
   <header class="header">
     <h1>Clinical Trial <span>Duration Predictor</span></h1>
-    <p>ML-powered estimates from live ClinicalTrials.gov data</p>
+    <p>Duration and recruitment rate, modelled on completed ClinicalTrials.gov trials.</p>
   </header>
 
   <!-- Notices -->
@@ -24,41 +24,41 @@
 
   <!-- Prediction form -->
   <section class="card" aria-label="Prediction inputs">
-    <div class="card-title">Select trial parameters</div>
+    <div class="card-title">Trial inputs</div>
     <div class="form-grid">
       <div class="field">
-        <label for="phase-select">Trial Phase</label>
+        <label for="phase-select">Phase</label>
         <select id="phase-select">
           <option value="" disabled selected>Loading…</option>
         </select>
       </div>
       <div class="field">
-        <label for="ta-select">Therapeutic Area</label>
+        <label for="ta-select">Therapeutic area</label>
         <select id="ta-select">
           <option value="" disabled selected>Loading…</option>
         </select>
       </div>
       <div class="field slider-field" id="enrollment-field" hidden>
         <div class="slider-head">
-          <label for="enrollment-input">Target Enrolment</label>
+          <label for="enrollment-input">Target enrolment</label>
           <output class="slider-value" id="enrollment-value">—</output>
         </div>
         <input id="enrollment-input" type="range" min="1" max="1000" step="1">
       </div>
       <div class="field slider-field" id="sites-field" hidden>
         <div class="slider-head">
-          <label for="sites-input">Number of Sites</label>
+          <label for="sites-input">Sites</label>
           <output class="slider-value" id="sites-value">—</output>
         </div>
         <input id="sites-input" type="range" min="1" max="100" step="1">
       </div>
       <p class="slider-caption" id="slider-caption" hidden>
-        Drag either to update the prediction — no need to press Predict again.
+        Sliders update the prediction live.
       </p>
     </div>
     <button class="btn-predict" id="predict-btn" disabled>
       <span class="spinner" aria-hidden="true"></span>
-      <span class="btn-label">Predict Duration</span>
+      <span class="btn-label">Predict</span>
     </button>
   </section>
 
@@ -71,7 +71,7 @@
       <span class="result-badge" id="result-ta">—</span>
     </div>
     <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:1rem">
-      <span id="result-phase-label">—</span> &nbsp;·&nbsp; Primary completion endpoint
+      <span id="result-phase-label">—</span> &nbsp;·&nbsp; Start to primary completion
     </p>
 
     <!-- Error bar -->
@@ -81,11 +81,11 @@
     <div class="stat-row">
       <div class="stat-box">
         <div class="stat-value" id="stat-days">—</div>
-        <div class="stat-label">Days (point estimate)</div>
+        <div class="stat-label">Days</div>
       </div>
       <div class="stat-box">
         <div class="stat-value" id="stat-interval">—</div>
-        <div class="stat-label">80% interval</div>
+        <div class="stat-label" id="stat-interval-label">Prediction interval</div>
       </div>
       <div class="stat-box">
         <div class="stat-value" id="stat-ntrain">—</div>
@@ -116,23 +116,23 @@
         <span class="split-bar"><i id="split-fu-bar" class="fu"></i></span>
         <span class="split-val num" id="split-fu">—</span>
       </div>
-      <p class="split-note">Only the recruiting stage responds to site and
-      geography decisions. Follow-up is set by the endpoint.</p>
+      <p class="split-note">Sites and geography move only the recruiting stage;
+      the endpoint sets follow-up.</p>
     </div>
 
     <details class="working" id="working">
       <summary>Show the working</summary>
       <div class="working-body">
-        <h4>How each number was produced</h4>
+        <h4>Derivation</h4>
         <dl id="prov-values"></dl>
 
-        <h4>What went in</h4>
+        <h4>Input origins</h4>
         <table class="prov-inputs"><tbody id="prov-inputs"></tbody></table>
 
         <h4>Sources</h4>
         <ul id="prov-sources"></ul>
 
-        <h4>What this cannot tell you</h4>
+        <h4>Limitations</h4>
         <ul class="gaps" id="prov-gaps"></ul>
       </div>
     </details>
@@ -150,6 +150,6 @@
   </footer>
 
 </div>
-<script type="module" src="/static/js/app.js?v=9"></script>
+<script type="module" src="/static/js/app.js?v=10"></script>
 </body>
 </html>

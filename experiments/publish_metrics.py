@@ -60,6 +60,13 @@ RATE_SHIPPED = {"P1HV": "derived_rate_cov85_ipcw_total", "P1": "derived_rate_ipc
 # P1HV's head aims at 0.85 (trainer.RATE_COVERAGE_TARGET): 0.744 at 0.80, 0.800 at 0.85.
 RATE_HEAD_SHIPPED = {"P1HV": "lgbm_rate_cov85", "P1": "lgbm_rate", "P2": "lgbm_rate", "P3": "lgbm_rate"}
 BASELINE = "ta_median"
+# Version ladder on the SAME mature fold (2026-08-31): every version's recipe refit on today's
+# corpus and scored where v4 is scored, so one table holds them all. v1 = the shipped v1 recipe
+# with its target leak removed (V1Recipe); v2 = LightGBM quantile + conformal (what v2 shipped);
+# v3 = the two-stage split with a quantile point; v4 = SHIPPED. Refitting on today's corpus
+# means v4's data-cap fix benefits every column — the ladder isolates the MODEL changes.
+# docs/VERSION_HISTORY.md maps the labels (v4 was called v3.1 until 2026-08-31).
+VERSION_LADDER = {"v1": "v1_recipe", "v2": "lgbm_conformal_recent", "v3": "two_stage"}
 FOLD_TEXT = ("horizon fold — train on trials starting before 2018, test on 2018–2020 starts, "
              "which have had 5.4–8.6 years to finish against a corpus whose p95 duration is 5.9")
 PHASE_ORDER = ["P1HV", "P1", "P2", "P3"]
@@ -165,6 +172,23 @@ def build(rows: list) -> dict:
             _parity(ph, e, RATE_SHIPPED[ph], "served rate")
         out["rate"]["phases"][ph] = e
         out["rate_head"]["phases"][ph] = _rate_entry(rows, ph, RATE_HEAD_SHIPPED[ph])
+    # Version ladder: same fold, every version, plus the baseline row. Not parity-gated —
+    # v1-v3 never trained with a censoring frame, and that is part of what they were.
+    out["versions"] = {"fold": FOLD_TEXT, "rows": {}}
+    ladder = {"baseline": BASELINE, **VERSION_LADDER}
+    for label, cfg in ladder.items():
+        entry = {"config": cfg, "phases": {}}
+        for ph in PHASE_ORDER:
+            r = latest(rows, cfg, ph)
+            entry["phases"][ph] = ({"status": "NOT MEASURED on this fold"} if r is None else
+                                   {"ledger_row": r["ledger_row"], "mae_months": r.get("mae_months"),
+                                    "r2": r.get("r2"), "rmse_days": r.get("rmse_days")})
+        out["versions"]["rows"][label] = entry
+    out["versions"]["rows"]["v4"] = {
+        "config": "shipped (see phases)",
+        "phases": {ph: ({"ledger_row": p["ledger_row"], "mae_months": p["mae_months"],
+                         "r2": p["r2"], "rmse_days": p["rmse_days"]} if "mae_months" in p else p)
+                   for ph, p in out["phases"].items()}}
     covs = [p["interval_coverage"] for p in out["phases"].values()
             if p.get("interval_coverage") is not None]
     out["coverage_range"] = [min(covs), max(covs)] if covs else None
