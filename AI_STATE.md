@@ -53,7 +53,7 @@ coverage gate. Now:
   artifact's `coverage_nominal` (was a constant 80 — an 85% band would have read as 80%).
 - ~~Still open: IPCW parity; rate head unpublished~~ → done 2026-08-30, below.
 
-**2026-08-30 (S318) — the published figures now score the SHIPPED model.** Every eval config had
+**2026-08-30 (S326) — the published figures now score the SHIPPED model.** Every eval config had
 passed no `censoring_frame`, while `trainer.train_phase` reweights the duration head with IPCW —
 so every published number measured an unweighted model that was not the one serving. Now:
 - `two_stage_l2_ipcw` (P1/P2/P3) and `two_stage_l2_cov85_ipcw` (P1HV, `trainer.COVERAGE_TARGET`)
@@ -98,7 +98,7 @@ so every published number measured an unweighted model that was not the one serv
   cross-check. The consistency test now binds RATE_SHIPPED to the DURATION coverage target. The
   P1HV rate-head recalibration stays (it is what the cross-check point is fitted from) but changes
   nothing a caller sees. Zero test rows hit the 0.0-month-window fallback the wrapper cannot mirror.
-- **IPCW scope fixed and shipped (S318, last act).** Flag (b) below was real: `TwoStageDuration`
+- **IPCW scope fixed and shipped (S326, last act).** Flag (b) below was real: `TwoStageDuration`
   handed the censoring frame to the ENROLMENT stage only, which looked G up at the enrolment window
   (days) against a KM over TOTAL duration — a weight for a trial that does not exist — and the
   follow-up stage trained unweighted. `ipcw_scope="total"` (now `trainer.IPCW_SCOPE`) computes one
@@ -137,7 +137,7 @@ something near the geometric mean — biased LOW on a right-skewed target — wh
 days and returns the arithmetic mean, which R² and the horizon fold reward. v2/v3/v4 are within noise
 of each other on MAE and R²; v4's edge is calibration (only version passing coverage on every phase)
 and bias. It fails coverage on P2/P3 (0.72/0.70 — the old rmse-scaled band). Katie's decision on what
-to do with this is pending (see meta_pm S318).
+to do with this is pending (see meta_pm S326).
 
 **v5 band = the forest's own spread, conformally scaled (2026-08-31, later).** The recentred two-stage
 band was 33-41% WIDER than v4 at the same coverage (P1 27→38 mo). `HybridForestPoint(band="forest")`: symmetric
@@ -337,7 +337,7 @@ delivered both contracts to `analyst/artifacts/` — `endpoint_combinations.json
 
 ## Exact Next Steps
 
-0. (Done 2026-08-30, S318: IPCW parity; rate figure = the SERVED derived rate, head as cross-check;
+0. (Done 2026-08-30, S326: IPCW parity; rate figure = the SERVED derived rate, head as cross-check;
    P1HV rate head recalibrated to 0.85; vantage leak measured at ≤0.006 R² and closed; IPCW scope
    fixed → `total`, +0.002–0.007 R² on P1-P3. Nothing open.)
 
