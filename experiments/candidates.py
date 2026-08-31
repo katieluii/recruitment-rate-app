@@ -82,6 +82,15 @@ class V1Recipe:
     def predict(self, test: pd.DataFrame) -> np.ndarray:
         return self.pipe.predict(self._X(test))
 
+    def spread(self, test: pd.DataFrame) -> np.ndarray:
+        """Per-row half-width SHAPE: the forest's tree spread, floored at half the
+        probe rmse so a unanimous forest cannot claim certainty. Unscaled."""
+        X = self._X(test)
+        rf = self.pipe.named_steps["model"]
+        Xt = self.pipe.named_steps["pre"].transform(X)
+        tree_std = np.stack([t.predict(Xt) for t in rf.estimators_]).std(axis=0)
+        return np.maximum(tree_std, self.rmse * 0.5)
+
     def predict_interval(self, test: pd.DataFrame):
         X = self._X(test)
         rf = self.pipe.named_steps["model"]
@@ -403,6 +412,109 @@ class IPCWLGBMQuantile(LGBMQuantile):
 from backend.models.quantile_model import TwoStageDuration  # noqa: E402,F401
 
 
+class HybridForestPoint:
+    """Forest point estimate inside the two-stage model's calibrated band.
+
+    Why (2026-08-31): refit on the mature fold, the v1 random forest out-scores
+    every LightGBM version on R2 for every phase, while the two-stage model is
+    the only one whose interval passes coverage everywhere and the only one that
+    yields the recruiting/follow-up split the demo and the served rate depend on.
+    A raw-target LightGBM mean head did not close the gap (worse on P1-P3), and a
+    single-stage LightGBM (v2) scores level with two-stage - so the edge is the
+    learner, not the architecture. Take the forest's point; keep the band and the
+    split.
+
+    Calibration is honest: the forest is fitted on the same training rows the
+    two-stage stages use (everything but the most recent `calib_frac`), and the
+    band scale is chosen on the held-out calibration slice AROUND THE FOREST POINT,
+    not the two-stage point. The split is the two-stage components rescaled so
+    they sum to the forest total.
+    """
+
+    name = "hybrid_forest_point"
+
+    def __init__(self, phase_key: str, rf_params: dict | None = None,
+                 refit_forest_on_all: bool = False, band: str = "two_stage",
+                 **two_stage_kwargs):
+        if band not in ("two_stage", "forest"):
+            raise ValueError(f"Unknown band {band!r}")
+        self.phase_key = phase_key
+        self.two = TwoStageDuration(phase_key, **two_stage_kwargs)
+        self.rf = V1Recipe(phase_key, params=rf_params)
+        # Shape of the band around the forest point (2026-08-31):
+        #   two_stage: the two-stage quadrature half-widths, recentred. Calibrated,
+        #              but 33-41% wider than v4 at the same coverage because those
+        #              widths were shaped around a different point.
+        #   forest:    the forest's own tree spread (symmetric), conformally
+        #              scaled on the calibration slice. Split-conformal on the
+        #              model that actually makes the point.
+        self.band = band
+        # The band scale is always chosen on the calibration slice with a forest
+        # that has NOT seen it. With refit_forest_on_all the point model is then
+        # refit on every training row (the calibration slice is the most RECENT
+        # 20%, the rows closest to the test period); the test fold's coverage
+        # then says whether the scale still holds. Standalone v1_recipe trains on
+        # 100% of the fold, so this is the like-for-like comparison.
+        self.refit_forest_on_all = refit_forest_on_all
+        self.enrol = self.two.enrol
+        self.coverage = self.two.coverage
+        self.scale_ = 1.0
+
+    @property
+    def ipcw_applied_(self):
+        return getattr(self.two, "ipcw_applied_", None)
+
+    def fit(self, train: pd.DataFrame, target: str = "duration_days"):
+        train = train[train[target].notna()].reset_index(drop=True)
+        self.two.fit(train, target)
+        # Same recency split the two-stage model uses internally, so the forest
+        # never sees the calibration rows either.
+        n_cal = max(30, int(len(train) * self.two.calib_frac))
+        order = np.argsort(pd.to_datetime(train["Start Date"]).to_numpy())
+        cal_idx, tr_idx = order[-n_cal:], order[:-n_cal]
+        self.rf.fit(train.iloc[tr_idx].reset_index(drop=True), target)
+
+        cal = train.iloc[cal_idx].reset_index(drop=True)
+        y = cal[target].to_numpy(dtype=float)
+        point = self.rf.predict(cal)
+        lo_w, hi_w = self._half_widths(cal)
+        best, best_gap = 1.0, 9e9
+        for g in np.linspace(0.3, 4.0, 200):
+            cov = float((((point - g * lo_w) <= y) & (y <= (point + g * hi_w))).mean())
+            gap = abs(cov - self.coverage)
+            if gap < best_gap:
+                best, best_gap = float(g), gap
+        self.scale_ = best
+        log.info("%s hybrid band scale %.2f around the forest point (calibration gap %.3f; "
+                 "two-stage scale was %.2f)", self.phase_key, self.scale_, best_gap, self.two.scale_)
+        if self.refit_forest_on_all:
+            self.rf = V1Recipe(self.phase_key, params=self.rf.params).fit(train, target)
+        return self
+
+    def predict(self, test: pd.DataFrame) -> np.ndarray:
+        return np.maximum(1.0, self.rf.predict(test))
+
+    def _half_widths(self, test: pd.DataFrame):
+        if self.band == "forest":
+            s = self.rf.spread(test)
+            return s, s
+        _, lo_w, hi_w = self.two._raw_band(test)
+        return lo_w, hi_w
+
+    def predict_interval(self, test: pd.DataFrame):
+        point = self.predict(test)
+        lo_w, hi_w = self._half_widths(test)
+        return (np.maximum(1.0, point - self.scale_ * lo_w),
+                np.maximum(1.0, point + self.scale_ * hi_w))
+
+    def predict_components(self, test: pd.DataFrame):
+        """Two-stage split, rescaled to sum to the forest total."""
+        e, f = self.two.predict_components(test)
+        total = np.maximum(1.0, e + f)
+        k = self.predict(test) / total
+        return e * k, f * k
+
+
 class DerivedRate:
     """The recruitment rate the API actually SERVES, scored as a rate model.
 
@@ -423,9 +535,12 @@ class DerivedRate:
     name = "derived_rate"
     _DAYS = 30.44
 
-    def __init__(self, phase_key: str, **two_stage_kwargs):
+    def __init__(self, phase_key: str, duration_model=None, **two_stage_kwargs):
         self.phase_key = phase_key
-        self.duration = TwoStageDuration(phase_key, **two_stage_kwargs)
+        # Any duration model with predict / predict_interval / predict_components
+        # — TwoStageDuration (v4) or HybridForestPoint. The served rate follows
+        # whichever duration model ships.
+        self.duration = duration_model or TwoStageDuration(phase_key, **two_stage_kwargs)
         # Exposed so run._model_attr can read ipcw_applied_ / coverage off the
         # stage that carries the censoring frame, exactly as for TwoStageDuration.
         self.enrol = self.duration.enrol

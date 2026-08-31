@@ -139,6 +139,32 @@ of each other on MAE and R²; v4's edge is calibration (only version passing cov
 and bias. It fails coverage on P2/P3 (0.72/0.70 — the old rmse-scaled band). Katie's decision on what
 to do with this is pending (see meta_pm S318).
 
+**v5 band = the forest's own spread, conformally scaled (2026-08-31, later).** The recentred two-stage
+band was 33-41% WIDER than v4 at the same coverage (P1 27→38 mo). `HybridForestPoint(band="forest")`: symmetric
+half-width = forest tree spread floored at rmse/2, scale chosen on the calibration slice. Coverage 0.80 / 0.79 /
+0.78 / 0.79, width 7.9 / 21.8 / 27.6 / 28.8 mo, i.e. 15-20% NARROWER than v4, same point. `HYBRID_BAND = "forest"`,
+registry `LoadedHybrid(band_kind="forest", forest_rmse)`, metadata carries both. P1HV back to the 0.80 target
+(0.85 pushed the served rate to 0.901).
+
+**v5 SHIPPED (2026-08-31): hybrid forest point + calibrated two-stage band.** `HybridForestPoint`
+with `refit_forest_on_all=True`: R² 0.452 / 0.668 / 0.456 / 0.467, MAE 3.16 / 7.80 / 9.70 / 9.90, coverage
+0.83 / 0.79 / 0.79 / 0.83, start-year bias within ±2 months. Served rate on it: P1 / P2 / P3 pass
+(cov 0.86-0.88); P1HV at the 0.85 target covers 0.901, over the ceiling by 0.001, so the 0.80 target is
+being re-measured for P1HV. `trainer.DURATION_MODEL = "hybrid"`, `HYBRID_REFIT_FOREST = True`, registry
+`LoadedHybrid`, metadata kind "hybrid" + `forest_point.pkl`; `publish_metrics.SHIPPED` names
+`hybrid_rf_refit_*`, ladder shows v4 as a row and v5 live. Non-refit hybrid (80% forest) was
+0.386 / 0.662 / 0.445 / 0.436: the calibration holdout costs the forest ~0.02-0.07 R², hence the refit.
+docs/VERSION_HISTORY.md has the v5 section and the full mature-fold ladder.
+
+**Raw-target mean head — DISPROVED as the cause (2026-08-31, rows 409-416).** `point_transform="none"`
+(L2 head fit in days, interval untouched): P1HV R² 0.331→0.372 with the short-bias gone, but P1/P2/P3
+0.618 / 0.363 / 0.425 vs v4 0.648 / 0.425 / 0.399 and MAE worse everywhere, now OVER-predicting 2-4.5
+months. v2 (single-stage LightGBM L2 head) scores level with v4, so the architecture is not the gap
+either — the learner is (bagged deep trees vs boosting). Katie's ruling: hybrid — forest point inside
+the two-stage calibrated band, split rescaled to the forest total (`HybridForestPoint`,
+`hybrid_rf_ipcw_total`). The `point_transform` plumbing (model, trainer metadata, registry inversion)
+stays, default None.
+
 Current bar to beat, horizon fold — R²/RMSE held by `v1_recipe` (rows 389-392); MAE by
 `v1_recipe` on P1HV/P3 and `lgbm_conformal_recent` on P1/P2:
 

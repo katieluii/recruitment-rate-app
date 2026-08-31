@@ -62,7 +62,7 @@ def test_publishes_weighted_row_and_rate_block():
     assert p2["ipcw_applied"] is True and p2["ledger_row"] == 2
     assert p2["baseline_mae_months"] == 12.0  # not the rate baseline's 4.0
     served = pub["rate"]["phases"]["P2"]
-    assert served["config"] == "derived_rate_ipcw_total" and served["mae"] == 3.1
+    assert served["config"] == "derived_rate_hybrid_refit_fband_ipcw_total" and served["mae"] == 3.1
     assert served["baseline_mae"] == 4.0 and served["all_gates_pass"] is True
     head = pub["rate_head"]["phases"]["P2"]
     assert head["config"] == "lgbm_rate" and head["mae"] == 2.2
@@ -103,6 +103,11 @@ def test_shipped_configs_name_the_trainer_targets():
         assert "_ipcw" in cfg, f"{ph}: shipped duration config must be an IPCW-parity config"
         assert cfg.endswith("_ipcw_total") == (trainer.IPCW_SCOPE == "total"), (
             f"{ph}: {cfg} does not name trainer.IPCW_SCOPE={trainer.IPCW_SCOPE!r}")
+        assert cfg.startswith("hybrid_rf") == (trainer.DURATION_MODEL == "hybrid"), (
+            f"{ph}: {cfg} does not name trainer.DURATION_MODEL={trainer.DURATION_MODEL!r}")
+        if cfg.startswith("hybrid_rf"):
+            assert ("_refit" in cfg) == trainer.HYBRID_REFIT_FOREST, (ph, cfg)
+            assert ("_fband" in cfg) == (trainer.HYBRID_BAND == "forest"), (ph, cfg)
     for ph, cfg in pm.RATE_SHIPPED.items():
         # The served rate is the duration band inverted, so it follows the DURATION target.
         assert _nominal_of(cfg) == trainer.COVERAGE_TARGET.get(ph, 0.80), (ph, cfg)
@@ -135,8 +140,17 @@ def test_version_ladder_reads_each_version_on_the_same_fold():
               "target": "duration_days", "mae_months": 13.0, "r2": 0.1, "rmse_days": 600.0})
     pub = pm.build(r)
     v = pub["versions"]["rows"]
-    assert list(v) == ["baseline", "v1", "v2", "v3", "v4"]
+    assert list(v) == ["baseline", "v1", "v2", "v3", "v4", "v5"]
     assert v["v1"]["phases"]["P2"] == {"ledger_row": len(r), "mae_months": 13.0, "r2": 0.1, "rmse_days": 600.0}
     assert v["baseline"]["phases"]["P2"]["mae_months"] == 12.0
     assert v["v2"]["phases"]["P2"]["status"].startswith("NOT MEASURED")
-    assert v["v4"]["phases"]["P2"]["ledger_row"] == 2 and v["v4"]["phases"]["P2"]["r2"] == 0.4
+    assert v["v5"]["phases"]["P2"]["ledger_row"] == 2 and v["v5"]["phases"]["P2"]["r2"] == 0.4
+    assert v["v4"]["phases"]["P2"]["status"].startswith("NOT MEASURED")
+
+
+def test_shipped_duration_model_mismatch_is_caught(monkeypatch):
+    from backend.models import trainer
+
+    monkeypatch.setattr(trainer, "DURATION_MODEL", "two_stage")
+    with pytest.raises(AssertionError):
+        test_shipped_configs_name_the_trainer_targets()

@@ -112,9 +112,12 @@ class ConformalQuantileModel:
                  coverage: float = 0.80, calib_strategy: str = "recent",
                  censoring_frame: pd.DataFrame | None = None,
                  weight_cap: float = 10.0, country_mix: bool = False,
-                 criteria_text: bool = False, point_objective: str = "l2"):
+                 criteria_text: bool = False, point_objective: str = "l2",
+                 point_transform: str | None = None):
         if transform not in TRANSFORMS:
             raise ValueError(f"Unknown transform {transform!r}")
+        if point_transform is not None and point_transform not in TRANSFORMS:
+            raise ValueError(f"Unknown point_transform {point_transform!r}")
         self.phase_key = phase_key
         self.transform = transform
         self.params = dict(params or DEFAULT_PARAMS)
@@ -133,6 +136,14 @@ class ConformalQuantileModel:
         # averages over trees and so predicts the mean, scores R2 0.420 against
         # 0.368 for the quantile head while losing MAE 2.87 to 2.64.
         self.point_objective = point_objective
+        # Target space of the POINT head only; the quantile heads (and so the
+        # interval) keep `transform`. None = same as `transform`, the shipped
+        # behaviour. Why it exists (2026-08-31): fitting the mean in log space
+        # and inverting returns something near the geometric mean, which sits
+        # BELOW the arithmetic mean on a right-skewed duration - the v1 random
+        # forest, which fits raw days, out-scored the shipped model on R2 on
+        # every phase of the mature fold. "none" fits the mean in days directly.
+        self.point_transform = point_transform
         self.qhat_ = 0.0
 
     # ── transforms ───────────────────────────────────────────────────────────
@@ -146,6 +157,16 @@ class ConformalQuantileModel:
 
     def _inv(self, y):
         return TRANSFORMS[self.transform][1](np.asarray(y, dtype=float))
+
+    @property
+    def _point_space(self) -> str:
+        return self.point_transform or self.transform
+
+    def _fwd_point(self, y):
+        return TRANSFORMS[self._point_space][0](np.asarray(y, dtype=float))
+
+    def _inv_point(self, y):
+        return TRANSFORMS[self._point_space][1](np.asarray(y, dtype=float))
 
     # ── fitting ──────────────────────────────────────────────────────────────
 
@@ -167,7 +188,10 @@ class ConformalQuantileModel:
         return pipe
 
     def _fit_quantiles(self, X: pd.DataFrame, y: np.ndarray,
-                       sample_weight: np.ndarray | None = None) -> dict:
+                       sample_weight: np.ndarray | None = None,
+                       y_point: np.ndarray | None = None) -> dict:
+        """`y` is in the quantile heads' space; `y_point` (default: `y`) is the
+        point head's target in ITS space — raw days when point_transform="none"."""
         import lightgbm as lgb
 
         models = {}
@@ -186,7 +210,8 @@ class ConformalQuantileModel:
                 pipe.fit(X, y, model__sample_weight=sample_weight)
             models[alpha] = pipe
         if self.point_objective == "l2":
-            models["point"] = self._fit_point_l2(X, y, sample_weight)
+            models["point"] = self._fit_point_l2(
+                X, y if y_point is None else y_point, sample_weight)
         return models
 
     # ── censoring correction ─────────────────────────────────────────────────
@@ -227,6 +252,7 @@ class ConformalQuantileModel:
             sample_weight = np.asarray(sample_weight, dtype=float)[keep]
         X = build_features(train, self.phase_key)
         y = self._fwd(train[target].to_numpy(dtype=float))
+        y_point = self._fwd_point(train[target].to_numpy(dtype=float))
 
         w = self._ipcw_weights(train, target)
         self.ipcw_applied_ = w is not None
@@ -235,7 +261,7 @@ class ConformalQuantileModel:
 
         self.qhat_ = 0.0
         if not self.conformal or len(y) < 100:
-            self.models = self._fit_quantiles(X, y, w)
+            self.models = self._fit_quantiles(X, y, w, y_point=y_point)
             return self
 
         n_cal = max(30, int(len(y) * self.calib_frac))
@@ -248,7 +274,8 @@ class ConformalQuantileModel:
                 np.arange(len(y)), test_size=self.calib_frac, random_state=42)
 
         self.models = self._fit_quantiles(
-            X.iloc[tr_idx], y[tr_idx], None if w is None else w[tr_idx])
+            X.iloc[tr_idx], y[tr_idx], None if w is None else w[tr_idx],
+            y_point=y_point[tr_idx])
 
         Xc = X.iloc[cal_idx]
         lo = self.models[0.1].predict(Xc)
@@ -265,8 +292,10 @@ class ConformalQuantileModel:
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         """X is already feature-built (see build_features)."""
-        head = self.models.get("point", self.models[0.5])
-        return np.maximum(self._floor, self._inv(head.predict(X)))
+        head = self.models.get("point")
+        if head is not None:
+            return np.maximum(self._floor, self._inv_point(head.predict(X)))
+        return np.maximum(self._floor, self._inv(self.models[0.5].predict(X)))
 
     def predict_interval(self, X: pd.DataFrame):
         lo = self.models[0.1].predict(X) - self.qhat_
@@ -314,7 +343,8 @@ class TwoStageDuration:
                  min_enrol_fraction: float | None = None,
                  clip_policy: str = "keep", clip_weight: float = 0.25,
                  clip_scope: str = "enrol", clip_seed: int = 42,
-                 ipcw_scope: str = "enrol", weight_cap: float = 10.0):
+                 ipcw_scope: str = "enrol", weight_cap: float = 10.0,
+                 point_transform: str | None = None):
         if clip_policy not in ("keep", "drop", "weight", "drop_random"):
             raise ValueError(f"Unknown clip_policy {clip_policy!r}")
         if clip_scope not in ("enrol", "both"):
@@ -332,6 +362,7 @@ class TwoStageDuration:
         #   total — one weight per trial from its TOTAL duration, the quantity
         #           censoring actually acts on, applied to BOTH stages.
         self.ipcw_scope = ipcw_scope
+        self.point_transform = point_transform
         self.censoring_frame = censoring_frame
         self.weight_cap = weight_cap
         self.ipcw_applied_ = False
@@ -354,13 +385,14 @@ class TwoStageDuration:
             phase_key, transform="log1p", params=params, conformal=False,
             censoring_frame=censoring_frame if ipcw_scope == "enrol" else None,
             weight_cap=weight_cap, country_mix=country_mix,
-            criteria_text=criteria_text, point_objective=point_objective)
+            criteria_text=criteria_text, point_objective=point_objective,
+            point_transform=point_transform)
         # Follow-up is set by the protocol's endpoint, not by geography, so the
         # site mix is deliberately withheld from that stage.
         self.fu = ConformalQuantileModel(
             phase_key, transform="log1p", params=params, conformal=False,
             country_mix=False, criteria_text=criteria_text,
-            point_objective=point_objective)
+            point_objective=point_objective, point_transform=point_transform)
         self.scale_ = 1.0
 
     def _components(self, df: pd.DataFrame):

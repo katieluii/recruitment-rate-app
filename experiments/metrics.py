@@ -67,6 +67,11 @@ def point_metrics(y_true: np.ndarray, y_pred: np.ndarray,
     return {
         "n": int(len(y_true)),
         f"mae_{suffix}": round(float(np.mean(np.abs(err))) / scale, 4),
+        # Median absolute error: the typical trial's error. On the recruitment
+        # rate the MEAN absolute error is dominated by a right tail (P3: median
+        # rate 0.7, mean 15.4, p95 77 patients/site/month), so MAE reads as
+        # "20 patients/site/month" on a head whose typical miss is a fraction of that.
+        f"medae_{suffix}": round(float(np.median(np.abs(err))) / scale, 4),
         "rmse_days": round(float(np.sqrt(np.mean(err ** 2))), 4),
         f"rmse_{suffix}": round(float(np.sqrt(np.mean(err ** 2))) / scale, 4),
         "mape_pct": round(float(np.nanmean(ape)) * 100, 1),

@@ -1,4 +1,4 @@
-"""publish_metrics.py — the ONE source for every published accuracy / coverage figure.
+"""publish_metrics.py: the ONE source for every published accuracy / coverage figure.
 
 WHY (2026-08-29 audit, cc-exchange M "circular validation"): the README table, RESULTS.md,
 the portfolio site and `provenance.py` each carried their own hand-typed copy of the
@@ -46,14 +46,15 @@ DURATION, RATE = "duration_days", "recruitment_rate"
 # `_total` (2026-08-30): one IPCW weight per trial from TOTAL duration, applied to both stages
 # (trainer.IPCW_SCOPE). The plain `_ipcw` configs are the earlier scope — the enrolment stage
 # alone, looked up at the enrolment window — kept for the record, not shipped.
-SHIPPED = {"P1HV": "two_stage_l2_cov85_ipcw_total", "P1": "two_stage_l2_ipcw_total",
-           "P2": "two_stage_l2_ipcw_total", "P3": "two_stage_l2_ipcw_total"}
+# v5 (2026-08-31): the v1 random forest's point estimate inside the two-stage model's
+# calibrated band, forest refit on all training rows after calibration, split rescaled to
+# the forest total (experiments.candidates.HybridForestPoint; trainer.DURATION_MODEL).
+SHIPPED = {ph: "hybrid_rf_refit_fband_ipcw_total" for ph in ("P1HV", "P1", "P2", "P3")}
 # The rate the API SERVES is derived from the duration head's enrolment window (inference.py,
 # Task 13 `6a20fd5`), band inverted from the duration band — so the served rate inherits the
 # duration configs, censoring frame and coverage target included. `DerivedRate` in
 # experiments/candidates.py mirrors that derivation line for line.
-RATE_SHIPPED = {"P1HV": "derived_rate_cov85_ipcw_total", "P1": "derived_rate_ipcw_total",
-                "P2": "derived_rate_ipcw_total", "P3": "derived_rate_ipcw_total"}
+RATE_SHIPPED = {ph: "derived_rate_hybrid_refit_fband_ipcw_total" for ph in ("P1HV", "P1", "P2", "P3")}
 # The standalone rate head reaches a response only as `recruitment_rate_crosscheck` — a point,
 # never its band. Published as a labelled cross-check, not as the rate figure. It trains
 # unweighted by design (a censored row's Enrollment is the target, not what was recruited).
@@ -66,8 +67,11 @@ BASELINE = "ta_median"
 # v3 = the two-stage split with a quantile point; v4 = SHIPPED. Refitting on today's corpus
 # means v4's data-cap fix benefits every column — the ladder isolates the MODEL changes.
 # docs/VERSION_HISTORY.md maps the labels (v4 was called v3.1 until 2026-08-31).
-VERSION_LADDER = {"v1": "v1_recipe", "v2": "lgbm_conformal_recent", "v3": "two_stage"}
-FOLD_TEXT = ("horizon fold — train on trials starting before 2018, test on 2018–2020 starts, "
+VERSION_LADDER = {"v1": "v1_recipe", "v2": "lgbm_conformal_recent", "v3": "two_stage",
+                  "v4": {"P1HV": "two_stage_l2_cov85_ipcw_total", "P1": "two_stage_l2_ipcw_total",
+                         "P2": "two_stage_l2_ipcw_total", "P3": "two_stage_l2_ipcw_total"}}
+LIVE_VERSION = "v5"
+FOLD_TEXT = ("horizon fold: train on trials starting before 2018, test on 2018–2020 starts, "
              "which have had 5.4–8.6 years to finish against a corpus whose p95 duration is 5.9")
 PHASE_ORDER = ["P1HV", "P1", "P2", "P3"]
 RATE_UNIT = "patients per site per month"
@@ -138,8 +142,8 @@ def build(rows: list) -> dict:
     out = {"split": SPLIT, "fold": FOLD_TEXT, "generated_from": str(LEDGER.relative_to(ROOT)),
            "phases": {},
            "rate": {"target": RATE, "unit": RATE_UNIT,
-                    "what": "the rate the API serves — derived from the duration head's "
-                            "enrolment window, band inverted from the duration band",
+                    "what": "the rate the API serves, derived from the duration head's "
+                            "enrolment window with the band inverted from the duration band",
                     "phases": {}},
            "rate_head": {"target": RATE, "unit": RATE_UNIT,
                          "what": "the standalone rate head, served only as "
@@ -179,12 +183,12 @@ def build(rows: list) -> dict:
     for label, cfg in ladder.items():
         entry = {"config": cfg, "phases": {}}
         for ph in PHASE_ORDER:
-            r = latest(rows, cfg, ph)
+            r = latest(rows, cfg[ph] if isinstance(cfg, dict) else cfg, ph)
             entry["phases"][ph] = ({"status": "NOT MEASURED on this fold"} if r is None else
                                    {"ledger_row": r["ledger_row"], "mae_months": r.get("mae_months"),
                                     "r2": r.get("r2"), "rmse_days": r.get("rmse_days")})
         out["versions"]["rows"][label] = entry
-    out["versions"]["rows"]["v4"] = {
+    out["versions"]["rows"][LIVE_VERSION] = {
         "config": "shipped (see phases)",
         "phases": {ph: ({"ledger_row": p["ledger_row"], "mae_months": p["mae_months"],
                          "r2": p["r2"], "rmse_days": p["rmse_days"]} if "mae_months" in p else p)
@@ -231,11 +235,11 @@ def markdown(pub: dict) -> str:
     for ph in PHASE_ORDER:
         p = pub["phases"][ph]
         if "mae_months" not in p:
-            lines.append(f"| {ph} | — | — | — | — | not measured |"); continue
+            lines.append(f"| {ph} | n/a | n/a | n/a | n/a | not measured |"); continue
         lines.append(f"| {ph} | {p['mae_months']:.2f} mo | {p['skill_vs_ta_median']:+.2f} | "
                      f"{p['r2']:.3f} | {_cov(p)} | {_gate_text(p)} |")
     lines += ["", _rows_line(pub, pub["phases"]) +
-              " Every row measures the shipped configuration — IPCW censoring weights applied, "
+              " Every row measures the shipped configuration, IPCW censoring weights applied "
               "as in `trainer.train_phase`."]
     return "\n".join(lines)
 
@@ -246,18 +250,18 @@ def _rate_table(phases: dict, label: str) -> list:
     for ph in PHASE_ORDER:
         p = phases[ph]
         if "mae" not in p:
-            lines.append(f"| {ph} | — | — | — | — | not measured |"); continue
-        base = f"{p['baseline_mae']:.2f}" if p.get("baseline_mae") is not None else "—"
+            lines.append(f"| {ph} | n/a | n/a | n/a | n/a | not measured |"); continue
+        base = f"{p['baseline_mae']:.2f}" if p.get("baseline_mae") is not None else "n/a"
         lines.append(f"| {ph} | {p['mae']:.2f} | {base} | {p['skill_vs_ta_median']:+.2f} | "
                      f"{_cov(p)} | {_gate_text(p)} |")
     return lines
 
 
 def markdown_rate(pub: dict) -> str:
-    lines = ["**Served rate** — " + pub["rate"]["what"] + ":", ""]
+    lines = ["**Served rate**: " + pub["rate"]["what"] + ".", ""]
     lines += _rate_table(pub["rate"]["phases"], "served rate")
     lines += ["", _rows_line(pub, pub["rate"]["phases"]), "",
-              "**Cross-check** — " + pub["rate_head"]["what"] + ":", ""]
+              "**Cross-check**: " + pub["rate_head"]["what"] + ".", ""]
     lines += _rate_table(pub["rate_head"]["phases"], "rate-head")
     lines += ["", _rows_line(pub, pub["rate_head"]["phases"])]
     return "\n".join(lines)
@@ -278,7 +282,7 @@ def fill_docs(pub: dict, docs=DOCS, write: bool = True) -> list:
             start, end = f"<!-- {name}:start", f"<!-- {name}:end -->"
             i, j = new.find(start), new.find(end)
             if i < 0 or j < 0 or j < i:
-                print(f"publish_metrics: {doc.name} has no {name} block — NOT updated",
+                print(f"publish_metrics: {doc.name} has no {name} block; NOT updated",
                       file=sys.stderr)
                 continue
             line_end = new.index("\n", i) + 1
@@ -306,14 +310,14 @@ def main() -> int:
         stale = fill_docs(pub, write=False)
         if cur != text or stale:
             print(f"STALE against the ledger: json={'yes' if cur != text else 'no'} docs={stale} "
-                  f"— re-run publish_metrics", file=sys.stderr)
+                  f"; re-run publish_metrics", file=sys.stderr)
             return 1
         print("published_metrics.json and doc blocks match the ledger")
         return 0
     OUT.write_text(text)
     print(markdown(pub)); print(); print(markdown_rate(pub))
     print(f"docs updated: {fill_docs(pub)}", file=sys.stderr)
-    print(f"\nwrote {OUT.relative_to(ROOT)} · coverage range {pub['coverage_range']} · "
+    print(f"\nwrote {OUT.relative_to(ROOT)}, coverage range {pub['coverage_range']}, "
           f"gates failing: {pub['gates_failing']}", file=sys.stderr)
     return 0
 

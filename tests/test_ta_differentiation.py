@@ -116,3 +116,11 @@ def test_leaky_year_features_are_not_in_the_feature_set():
         assert banned not in _NUM_COLS, (
             f"{banned} is back in the feature set — see the note in pipeline.py"
         )
+
+
+def test_point_metrics_reports_median_absolute_error():
+    import numpy as np
+    from experiments.metrics import point_metrics
+    y = np.array([1.0, 1.0, 1.0, 100.0]); yhat = np.array([1.5, 0.5, 1.5, 1.0])
+    m = point_metrics(y, yhat, unit="raw")
+    assert m["mae_raw"] == 25.125 and m["medae_raw"] == 0.5  # one tail trial owns the mean

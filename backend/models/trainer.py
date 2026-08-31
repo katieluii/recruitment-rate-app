@@ -195,7 +195,10 @@ async def _censoring_frame(phase_key: str,
         return None
 
 
-COVERAGE_TARGET = {"P1HV": 0.85}
+# P1HV needed an 0.85 target under v4 (0.729 covered at 0.80). The v5 hybrid band covers 0.770
+# at 0.80 and its served rate 0.858, both inside the gate, while 0.85 pushed the served rate to
+# 0.901, over the ceiling. So no per-phase override since 2026-08-31.
+COVERAGE_TARGET: dict = {}
 #: Where the duration head's IPCW correction is applied — see TwoStageDuration.ipcw_scope.
 #: "enrol" is what shipped through 2026-08-30 (enrolment stage only, looked up at the wrong
 #: quantity); "total" weights both stages from total duration. Measured on the horizon fold
@@ -204,6 +207,27 @@ COVERAGE_TARGET = {"P1HV": 0.85}
 #: Change here AND in experiments/publish_metrics.SHIPPED — the harness config must name
 #: the same scope.
 IPCW_SCOPE = "total"
+#: Target space of the duration point head (None = the quantile heads' log1p space).
+#: "none" fits the mean in days — see ConformalQuantileModel.point_transform. Flip only on a
+#: mature-fold win; publish_metrics.SHIPPED must name the matching `_l2raw` config.
+POINT_TRANSFORM: "str | None" = None
+#: Which duration model ships: "two_stage" (v4) or "hybrid" — the v1 random forest's point
+#: estimate inside the two-stage model's calibrated band, split rescaled to the forest
+#: total (experiments.candidates.HybridForestPoint). Flip only on a mature-fold win and
+#: change publish_metrics.SHIPPED to the matching `hybrid_rf_*` config.
+# Flipped 2026-08-31: hybrid_rf_refit beats v4 on R2 on every phase of the mature fold
+# (P1HV 0.452 / P1 0.668 / P2 0.456 / P3 0.467 vs 0.331 / 0.648 / 0.425 / 0.399) with
+# coverage 0.79-0.83 everywhere (ledger rows 417-420, 437-439 of the day's runs).
+DURATION_MODEL = "hybrid"
+#: Hybrid only: refit the forest on every training row after the band is calibrated on
+#: the 80% slice (experiments.candidates.HybridForestPoint.refit_forest_on_all). The
+#: shipped config must carry "refit" in its name iff this is True.
+HYBRID_REFIT_FOREST = True
+#: Hybrid only: band shape around the forest point, "two_stage" or "forest" (see
+#: HybridForestPoint.band). The shipped config carries "_fband" iff this is "forest".
+# "forest" since 2026-08-31: same point, coverage 0.78-0.80 on every phase of the mature fold,
+# and 15-20% NARROWER than v4's band (the recentred two-stage band was 33-41% wider).
+HYBRID_BAND = "forest"
 #: Same idea for the rate head. Empty means every phase aims at 0.80. Change here
 #: AND in experiments/publish_metrics.RATE_SHIPPED — the two must name the same setting.
 #: The API reports ONE confidence_pct, read from the DURATION head's coverage_nominal
@@ -278,12 +302,20 @@ async def train_phase(phase_key: str, loader=None,
             # 0.795 for +1.6 months of width with the point estimate unchanged (row 333,
             # 2026-08-29). Other phases hold 0.80. Change here AND in
             # experiments/publish_metrics.SHIPPED — the two must name the same setting.
-            model = TwoStageDuration(
-                phase_key, censoring_frame=censoring,
+            two_stage_kwargs = dict(
+                censoring_frame=censoring,
                 coverage=COVERAGE_TARGET.get(phase_key, 0.80),
-                ipcw_scope=IPCW_SCOPE)
+                ipcw_scope=IPCW_SCOPE, point_transform=POINT_TRANSFORM)
+            if DURATION_MODEL == "hybrid":
+                from experiments.candidates import HybridForestPoint
+                model = HybridForestPoint(phase_key, refit_forest_on_all=HYBRID_REFIT_FOREST,
+                                          band=HYBRID_BAND, **two_stage_kwargs)
+                two = model.two
+            else:
+                model = TwoStageDuration(phase_key, **two_stage_kwargs)
+                two = model
             model.fit(sub, target)
-            for stage, sub_model in (("enrolment", model.enrol), ("followup", model.fu)):
+            for stage, sub_model in (("enrolment", two.enrol), ("followup", two.fu)):
                 for alpha, pipe in sub_model.models.items():
                     joblib.dump(pipe, base / f"{stage}_{slot_name(alpha)}.pkl")
             meta["heads"][head] = {
@@ -291,13 +323,28 @@ async def train_phase(phase_key: str, loader=None,
                 "kind": "two_stage",
                 "stages": ["enrolment", "followup"],
                 "transform": transform,
-                "band_scale": model.scale_,
+                "band_scale": two.scale_,
                 "quantiles": list(QUANTILES),
                 "n_fit": int(len(sub)),
-                "coverage_nominal": model.coverage,
-                "ipcw_applied": bool(model.ipcw_applied_),
-                "ipcw_scope": model.ipcw_scope,
+                "coverage_nominal": two.coverage,
+                "ipcw_applied": bool(two.ipcw_applied_),
+                "ipcw_scope": two.ipcw_scope,
+                "point_transform": two.point_transform,
             }
+            if DURATION_MODEL == "hybrid":
+                # The forest is the point estimate; its band scale is the one
+                # calibrated AROUND the forest point, which the registry must use
+                # instead of the two-stage scale.
+                joblib.dump(model.rf.pipe, base / "forest_point.pkl")
+                meta["heads"][head].update({
+                    "kind": "hybrid",
+                    "point_model": "forest_point.pkl",
+                    "forest_refit_on_all": bool(model.refit_forest_on_all),
+                    "band_kind": model.band,
+                    "forest_rmse": float(model.rf.rmse),
+                    "band_scale": model.scale_,
+                    "two_stage_band_scale": two.scale_,
+                })
             log.info("Saved %s/duration two-stage (n=%d, band scale %.2f)",
                      phase_key, len(sub), model.scale_)
             continue

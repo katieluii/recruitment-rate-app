@@ -3,13 +3,13 @@
   "heads": {
     "duration": {
       "target": "duration_days",
-      "kind": "two_stage",
+      "kind": "hybrid",
       "stages": [
         "enrolment",
         "followup"
       ],
       "transform": "log1p",
-      "band_scale": 1.0809045226130654,
+      "band_scale": 1.192462311557789,
       "quantiles": [
         0.1,
         0.5,
@@ -18,7 +18,13 @@
       "n_fit": 15413,
       "coverage_nominal": 0.8,
       "ipcw_applied": true,
-      "ipcw_scope": "total"
+      "ipcw_scope": "total",
+      "point_transform": null,
+      "point_model": "forest_point.pkl",
+      "forest_refit_on_all": true,
+      "band_kind": "forest",
+      "forest_rmse": 341.92986279113353,
+      "two_stage_band_scale": 1.0994974874371861
     },
     "rate": {
       "target": "recruitment_rate",

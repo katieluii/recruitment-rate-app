@@ -18,7 +18,7 @@ import pandas as pd
 from backend.constants import PHASES
 from experiments import ledger
 from experiments.baselines import ALL_BASELINES, PRIMARY_BASELINE
-from experiments.candidates import (DerivedRate, HorizonMatched, LGBMPoint, LGBMQuantile,
+from experiments.candidates import (DerivedRate, HorizonMatched, HybridForestPoint, LGBMPoint, LGBMQuantile,
                                     ShippedArtifact, StratifiedTwoStage,
                                     TwoStageDuration, V1Recipe)
 from experiments.dataset import (load_censoring_frame, load_clean,
@@ -103,6 +103,49 @@ CONFIGS = {
     "derived_rate_cov85_ipcw_total": (lambda p: DerivedRate(
         p, point_objective="l2", coverage=0.85, ipcw_scope="total",
         censoring_frame=load_censoring_frame(p)), False),
+    # Raw-target mean head (2026-08-31): the v1 random forest beat the shipped
+    # model on R2 on every phase of the mature fold; hypothesis is that the
+    # log-space L2 head returns a near-geometric mean, biased low. Same model,
+    # point head fit in days; interval untouched.
+    "two_stage_l2raw_ipcw_total": (lambda p: TwoStageDuration(
+        p, point_objective="l2", ipcw_scope="total", point_transform="none",
+        censoring_frame=load_censoring_frame(p)), False),
+    "two_stage_l2raw_cov85_ipcw_total": (lambda p: TwoStageDuration(
+        p, point_objective="l2", coverage=0.85, ipcw_scope="total",
+        point_transform="none", censoring_frame=load_censoring_frame(p)), False),
+    # Hybrid (2026-08-31): random-forest point (best R2 on every phase of the
+    # mature fold) inside the two-stage model's calibrated band, split rescaled.
+    "hybrid_rf_ipcw_total": (lambda p: HybridForestPoint(
+        p, point_objective="l2", ipcw_scope="total",
+        censoring_frame=load_censoring_frame(p)), False),
+    "hybrid_rf_cov85_ipcw_total": (lambda p: HybridForestPoint(
+        p, point_objective="l2", coverage=0.85, ipcw_scope="total",
+        censoring_frame=load_censoring_frame(p)), False),
+    # Same, forest refit on ALL training rows after calibration (like-for-like
+    # with the standalone v1_recipe row, which trains on 100% of the fold).
+    "hybrid_rf_refit_ipcw_total": (lambda p: HybridForestPoint(
+        p, refit_forest_on_all=True, point_objective="l2", ipcw_scope="total",
+        censoring_frame=load_censoring_frame(p)), False),
+    "hybrid_rf_refit_cov85_ipcw_total": (lambda p: HybridForestPoint(
+        p, refit_forest_on_all=True, point_objective="l2", coverage=0.85,
+        ipcw_scope="total", censoring_frame=load_censoring_frame(p)), False),
+    # Forest-shaped conformal band around the forest point (2026-08-31).
+    "hybrid_rf_refit_fband_ipcw_total": (lambda p: HybridForestPoint(
+        p, refit_forest_on_all=True, band="forest", point_objective="l2",
+        ipcw_scope="total", censoring_frame=load_censoring_frame(p)), False),
+    "derived_rate_hybrid_refit_fband_ipcw_total": (lambda p: DerivedRate(
+        p, duration_model=HybridForestPoint(
+            p, refit_forest_on_all=True, band="forest", point_objective="l2",
+            ipcw_scope="total", censoring_frame=load_censoring_frame(p))), False),
+    # Served rate on top of the hybrid duration model.
+    "derived_rate_hybrid_refit_ipcw_total": (lambda p: DerivedRate(
+        p, duration_model=HybridForestPoint(
+            p, refit_forest_on_all=True, point_objective="l2", ipcw_scope="total",
+            censoring_frame=load_censoring_frame(p))), False),
+    "derived_rate_hybrid_refit_cov85_ipcw_total": (lambda p: DerivedRate(
+        p, duration_model=HybridForestPoint(
+            p, refit_forest_on_all=True, point_objective="l2", coverage=0.85,
+            ipcw_scope="total", censoring_frame=load_censoring_frame(p))), False),
     # Leak measurement (2026-08-30), NOT a shipping candidate: the frame above is
     # a present-day snapshot and so contains the 2018-20 test trials (marginal
     # KM only). These re-censor it at the fold's vantage date; the gap to the
@@ -277,9 +320,10 @@ def write_report(rows: list[dict], name: str, split: str, cutoff: str) -> Path:
         "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in rows:
-        if r.get("skipped"):
+        if r.get("skipped") or r.get("error"):
+            why = f"skipped: {r['skipped']}" if r.get("skipped") else f"ERROR: {r['error']}"
             lines.append(
-                f"| {r['config']} | {r['phase']} | — | — | _skipped: {r['skipped']}_ "
+                f"| {r['config']} | {r['phase']} | — | — | _{why}_ "
                 "| | | | | | | |"
             )
             continue

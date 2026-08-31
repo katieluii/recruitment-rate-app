@@ -1,22 +1,112 @@
 {
   "split": "horizon",
-  "fold": "horizon fold \u2014 train on trials starting before 2018, test on 2018\u20132020 starts, which have had 5.4\u20138.6 years to finish against a corpus whose p95 duration is 5.9",
+  "fold": "horizon fold: train on trials starting before 2018, test on 2018\u20132020 starts, which have had 5.4\u20138.6 years to finish against a corpus whose p95 duration is 5.9",
   "generated_from": "experiments/ledger.jsonl",
   "phases": {
     "P1HV": {
-      "config": "two_stage_l2_cov85_ipcw_total",
-      "ledger_row": 370,
-      "run_ts": "2026-08-30T00:37:02",
+      "config": "hybrid_rf_refit_fband_ipcw_total",
+      "ledger_row": 457,
+      "run_ts": "2026-08-31T15:40:52",
       "n_train": 4143,
       "n_test": 1212,
       "ipcw_applied": true,
-      "mae_months": 3.2597,
-      "r2": 0.331,
-      "rmse_days": 175.532,
-      "skill_vs_ta_median": 0.27,
+      "mae_months": 3.1608,
+      "r2": 0.4521,
+      "rmse_days": 158.8462,
+      "skill_vs_ta_median": 0.292,
+      "interval_coverage": 0.798,
+      "interval_nominal": 0.8,
+      "interval_mean_width_months": 7.94,
+      "coverage_gate": {
+        "value": 0.798,
+        "threshold": [
+          0.75,
+          0.9
+        ],
+        "pass": true
+      },
+      "skill_gate": {
+        "value": 0.292,
+        "threshold": 0.0,
+        "pass": true
+      },
+      "all_gates_pass": true,
+      "baseline_mae_months": 4.4669
+    },
+    "P1": {
+      "config": "hybrid_rf_refit_fband_ipcw_total",
+      "ledger_row": 458,
+      "run_ts": "2026-08-31T15:40:52",
+      "n_train": 9968,
+      "n_test": 2449,
+      "ipcw_applied": true,
+      "mae_months": 7.801,
+      "r2": 0.6677,
+      "rmse_days": 338.3903,
+      "skill_vs_ta_median": 0.348,
+      "interval_coverage": 0.793,
+      "interval_nominal": 0.8,
+      "interval_mean_width_months": 21.75,
+      "coverage_gate": {
+        "value": 0.793,
+        "threshold": [
+          0.75,
+          0.9
+        ],
+        "pass": true
+      },
+      "skill_gate": {
+        "value": 0.348,
+        "threshold": 0.0,
+        "pass": true
+      },
+      "all_gates_pass": true,
+      "baseline_mae_months": 11.9623
+    },
+    "P2": {
+      "config": "hybrid_rf_refit_fband_ipcw_total",
+      "ledger_row": 459,
+      "run_ts": "2026-08-31T15:40:52",
+      "n_train": 11807,
+      "n_test": 2134,
+      "ipcw_applied": true,
+      "mae_months": 9.6973,
+      "r2": 0.4555,
+      "rmse_days": 396.3695,
+      "skill_vs_ta_median": 0.205,
+      "interval_coverage": 0.784,
+      "interval_nominal": 0.8,
+      "interval_mean_width_months": 27.62,
+      "coverage_gate": {
+        "value": 0.784,
+        "threshold": [
+          0.75,
+          0.9
+        ],
+        "pass": true
+      },
+      "skill_gate": {
+        "value": 0.205,
+        "threshold": 0.0,
+        "pass": true
+      },
+      "all_gates_pass": true,
+      "baseline_mae_months": 12.2049
+    },
+    "P3": {
+      "config": "hybrid_rf_refit_fband_ipcw_total",
+      "ledger_row": 460,
+      "run_ts": "2026-08-31T15:40:52",
+      "n_train": 11685,
+      "n_test": 1706,
+      "ipcw_applied": true,
+      "mae_months": 9.8962,
+      "r2": 0.4667,
+      "rmse_days": 399.6703,
+      "skill_vs_ta_median": 0.237,
       "interval_coverage": 0.794,
-      "interval_nominal": 0.85,
-      "interval_mean_width_months": 9.6,
+      "interval_nominal": 0.8,
+      "interval_mean_width_months": 28.77,
       "coverage_gate": {
         "value": 0.794,
         "threshold": [
@@ -26,97 +116,7 @@
         "pass": true
       },
       "skill_gate": {
-        "value": 0.27,
-        "threshold": 0.0,
-        "pass": true
-      },
-      "all_gates_pass": true,
-      "baseline_mae_months": 4.4669
-    },
-    "P1": {
-      "config": "two_stage_l2_ipcw_total",
-      "ledger_row": 376,
-      "run_ts": "2026-08-30T00:43:42",
-      "n_train": 9968,
-      "n_test": 2449,
-      "ipcw_applied": true,
-      "mae_months": 7.7205,
-      "r2": 0.6484,
-      "rmse_days": 348.1167,
-      "skill_vs_ta_median": 0.355,
-      "interval_coverage": 0.785,
-      "interval_nominal": 0.8,
-      "interval_mean_width_months": 27.16,
-      "coverage_gate": {
-        "value": 0.785,
-        "threshold": [
-          0.75,
-          0.9
-        ],
-        "pass": true
-      },
-      "skill_gate": {
-        "value": 0.355,
-        "threshold": 0.0,
-        "pass": true
-      },
-      "all_gates_pass": true,
-      "baseline_mae_months": 11.9623
-    },
-    "P2": {
-      "config": "two_stage_l2_ipcw_total",
-      "ledger_row": 377,
-      "run_ts": "2026-08-30T00:43:42",
-      "n_train": 11807,
-      "n_test": 2134,
-      "ipcw_applied": true,
-      "mae_months": 9.5434,
-      "r2": 0.4246,
-      "rmse_days": 407.467,
-      "skill_vs_ta_median": 0.218,
-      "interval_coverage": 0.785,
-      "interval_nominal": 0.8,
-      "interval_mean_width_months": 33.16,
-      "coverage_gate": {
-        "value": 0.785,
-        "threshold": [
-          0.75,
-          0.9
-        ],
-        "pass": true
-      },
-      "skill_gate": {
-        "value": 0.218,
-        "threshold": 0.0,
-        "pass": true
-      },
-      "all_gates_pass": true,
-      "baseline_mae_months": 12.2049
-    },
-    "P3": {
-      "config": "two_stage_l2_ipcw_total",
-      "ledger_row": 378,
-      "run_ts": "2026-08-30T00:43:42",
-      "n_train": 11685,
-      "n_test": 1706,
-      "ipcw_applied": true,
-      "mae_months": 10.0344,
-      "r2": 0.3988,
-      "rmse_days": 424.3501,
-      "skill_vs_ta_median": 0.226,
-      "interval_coverage": 0.783,
-      "interval_nominal": 0.8,
-      "interval_mean_width_months": 34.01,
-      "coverage_gate": {
-        "value": 0.783,
-        "threshold": [
-          0.75,
-          0.9
-        ],
-        "pass": true
-      },
-      "skill_gate": {
-        "value": 0.226,
+        "value": 0.237,
         "threshold": 0.0,
         "pass": true
       },
@@ -127,22 +127,22 @@
   "rate": {
     "target": "recruitment_rate",
     "unit": "patients per site per month",
-    "what": "the rate the API serves \u2014 derived from the duration head's enrolment window, band inverted from the duration band",
+    "what": "the rate the API serves, derived from the duration head's enrolment window with the band inverted from the duration band",
     "phases": {
       "P1HV": {
-        "config": "derived_rate_cov85_ipcw_total",
-        "ledger_row": 372,
-        "run_ts": "2026-08-30T00:37:08",
+        "config": "derived_rate_hybrid_refit_fband_ipcw_total",
+        "ledger_row": 465,
+        "run_ts": "2026-08-31T15:41:28",
         "n_train": 4143,
         "n_test": 1212,
         "ipcw_applied": true,
-        "mae": 20.8977,
-        "rmse": 44.2171,
-        "skill_vs_ta_median": 0.1,
-        "interval_coverage": 0.847,
-        "interval_nominal": 0.85,
+        "mae": 20.422,
+        "rmse": 46.7326,
+        "skill_vs_ta_median": 0.121,
+        "interval_coverage": 0.802,
+        "interval_nominal": 0.8,
         "coverage_gate": {
-          "value": 0.847,
+          "value": 0.802,
           "threshold": [
             0.75,
             0.9
@@ -150,7 +150,7 @@
           "pass": true
         },
         "skill_gate": {
-          "value": 0.1,
+          "value": 0.121,
           "threshold": 0.0,
           "pass": true
         },
@@ -158,19 +158,19 @@
         "baseline_mae": 23.2239
       },
       "P1": {
-        "config": "derived_rate_ipcw_total",
-        "ledger_row": 382,
-        "run_ts": "2026-08-30T00:44:06",
+        "config": "derived_rate_hybrid_refit_fband_ipcw_total",
+        "ledger_row": 466,
+        "run_ts": "2026-08-31T15:41:28",
         "n_train": 9968,
         "n_test": 2449,
         "ipcw_applied": true,
-        "mae": 11.7443,
-        "rmse": 34.8857,
+        "mae": 11.7469,
+        "rmse": 36.5672,
         "skill_vs_ta_median": 0.183,
-        "interval_coverage": 0.84,
+        "interval_coverage": 0.828,
         "interval_nominal": 0.8,
         "coverage_gate": {
-          "value": 0.84,
+          "value": 0.828,
           "threshold": [
             0.75,
             0.9
@@ -186,42 +186,14 @@
         "baseline_mae": 14.3832
       },
       "P2": {
-        "config": "derived_rate_ipcw_total",
-        "ledger_row": 383,
-        "run_ts": "2026-08-30T00:44:06",
+        "config": "derived_rate_hybrid_refit_fband_ipcw_total",
+        "ledger_row": 467,
+        "run_ts": "2026-08-31T15:41:28",
         "n_train": 11807,
         "n_test": 2134,
         "ipcw_applied": true,
-        "mae": 3.7062,
-        "rmse": 13.5041,
-        "skill_vs_ta_median": 0.31,
-        "interval_coverage": 0.813,
-        "interval_nominal": 0.8,
-        "coverage_gate": {
-          "value": 0.813,
-          "threshold": [
-            0.75,
-            0.9
-          ],
-          "pass": true
-        },
-        "skill_gate": {
-          "value": 0.31,
-          "threshold": 0.0,
-          "pass": true
-        },
-        "all_gates_pass": true,
-        "baseline_mae": 5.3738
-      },
-      "P3": {
-        "config": "derived_rate_ipcw_total",
-        "ledger_row": 384,
-        "run_ts": "2026-08-30T00:44:06",
-        "n_train": 11685,
-        "n_test": 1706,
-        "ipcw_applied": true,
-        "mae": 10.5665,
-        "rmse": 39.7957,
+        "mae": 3.761,
+        "rmse": 14.3859,
         "skill_vs_ta_median": 0.3,
         "interval_coverage": 0.822,
         "interval_nominal": 0.8,
@@ -235,6 +207,34 @@
         },
         "skill_gate": {
           "value": 0.3,
+          "threshold": 0.0,
+          "pass": true
+        },
+        "all_gates_pass": true,
+        "baseline_mae": 5.3738
+      },
+      "P3": {
+        "config": "derived_rate_hybrid_refit_fband_ipcw_total",
+        "ledger_row": 468,
+        "run_ts": "2026-08-31T15:41:28",
+        "n_train": 11685,
+        "n_test": 1706,
+        "ipcw_applied": true,
+        "mae": 10.3887,
+        "rmse": 40.4627,
+        "skill_vs_ta_median": 0.312,
+        "interval_coverage": 0.827,
+        "interval_nominal": 0.8,
+        "coverage_gate": {
+          "value": 0.827,
+          "threshold": [
+            0.75,
+            0.9
+          ],
+          "pass": true
+        },
+        "skill_gate": {
+          "value": 0.312,
           "threshold": 0.0,
           "pass": true
         },
@@ -363,31 +363,31 @@
     }
   },
   "versions": {
-    "fold": "horizon fold \u2014 train on trials starting before 2018, test on 2018\u20132020 starts, which have had 5.4\u20138.6 years to finish against a corpus whose p95 duration is 5.9",
+    "fold": "horizon fold: train on trials starting before 2018, test on 2018\u20132020 starts, which have had 5.4\u20138.6 years to finish against a corpus whose p95 duration is 5.9",
     "rows": {
       "baseline": {
         "config": "ta_median",
         "phases": {
           "P1HV": {
-            "ledger_row": 401,
+            "ledger_row": 453,
             "mae_months": 4.4669,
             "r2": -0.1718,
             "rmse_days": 232.3135
           },
           "P1": {
-            "ledger_row": 402,
+            "ledger_row": 454,
             "mae_months": 11.9623,
             "r2": 0.2144,
             "rmse_days": 520.3171
           },
           "P2": {
-            "ledger_row": 403,
+            "ledger_row": 455,
             "mae_months": 12.2049,
             "r2": 0.0678,
             "rmse_days": 518.6086
           },
           "P3": {
-            "ledger_row": 404,
+            "ledger_row": 456,
             "mae_months": 12.9626,
             "r2": -0.0085,
             "rmse_days": 549.5822
@@ -482,7 +482,12 @@
         }
       },
       "v4": {
-        "config": "shipped (see phases)",
+        "config": {
+          "P1HV": "two_stage_l2_cov85_ipcw_total",
+          "P1": "two_stage_l2_ipcw_total",
+          "P2": "two_stage_l2_ipcw_total",
+          "P3": "two_stage_l2_ipcw_total"
+        },
         "phases": {
           "P1HV": {
             "ledger_row": 370,
@@ -509,12 +514,41 @@
             "rmse_days": 424.3501
           }
         }
+      },
+      "v5": {
+        "config": "shipped (see phases)",
+        "phases": {
+          "P1HV": {
+            "ledger_row": 457,
+            "mae_months": 3.1608,
+            "r2": 0.4521,
+            "rmse_days": 158.8462
+          },
+          "P1": {
+            "ledger_row": 458,
+            "mae_months": 7.801,
+            "r2": 0.6677,
+            "rmse_days": 338.3903
+          },
+          "P2": {
+            "ledger_row": 459,
+            "mae_months": 9.6973,
+            "r2": 0.4555,
+            "rmse_days": 396.3695
+          },
+          "P3": {
+            "ledger_row": 460,
+            "mae_months": 9.8962,
+            "r2": 0.4667,
+            "rmse_days": 399.6703
+          }
+        }
       }
     }
   },
   "coverage_range": [
-    0.783,
-    0.794
+    0.784,
+    0.798
   ],
   "gates_failing": []
 }

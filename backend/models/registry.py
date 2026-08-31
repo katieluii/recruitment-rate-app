@@ -61,15 +61,65 @@ class LoadedTwoStage:
                 np.maximum(1.0, point + self.scale_ * hi_w))
 
 
+class LoadedHybrid:
+    """Forest point estimate inside the two-stage calibrated band (metadata kind
+    "hybrid"). Mirrors experiments.candidates.HybridForestPoint: point from the
+    forest, band = point ± scale × the two-stage raw half-widths, components =
+    the two-stage split rescaled to the forest total."""
+
+    def __init__(self, two: "LoadedTwoStage", forest, band_scale: float,
+                 band_kind: str = "two_stage", forest_rmse: float = 0.0):
+        self.two = two
+        self.forest = forest
+        self.scale_ = band_scale
+        self.band_kind = band_kind
+        self.forest_rmse = forest_rmse
+        self.enrol, self.fu = two.enrol, two.fu
+
+    def _spread(self, X):
+        """Forest tree spread, floored at half the training rmse (V1Recipe.spread)."""
+        import numpy as np
+        rf = self.forest.named_steps["model"]
+        Xt = self.forest.named_steps["pre"].transform(X)
+        std = np.stack([t.predict(Xt) for t in rf.estimators_]).std(axis=0)
+        return np.maximum(std, self.forest_rmse * 0.5)
+
+    def predict(self, X):
+        import numpy as np
+        return np.maximum(1.0, self.forest.predict(X))
+
+    def predict_interval(self, X):
+        import numpy as np
+        point = self.predict(X)
+        if self.band_kind == "forest":
+            s = self._spread(X); lo_w, hi_w = s, s
+        else:
+            _, lo_w, hi_w = self.two._raw_band(X)
+        return (np.maximum(1.0, point - self.scale_ * lo_w),
+                np.maximum(1.0, point + self.scale_ * hi_w))
+
+    def predict_components(self, X):
+        import numpy as np
+        e, f = self.two.predict_components(X)
+        k = self.predict(X) / np.maximum(1.0, e + f)
+        return e * k, f * k
+
+
 class LoadedHead:
     """A fitted head reassembled from disk, with the same predict surface as
     ConformalQuantileModel so callers do not care which they were handed."""
 
-    def __init__(self, models: dict, qhat: float, transform: str):
+    def __init__(self, models: dict, qhat: float, transform: str,
+                 point_transform: Optional[str] = None):
         self.models = models
         self.qhat_ = qhat
         self.transform = transform
         self._fwd, self._inv, self._floor = TRANSFORMS[transform]
+        # The point head may have been fitted in a different target space from
+        # the quantile heads (metadata "point_transform"; None = same space).
+        # Inverting a raw-day head through expm1 would serve e^500 days.
+        self.point_transform = point_transform or transform
+        self._inv_point = TRANSFORMS[self.point_transform][1]
 
     def predict(self, X):
         import numpy as np
@@ -77,8 +127,10 @@ class LoadedHead:
         # alpha=0.5 head fits the median, so serving the median would give away
         # the gain the L2 head was added for. Falls back to the median for
         # artifacts trained before the point head existed.
-        head = self.models.get(POINT_KEY, self.models[0.5])
-        return np.maximum(self._floor, self._inv(head.predict(X)))
+        head = self.models.get(POINT_KEY)
+        if head is not None:
+            return np.maximum(self._floor, self._inv_point(head.predict(X)))
+        return np.maximum(self._floor, self._inv(self.models[0.5].predict(X)))
 
     def predict_interval(self, X):
         import numpy as np
@@ -97,7 +149,8 @@ def _load_point(base: Path, prefix: str, models: dict) -> None:
         models[POINT_KEY] = joblib.load(path)
 
 
-def _load_stage(base: Path, stage: str, transform: str) -> Optional[LoadedHead]:
+def _load_stage(base: Path, stage: str, transform: str,
+                point_transform: Optional[str] = None) -> Optional[LoadedHead]:
     models = {}
     for alpha in QUANTILES:
         path = base / f"{stage}_{slot_name(alpha)}.pkl"
@@ -106,7 +159,7 @@ def _load_stage(base: Path, stage: str, transform: str) -> Optional[LoadedHead]:
             return None
         models[alpha] = joblib.load(path)
     _load_point(base, stage, models)
-    return LoadedHead(models, 0.0, transform)
+    return LoadedHead(models, 0.0, transform, point_transform)
 
 
 def _load_head(base: Path, head: str, meta: dict):
@@ -116,11 +169,25 @@ def _load_head(base: Path, head: str, meta: dict):
 
     if spec.get("kind") == "two_stage":
         transform = spec.get("transform", "log1p")
-        enrol = _load_stage(base, "enrolment", transform)
-        fu = _load_stage(base, "followup", transform)
+        point_transform = spec.get("point_transform")
+        enrol = _load_stage(base, "enrolment", transform, point_transform)
+        fu = _load_stage(base, "followup", transform, point_transform)
         if enrol is None or fu is None:
             return None
         return LoadedTwoStage(enrol, fu, spec.get("band_scale", 1.0))
+    if spec.get("kind") == "hybrid":
+        transform = spec.get("transform", "log1p")
+        point_transform = spec.get("point_transform")
+        enrol = _load_stage(base, "enrolment", transform, point_transform)
+        fu = _load_stage(base, "followup", transform, point_transform)
+        forest_path = base / spec.get("point_model", "forest_point.pkl")
+        if enrol is None or fu is None or not forest_path.exists():
+            log.warning("Hybrid head for %s incomplete (forest at %s: %s)", base.name,
+                        forest_path, forest_path.exists())
+            return None
+        two = LoadedTwoStage(enrol, fu, spec.get("two_stage_band_scale", 1.0))
+        return LoadedHybrid(two, joblib.load(forest_path), spec.get("band_scale", 1.0),
+                            spec.get("band_kind", "two_stage"), float(spec.get("forest_rmse", 0.0)))
     models = {}
     for alpha in QUANTILES:
         path = base / f"{head}_{slot_name(alpha)}.pkl"
@@ -129,7 +196,8 @@ def _load_head(base: Path, head: str, meta: dict):
             return None
         models[alpha] = joblib.load(path)
     _load_point(base, head, models)
-    return LoadedHead(models, spec.get("qhat", 0.0), spec.get("transform", "log1p"))
+    return LoadedHead(models, spec.get("qhat", 0.0), spec.get("transform", "log1p"),
+                      spec.get("point_transform"))
 
 
 def load(phase_key: str, force: bool = False) -> Optional[dict]:
