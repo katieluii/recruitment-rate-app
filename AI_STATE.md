@@ -337,9 +337,11 @@ delivered both contracts to `analyst/artifacts/` — `endpoint_combinations.json
 
 ## Exact Next Steps
 
-0. (Done 2026-08-30, S326: IPCW parity; rate figure = the SERVED derived rate, head as cross-check;
-   P1HV rate head recalibrated to 0.85; vantage leak measured at ≤0.006 R² and closed; IPCW scope
-   fixed → `total`, +0.002–0.007 R² on P1-P3. Nothing open.)
+0. (Done 2026-08-30/31, S326: IPCW parity; served derived rate published; IPCW scope `total`; v5 shipped
+   `fd712a4`: forest point + forest-shaped conformal band + two-stage split, R² up on every phase, band
+   15-20% narrower than v4. Open from it: the README/RESULTS em-dash backlog outside today's additions, and
+   `model_used="LightGBM conformalised quantile"` in inference.py now mislabels v5 (file owned by the
+   other session's copy pass).)
 
 1. Chase the under-prediction bias — the largest open problem, and the ceiling finding
    above suggests it is calibration rather than missing signal. Start with
