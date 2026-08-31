@@ -64,6 +64,18 @@ ELIGIBILITY_NUMERIC = ("n_inclusion_criteria", "n_exclusion_criteria",
                        "criteria_chars")
 
 
+def _model_label(meta: dict) -> str:
+    """Name the duration model that the loaded artifact actually contains."""
+    spec = ((meta.get("heads") or {}).get("duration") or {})
+    if spec.get("kind") == "hybrid":
+        if spec.get("band_kind") == "forest":
+            return "Hybrid random forest with forest-shaped conformal interval"
+        return "Hybrid random forest with two-stage conformal interval"
+    if spec.get("kind") == "two_stage":
+        return "Two-stage LightGBM conformalised quantile"
+    return "LightGBM conformalised quantile"
+
+
 def eligibility_fields() -> tuple:
     """Allowlist for `eligibility_features`, derived rather than restated so it
     cannot drift from the markers the pipeline actually builds."""
@@ -297,7 +309,7 @@ def predict(
         predicted_months=to_months(pred_days),
         lower_months=to_months(lower),
         upper_months=to_months(upper),
-        model_used="LightGBM conformalised quantile",
+        model_used=_model_label(entry.get("meta", {})),
         rmse_days=round(entry.get("rmse", 0.0), 1),
         n_train=entry["n_train"],
         # The band's nominal target is whatever the artifact was calibrated to — P1HV

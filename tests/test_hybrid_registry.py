@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 
 from backend.models.registry import LoadedHead, LoadedHybrid, LoadedTwoStage
+from backend.models.inference import _model_label
 
 
 class _Const:
@@ -49,3 +50,14 @@ def test_forest_band_uses_tree_spread_floored_at_half_rmse():
     h2 = LoadedHybrid(two, _Forest(), band_scale=1.0, band_kind="forest", forest_rmse=400.0)
     lo, hi = h2.predict_interval(X)                        # floor: rmse/2 = 200 > 81.65
     np.testing.assert_allclose(hi - lo, 400.0)
+
+
+def test_model_label_tracks_the_loaded_duration_kind():
+    hybrid = {"heads": {"duration": {"kind": "hybrid", "band_kind": "forest"}}}
+    two_stage = {"heads": {"duration": {"kind": "two_stage"}}}
+    legacy = {"heads": {"duration": {"kind": "quantile"}}}
+    assert _model_label(hybrid) == (
+        "Hybrid random forest with forest-shaped conformal interval"
+    )
+    assert _model_label(two_stage) == "Two-stage LightGBM conformalised quantile"
+    assert _model_label(legacy) == "LightGBM conformalised quantile"

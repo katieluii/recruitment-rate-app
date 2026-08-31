@@ -171,7 +171,7 @@ Response:
   "recruitment_rate_upper": 0.377,
   "rate_implied_total_months": 26.0,
   "rate_note": "Patients per site per month, modelled — no per-site enrolment is published …",
-  "model_used": "LightGBM conformalised quantile",
+  "model_used": "Hybrid random forest with forest-shaped conformal interval",
   "n_train": 2024,
   "extrapolation_warnings": []
 }
