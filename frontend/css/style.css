@@ -249,6 +249,7 @@ body {
 .notice.error   { background: #2d0f0e; border-color: var(--error);   color: #ff7b72; }
 .notice.warning { background: #2d2008; border-color: var(--warn);    color: #e3b341; }
 .notice.visible { display: block; }
+.notice ul { margin: .35rem 0 0 1.1rem; padding: 0; }
 
 /* ── Footer ────────────────────────────────────────────────── */
 .footer {

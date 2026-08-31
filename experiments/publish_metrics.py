@@ -67,7 +67,7 @@ BASELINE = "ta_median"
 # means v4's data-cap fix benefits every column — the ladder isolates the MODEL changes.
 # docs/VERSION_HISTORY.md maps the labels (v4 was called v3.1 until 2026-08-31).
 VERSION_LADDER = {"v1": "v1_recipe", "v2": "lgbm_conformal_recent", "v3": "two_stage"}
-FOLD_TEXT = ("horizon fold — train on trials starting before 2018, test on 2018–2020 starts, "
+FOLD_TEXT = ("horizon fold: train on trials starting before 2018, test on 2018–2020 starts, "
              "which have had 5.4–8.6 years to finish against a corpus whose p95 duration is 5.9")
 PHASE_ORDER = ["P1HV", "P1", "P2", "P3"]
 RATE_UNIT = "patients per site per month"
@@ -138,7 +138,7 @@ def build(rows: list) -> dict:
     out = {"split": SPLIT, "fold": FOLD_TEXT, "generated_from": str(LEDGER.relative_to(ROOT)),
            "phases": {},
            "rate": {"target": RATE, "unit": RATE_UNIT,
-                    "what": "the rate the API serves — derived from the duration head's "
+                    "what": "the rate the API serves, derived from the duration head's "
                             "enrolment window, band inverted from the duration band",
                     "phases": {}},
            "rate_head": {"target": RATE, "unit": RATE_UNIT,
@@ -231,11 +231,11 @@ def markdown(pub: dict) -> str:
     for ph in PHASE_ORDER:
         p = pub["phases"][ph]
         if "mae_months" not in p:
-            lines.append(f"| {ph} | — | — | — | — | not measured |"); continue
+            lines.append(f"| {ph} | n/a | n/a | n/a | n/a | not measured |"); continue
         lines.append(f"| {ph} | {p['mae_months']:.2f} mo | {p['skill_vs_ta_median']:+.2f} | "
                      f"{p['r2']:.3f} | {_cov(p)} | {_gate_text(p)} |")
     lines += ["", _rows_line(pub, pub["phases"]) +
-              " Every row measures the shipped configuration — IPCW censoring weights applied, "
+              " Every row measures the shipped configuration: IPCW censoring weights applied, "
               "as in `trainer.train_phase`."]
     return "\n".join(lines)
 
@@ -246,18 +246,18 @@ def _rate_table(phases: dict, label: str) -> list:
     for ph in PHASE_ORDER:
         p = phases[ph]
         if "mae" not in p:
-            lines.append(f"| {ph} | — | — | — | — | not measured |"); continue
-        base = f"{p['baseline_mae']:.2f}" if p.get("baseline_mae") is not None else "—"
+            lines.append(f"| {ph} | n/a | n/a | n/a | n/a | not measured |"); continue
+        base = f"{p['baseline_mae']:.2f}" if p.get("baseline_mae") is not None else "n/a"
         lines.append(f"| {ph} | {p['mae']:.2f} | {base} | {p['skill_vs_ta_median']:+.2f} | "
                      f"{_cov(p)} | {_gate_text(p)} |")
     return lines
 
 
 def markdown_rate(pub: dict) -> str:
-    lines = ["**Served rate** — " + pub["rate"]["what"] + ":", ""]
+    lines = ["**Served rate**: " + pub["rate"]["what"], ""]
     lines += _rate_table(pub["rate"]["phases"], "served rate")
     lines += ["", _rows_line(pub, pub["rate"]["phases"]), "",
-              "**Cross-check** — " + pub["rate_head"]["what"] + ":", ""]
+              "**Cross-check**: " + pub["rate_head"]["what"], ""]
     lines += _rate_table(pub["rate_head"]["phases"], "rate-head")
     lines += ["", _rows_line(pub, pub["rate_head"]["phases"])]
     return "\n".join(lines)
@@ -278,7 +278,7 @@ def fill_docs(pub: dict, docs=DOCS, write: bool = True) -> list:
             start, end = f"<!-- {name}:start", f"<!-- {name}:end -->"
             i, j = new.find(start), new.find(end)
             if i < 0 or j < 0 or j < i:
-                print(f"publish_metrics: {doc.name} has no {name} block — NOT updated",
+                print(f"publish_metrics: {doc.name} has no {name} block, NOT updated",
                       file=sys.stderr)
                 continue
             line_end = new.index("\n", i) + 1
@@ -306,14 +306,14 @@ def main() -> int:
         stale = fill_docs(pub, write=False)
         if cur != text or stale:
             print(f"STALE against the ledger: json={'yes' if cur != text else 'no'} docs={stale} "
-                  f"— re-run publish_metrics", file=sys.stderr)
+                  f"(re-run publish_metrics)", file=sys.stderr)
             return 1
         print("published_metrics.json and doc blocks match the ledger")
         return 0
     OUT.write_text(text)
     print(markdown(pub)); print(); print(markdown_rate(pub))
     print(f"docs updated: {fill_docs(pub)}", file=sys.stderr)
-    print(f"\nwrote {OUT.relative_to(ROOT)} · coverage range {pub['coverage_range']} · "
+    print(f"\nwrote {OUT.relative_to(ROOT)} | coverage range {pub['coverage_range']} | "
           f"gates failing: {pub['gates_failing']}", file=sys.stderr)
     return 0
 

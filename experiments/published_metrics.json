@@ -1,6 +1,6 @@
 {
   "split": "horizon",
-  "fold": "horizon fold \u2014 train on trials starting before 2018, test on 2018\u20132020 starts, which have had 5.4\u20138.6 years to finish against a corpus whose p95 duration is 5.9",
+  "fold": "horizon fold: train on trials starting before 2018, test on 2018\u20132020 starts, which have had 5.4\u20138.6 years to finish against a corpus whose p95 duration is 5.9",
   "generated_from": "experiments/ledger.jsonl",
   "phases": {
     "P1HV": {
@@ -127,7 +127,7 @@
   "rate": {
     "target": "recruitment_rate",
     "unit": "patients per site per month",
-    "what": "the rate the API serves \u2014 derived from the duration head's enrolment window, band inverted from the duration band",
+    "what": "the rate the API serves, derived from the duration head's enrolment window, band inverted from the duration band",
     "phases": {
       "P1HV": {
         "config": "derived_rate_cov85_ipcw_total",
@@ -363,7 +363,7 @@
     }
   },
   "versions": {
-    "fold": "horizon fold \u2014 train on trials starting before 2018, test on 2018\u20132020 starts, which have had 5.4\u20138.6 years to finish against a corpus whose p95 duration is 5.9",
+    "fold": "horizon fold: train on trials starting before 2018, test on 2018\u20132020 starts, which have had 5.4\u20138.6 years to finish against a corpus whose p95 duration is 5.9",
     "rows": {
       "baseline": {
         "config": "ta_median",

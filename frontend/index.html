@@ -41,14 +41,14 @@
       <div class="field slider-field" id="enrollment-field" hidden>
         <div class="slider-head">
           <label for="enrollment-input">Target enrolment</label>
-          <output class="slider-value" id="enrollment-value">—</output>
+          <output class="slider-value" id="enrollment-value"></output>
         </div>
         <input id="enrollment-input" type="range" min="1" max="1000" step="1">
       </div>
       <div class="field slider-field" id="sites-field" hidden>
         <div class="slider-head">
           <label for="sites-input">Sites</label>
-          <output class="slider-value" id="sites-value">—</output>
+          <output class="slider-value" id="sites-value"></output>
         </div>
         <input id="sites-input" type="range" min="1" max="100" step="1">
       </div>
@@ -66,12 +66,12 @@
   <section class="card result-card" id="result-card" aria-live="polite">
     <div class="card-title">Predicted duration</div>
     <div class="result-header">
-      <span class="result-months" id="result-months">—</span>
+      <span class="result-months" id="result-months"></span>
       <span class="result-unit">months</span>
-      <span class="result-badge" id="result-ta">—</span>
+      <span class="result-badge" id="result-ta"></span>
     </div>
     <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:1rem">
-      <span id="result-phase-label">—</span> &nbsp;·&nbsp; Start to primary completion
+      <span id="result-phase-label"></span>, start to primary completion
     </p>
 
     <!-- Error bar -->
@@ -80,15 +80,15 @@
     <!-- Stats row -->
     <div class="stat-row">
       <div class="stat-box">
-        <div class="stat-value" id="stat-days">—</div>
+        <div class="stat-value" id="stat-days"></div>
         <div class="stat-label">Days</div>
       </div>
       <div class="stat-box">
-        <div class="stat-value" id="stat-interval">—</div>
+        <div class="stat-value" id="stat-interval"></div>
         <div class="stat-label" id="stat-interval-label">Prediction interval</div>
       </div>
       <div class="stat-box">
-        <div class="stat-value" id="stat-ntrain">—</div>
+        <div class="stat-value" id="stat-ntrain"></div>
         <div class="stat-label">Training trials</div>
       </div>
     </div>
@@ -97,10 +97,10 @@
     <div class="rate-panel" id="rate-panel" hidden>
       <div class="card-title">Recruitment rate</div>
       <div class="result-header">
-        <span class="result-months" id="rate-value">—</span>
+        <span class="result-months" id="rate-value"></span>
         <span class="result-unit">patients / site / month</span>
       </div>
-      <p class="rate-range" id="rate-range">—</p>
+      <p class="rate-range" id="rate-range"></p>
       <p class="caveat" id="rate-note"></p>
     </div>
 
@@ -109,12 +109,12 @@
       <div class="split-row">
         <span class="split-label">Recruiting</span>
         <span class="split-bar"><i id="split-enrol-bar"></i></span>
-        <span class="split-val num" id="split-enrol">—</span>
+        <span class="split-val num" id="split-enrol"></span>
       </div>
       <div class="split-row">
         <span class="split-label">Follow-up</span>
         <span class="split-bar"><i id="split-fu-bar" class="fu"></i></span>
-        <span class="split-val num" id="split-fu">—</span>
+        <span class="split-val num" id="split-fu"></span>
       </div>
       <p class="split-note">Sites and geography move only the recruiting stage;
       the endpoint sets follow-up.</p>
@@ -138,14 +138,14 @@
     </details>
 
     <p class="provenance">
-      <span id="result-model">—</span>
+      <span id="result-model"></span>
     </p>
   </section>
 
   <!-- Footer -->
   <footer class="footer">
     Data: <a href="https://clinicaltrials.gov" target="_blank" rel="noopener">ClinicalTrials.gov</a>
-    &nbsp;·&nbsp;
+    |
     <a href="https://github.com/katieluii/recruitment-rate-app" target="_blank" rel="noopener">GitHub</a>
   </footer>
 

@@ -173,7 +173,7 @@ function displayResult(r, { scroll = false } = {}) {
     `${r.lower_months.toFixed(1)}–${r.upper_months.toFixed(1)} mo`;
   document.getElementById('stat-ntrain').textContent = r.n_train.toLocaleString();
   document.getElementById('result-model').textContent =
-    `${r.model_used} · ${r.confidence_pct}% prediction interval`;
+    `${r.model_used}, ${r.confidence_pct}% prediction interval`;
 
   renderErrorBar(r.lower_months, r.predicted_months, r.upper_months, 'error-bar-container',
                  r.confidence_pct);
@@ -186,8 +186,8 @@ function displayResult(r, { scroll = false } = {}) {
   // this both raises and clears them, without an intermediate hidden state that
   // would reflow the page between every pair of responses during a drag.
   if (r.extrapolation_warnings && r.extrapolation_warnings.length) {
-    showWarn('Outside the trained range — indicative only:<br>' +
-             r.extrapolation_warnings.map(w => `· ${escapeHtml(w)}`).join('<br>'));
+    showWarn('Outside the trained range, so indicative only:<ul>' +
+             r.extrapolation_warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('') + '</ul>');
   } else {
     warnNotice.classList.remove('visible');
   }
@@ -226,7 +226,7 @@ function displayProvenance(p) {
   document.getElementById('prov-values').innerHTML =
     Object.entries(p.values || {}).map(([key, v]) => {
       const val = Array.isArray(v.value) ? v.value.join(' to ') : v.value;
-      return `<div><dt>${labelFor(key)} — ${val} ${escapeHtml(v.unit || '')}</dt>
+      return `<div><dt>${labelFor(key)}: ${val} ${escapeHtml(v.unit || '')}</dt>
               <dd>${escapeHtml(v.derivation || '')}</dd></div>`;
     }).join('');
 
@@ -234,17 +234,17 @@ function displayProvenance(p) {
   // filled from an area median are not the same kind of input.
   document.getElementById('prov-inputs').innerHTML =
     Object.entries(p.inputs || {}).map(([key, v]) => {
-      const n = v.evidence_n_trials ? ` · ${v.evidence_n_trials.toLocaleString()} trials` : '';
+      const n = v.evidence_n_trials ? ` (${v.evidence_n_trials.toLocaleString()} trials)` : '';
       return `<tr><td>${labelFor(key)}</td>
-        <td>${v.value == null ? '—' : escapeHtml(String(v.value))}</td>
+        <td>${v.value == null ? 'none' : escapeHtml(String(v.value))}</td>
         <td><span class="origin ${v.origin}">${originLabel(v.origin)}</span>${n}</td></tr>`;
     }).join('');
 
   document.getElementById('prov-sources').innerHTML =
     (p.sources || []).map(s => {
       const n = s.n_trials || s.n_fit;
-      const extra = n ? ` — ${n.toLocaleString()} trials` : '';
-      const built = s.built ? ` · built ${s.built}` : '';
+      const extra = n ? `: ${n.toLocaleString()} trials` : '';
+      const built = s.built ? `, built ${s.built}` : '';
       return `<li><b>${escapeHtml(s.label)}</b>${extra}${built}
         ${s.selection ? `<br><span style="font-size:.75rem">${escapeHtml(s.selection)}</span>` : ''}</li>`;
     }).join('');

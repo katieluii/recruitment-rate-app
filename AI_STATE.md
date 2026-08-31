@@ -20,6 +20,19 @@ never rendered), `docs/*.html` (not served), the portfolio page. Pre-existing an
 inputs on P1HV Metabolic fire `outcomes_total=0` / `Other=0` sparse-tail warnings; `drug_type`/`region`
 show "supplied" though the UI never asks for them.
 
+**2026-08-31, second pass: no em dash, no middle dot, no AI-slop in authored client-facing text
+(branch `claude/no-ai-punctuation`, not yet on main).** Frontend, API strings (`provenance.py`,
+`predict.py`, both `site_rates.py`, `endpoint_profiles.py`), the public docs `README.md`/`RESULTS.md`
+and their generator `experiments/publish_metrics.py` (FOLD_TEXT, table cells, block headings) are
+rewritten with ordinary punctuation; blocks regenerated and `publish_metrics --check` passes.
+Placeholders that showed an em dash before the first prediction are now empty (the elements are
+hidden until populated); extrapolation warnings render as a list. Gate: `scripts/check_client_copy.py`
+(`python -m scripts.check_client_copy`, exit 1 on findings) plus `tests/test_client_copy.py`, which
+also plants violations to prove the gate can fail; `STYLE_RULE` there is the sentence to put in any
+future prose-producing prompt. The one LLM prompt (`scripts/classify_endpoints_llm.py`) returns strict
+JSON labels, so it carries no prose rule. Preserved on purpose: code comments and docstrings, `docs/`,
+`experiments/reports/`, AI_STATE/SPECS/CHANGELOG (developer-facing).
+
 **The corpus was roughly half its true size until 2026-08-04.** `parse_dates` called
 `pd.to_datetime` without a format against a column holding BOTH `2015-10` and
 `2022-10-21`; pandas inferred one format from the first value and the `dropna` two

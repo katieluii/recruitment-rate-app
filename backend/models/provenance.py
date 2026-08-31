@@ -72,7 +72,7 @@ def _measured_coverage(phase_key: str) -> str:
     try:
         pub = json.loads(_PUBLISHED.read_text())
     except (OSError, ValueError):
-        return "not measured — experiments/published_metrics.json is missing or unreadable"
+        return "not measured: experiments/published_metrics.json is missing or unreadable"
     p = pub.get("phases", {}).get(phase_key, {})
     cov = p.get("interval_coverage")
     if cov is None:
@@ -83,7 +83,7 @@ def _measured_coverage(phase_key: str) -> str:
     gate = p.get("coverage_gate") or {}
     if gate and gate.get("pass") is False:
         lo = (gate.get("threshold") or ["?"])[0]
-        text += f" — BELOW the {lo} coverage gate; recalibration pending"
+        text += f"; BELOW the {lo} coverage gate, recalibration pending"
     return text
 
 
@@ -227,7 +227,7 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
                 f"= {prediction.predicted_months} mo"),
             "note": ("The two stages are modelled separately because they are "
                      "near-independent (r = +0.03) and driven by different "
-                     "things — geography and eligibility move enrolment, the "
+                     "things: geography and eligibility move enrolment, the "
                      "endpoint moves follow-up."),
         }
         values["enrolment_months"] = {
@@ -287,8 +287,8 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
                      "Two independent models used to answer this same question "
                      "and disagreed by up to 62% on default inputs, because the "
                      "median of a ratio is not the ratio of medians."),
-            "caveat": ("Largely determined by how many sites the sponsor chose — "
-                       "regressing it on site count gives a slope near -1. Use it "
+            "caveat": ("Largely determined by how many sites the sponsor chose "
+                       "(regressing it on site count gives a slope near -1). Use it "
                        "to compare trials of similar size, not as a site metric."),
         }
         cross = prediction.recruitment_rate_crosscheck
@@ -301,7 +301,7 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
                 "relative_gap": round(gap, 3),
                 "interpretation": (
                     "close agreement" if gap < 0.25 else
-                    "the two approaches disagree materially here — treat the rate "
+                    "the two approaches disagree materially here; treat the rate "
                     "as indicative and prefer the enrolment window"),
             }
         values["recruitment_rate"] = entry
@@ -329,6 +329,6 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
         "values": values,
         "gaps": gaps,
         "note": ("Every value here is DERIVED, never read from a source, so all "
-                 "carry verification 'inference' and value_verified false — the "
+                 "carry verification 'inference' and value_verified false, the "
                  "same tier Atlas uses for computed figures."),
     }
