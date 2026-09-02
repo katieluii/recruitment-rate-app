@@ -2,10 +2,12 @@
 
 ## Current Context
 
-WSi trial recruitment/duration predictor, live on Railway and verified serving the
-current models on 2026-08-05 (n_train asserted per phase, not inferred from a
-successful response). The four levers in `docs/OPEN_LEVERS.md` are all resolved and
-none raised R2.
+WSi trial recruitment/duration predictor. `main` and `origin/main` are both
+`4efab3d` as of 2026-09-02. The push triggers Railway automatically; this session
+did not independently verify the resulting Railway deployment. WS21 pins this
+exact commit. The only local untracked path is `.analysis-harness/`.
+
+The four levers in `docs/OPEN_LEVERS.md` are all resolved and none raised R2.
 
 **2026-08-31 — frontend copy pass (committed to `main` 2026-08-31 via `claude/copy-pass`; Railway deploys on push).** Every
 user-facing string was rewritten concise/direct: `frontend/index.html`, `app.js`, `charts.js`, plus the
@@ -199,6 +201,12 @@ delivered both contracts to `analyst/artifacts/` — `endpoint_combinations.json
 `eligibility_clusters.json`. WSi does not read them yet.
 
 ## Completed
+
+**2026-09-02 - truthful v5 consumer label.** `backend/models/inference.py`
+derives `model_used` from artifact metadata. The shipped hybrid/forest-band
+configuration now reports "Hybrid random forest with forest-shaped conformal
+interval" instead of the superseded LightGBM label. The focused registry/model
+tests passed (6 tests), and the fix is pushed on `main` at `4efab3d`.
 
 - `7770104` CT.gov fetch fails closed. A 429 mid-pagination used to break out of the
   loop and return a partial corpus that `dataset.load_raw` cached as complete;
