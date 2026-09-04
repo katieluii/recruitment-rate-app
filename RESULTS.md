@@ -78,6 +78,26 @@ Distinct predicted medians out of the areas with enough test trials — the metr
 
 ## Recruitment rate — MAE, patients per site per month
 
+The current rate head is trained directly on ClinicalTrials.gov record histories:
+final **ACTUAL** enrolment divided by initiated centres and the interval for which
+the study was recorded as recruiting. It is independent of the duration head.
+P1HV does not report a rate because the history cohort did not support a separate
+validated head.
+
+| Phase | usable history targets | temporal test | MAE | median AE | median factor error | 80% interval coverage | skill vs area median |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| P1 | 1,107 | 285 | 1.7885 | 0.4892 | 1.541× | 0.818 | +0.285 |
+| P2 | 1,280 | 354 | 3.1387 | 0.1620 | 1.547× | 0.884 | +0.251 |
+| P3 | 1,248 | 299 | 3.7444 | 0.2826 | 1.590× | 0.829 | +0.462 |
+
+Temporal validation trains before 2021-01-01 and tests 2021-01-01 through
+2022-12-31. Tier B assumes every initiated/listed centre had the full recorded
+recruiting interval. It is therefore an estimated planning rate, not observed
+performance for each centre. Detailed Tier A histories, which integrate dated
+active-site snapshots, are retained as the audit reference.
+
+### Superseded rate experiments
+
 | step | P1HV | P1 | P2 | P3 |
 |---|---|---|---|---|
 | **Baseline — per-area median rate** | 8.534 | 9.038 | 4.117 | 11.765 |

@@ -119,12 +119,17 @@ def build_sources(phase_key: str) -> list[dict]:
     })
 
     if "rate" in heads:
+        rate = heads["rate"]
         sources.append({
             "id": f"model_{phase_key}_rate",
             "type": "model_artifact",
-            "label": f"Recruitment-rate quantile model, {phase_key}",
-            "n_fit": heads["rate"].get("n_fit"),
-            "quantiles": heads["rate"].get("quantiles"),
+            "label": f"Record-history recruitment-rate quantile model, {phase_key}",
+            "n_fit": rate.get("n_fit"),
+            "quantiles": rate.get("quantiles"),
+            "target_definition": rate.get("target_definition"),
+            "target_quality_tier": rate.get("target_quality_tier"),
+            "validation": rate.get("validation"),
+            "validation_window": rate.get("validation_window"),
             "built": _artifact_built(phase_key),
         })
     return sources
@@ -274,41 +279,51 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
     if prediction.recruitment_rate is not None:
         entry = {
             "value": prediction.recruitment_rate,
-            "unit": "patients per site per month",
+            "unit": "patients per centre per month",
             "verification": "inference",
             "value_verified": False,
-            "source_id": [dur_src],
-            "derivation": (
-                f"{_n('enrollment', 'patient')} / ({_n('num_sites', 'site')} x "
-                f"{prediction.enrolment_months} recruiting months) "
-                f"= {prediction.recruitment_rate}"),
-            "note": ("Derived from the enrolment window rather than predicted "
-                     "separately, so the two can never contradict each other. "
-                     "Two independent models used to answer this same question "
-                     "and disagreed by up to 62% on default inputs, because the "
-                     "median of a ratio is not the ratio of medians."),
-            "caveat": ("Largely determined by how many sites the sponsor chose — "
-                       "regressing it on site count gives a slope near -1. Use it "
-                       "to compare trials of similar size, not as a site metric."),
+            "source_id": [rate_src],
+            "derivation": "direct prediction from the record-history PPCM model",
+            "target_definition": prediction.recruitment_rate_definition,
+            "target_quality": prediction.recruitment_rate_target_quality,
+            "validation": prediction.recruitment_rate_validation,
+            "note": ("Trained on completed trials with ACTUAL enrollment and a "
+                     "recorded recruiting-status interval; it is not derived from "
+                     "the duration prediction."),
+            "caveat": ("Tier B uses listed centres across the recorded recruiting "
+                       "interval and therefore does not reconstruct staggered site "
+                       "activation. Treat this as a planning benchmark, not observed "
+                       "performance for an individual centre."),
         }
-        cross = prediction.recruitment_rate_crosscheck
-        if cross:
-            gap = abs(cross - prediction.recruitment_rate) / max(
-                prediction.recruitment_rate, 1e-6)
-            entry["crosscheck"] = {
-                "independent_rate_model": cross,
-                "source_id": [rate_src],
-                "relative_gap": round(gap, 3),
-                "interpretation": (
-                    "close agreement" if gap < 0.25 else
-                    "the two approaches disagree materially here — treat the rate "
-                    "as indicative and prefer the enrolment window"),
-            }
         values["recruitment_rate"] = entry
+        if prediction.estimated_recruitment_months is not None:
+            values["estimated_recruitment_months"] = {
+                "value": prediction.estimated_recruitment_months,
+                "unit": "months",
+                "verification": "inference",
+                "value_verified": False,
+                "source_id": [rate_src],
+                "derivation": (
+                    f"{_n('enrollment', 'patient')} / ({_n('num_sites', 'centre')} x "
+                    f"{prediction.recruitment_rate} patients/centre/month)"
+                ),
+                "note": "Deterministic planning arithmetic, separate from modelled duration.",
+            }
+
+    values["endpoint_profile"] = {
+        "value": prediction.endpoint_archetypes_used,
+        "verification": "inference",
+        "value_verified": False,
+        "source_id": [dur_src],
+        "derivation": f"endpoint source: {prediction.endpoint_source}",
+        "observed_share": prediction.endpoint_profile_share,
+        "observed_n": prediction.endpoint_profile_n,
+    }
 
     gaps = [
-        "No figure here is observed site performance: ClinicalTrials.gov and AACT "
-        "publish no per-site enrolment.",
+        "ClinicalTrials.gov does not publish observed enrollment by centre; the "
+        "rate target uses trial-level actual enrollment and a registry-derived "
+        "centre-month denominator.",
         "Enrolment here is a target; the model trained mostly on achieved enrolment "
         "(reported by 88% of completed trials, ~4% above target, r = 0.95 in logs). "
         "A plan missed by more than ~10% is outside the training data.",

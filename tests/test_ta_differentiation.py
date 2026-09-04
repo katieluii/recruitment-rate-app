@@ -107,6 +107,26 @@ def test_recruitment_rate_head_present_and_plausible(phase):
     assert p.recruitment_rate_lower <= p.recruitment_rate <= p.recruitment_rate_upper
 
 
+@pytest.mark.parametrize("phase,expected", [
+    ("P1", "SAFETY"), ("P2", "RESPONSE"), ("P3", "SURVIVAL"),
+])
+def test_oncology_default_uses_coherent_endpoint_profile(phase, expected):
+    p = predict(phase, "Oncology/Solid Tumours")
+    assert p.endpoint_archetypes_used == [expected]
+    assert p.endpoint_source == "therapeutic_area_profile"
+    assert p.endpoint_profile_n > 0
+
+
+def test_rate_is_direct_history_model_and_scenario_is_separate():
+    p = predict("P2", "Oncology/Solid Tumours", enrollment=100, num_sites=10)
+    assert p.recruitment_rate_definition == (
+        "actual enrollment / (initiated sites x recorded recruiting months)"
+    )
+    assert p.recruitment_rate_target_quality == "B"
+    assert p.rate_implied_total_months is None
+    assert p.estimated_recruitment_months == round(100 / (10 * p.recruitment_rate), 1)
+
+
 def test_leaky_year_features_are_not_in_the_feature_set():
     """primary_completion_year is the label's own endpoint. Re-adding it took
     Phase 2 MAE from 8.9 to 25.4 months on a temporal holdout."""

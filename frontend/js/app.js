@@ -1,5 +1,5 @@
-import { api } from './api.js?v=10';
-import { renderErrorBar } from './charts.js?v=10';
+import { api } from './api.js?v=11';
+import { renderErrorBar } from './charts.js?v=11';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const phaseSelect = document.getElementById('phase-select');
@@ -54,9 +54,9 @@ async function init() {
 }
 
 // ── Predict ───────────────────────────────────────────────────────────────────
-// Phase and therapeutic area stay behind an explicit action: they decide WHICH
-// model answers, so changing them is a different question, not a refinement of
-// the current one. Enrolment and sites are refinements and update live.
+// Phase and therapeutic area stay behind an explicit action: they decide which
+// model answers. The sliders define the starting design for that benchmark;
+// after prediction they update only the deterministic planning scenario.
 predictBtn.addEventListener('click', async () => {
   clearNotices();
   const phase = phaseSelect.value;
@@ -126,40 +126,20 @@ function applyRange(range, field, input, output) {
 
 function fmtCount(n) { return Number(n).toLocaleString(); }
 
-// One in-flight request at a time. A drag fires an input event per pixel, and
-// without this the answer displayed is whichever response happens to land last
-// rather than the one matching where the handle stopped.
-let pending = null;
-let queued = false;
-
-async function liveUpdate() {
-  if (pending) { queued = true; return; }
-  resultCard.classList.add('updating');
-  do {
-    queued = false;
-    pending = runPrediction();
-    await pending;
-    pending = null;
-  } while (queued);
-  resultCard.classList.remove('updating');
-}
+let latestResult = null;
 
 [[enrolInput, enrolValue], [sitesInput, sitesValue]].forEach(([input, output]) => {
   // 'input' updates the READOUT on every pixel so the control feels direct;
-  // the prediction itself is debounced, because it is a model call.
-  input.addEventListener('input', () => { output.textContent = fmtCount(input.value); });
-  let timer = null;
+  // the model benchmark stays fixed and only transparent arithmetic changes.
   input.addEventListener('input', () => {
-    clearTimeout(timer);
-    timer = setTimeout(liveUpdate, 180);
+    output.textContent = fmtCount(input.value);
+    displayScenario(latestResult);
   });
-  // A keyboard user tabbing away or releasing the handle should not wait out
-  // the debounce.
-  input.addEventListener('change', () => { clearTimeout(timer); liveUpdate(); });
 });
 
 // ── Display result ────────────────────────────────────────────────────────────
 function displayResult(r, { scroll = false } = {}) {
+  latestResult = r;
   document.getElementById('result-months').textContent = r.predicted_months.toFixed(1);
   document.getElementById('result-phase-label').textContent = r.phase_label;
   document.getElementById('result-ta').textContent = r.therapeutic_area;
@@ -178,6 +158,7 @@ function displayResult(r, { scroll = false } = {}) {
   renderErrorBar(r.lower_months, r.predicted_months, r.upper_months, 'error-bar-container',
                  r.confidence_pct);
   displayRate(r);
+  displayScenario(r);
   displaySplit(r);
   displayProvenance(r.provenance);
 
@@ -215,6 +196,23 @@ function displaySplit(r) {
     `${(r.enrolment_months / total) * 100}%`;
   document.getElementById('split-fu-bar').style.width =
     `${(r.followup_months / total) * 100}%`;
+  const names = (r.endpoint_archetypes_used || []).map(prettyEndpoint).join(' + ') || 'Unclassified';
+  const source = ({
+    request: 'supplied endpoint profile',
+    therapeutic_area_profile: 'typical for this therapeutic area',
+    phase_profile: 'phase-wide fallback',
+    model_default: 'model fallback',
+  })[r.endpoint_source] || r.endpoint_source;
+  const evidence = r.endpoint_profile_share != null
+    ? ` · ${(100 * r.endpoint_profile_share).toFixed(0)}% of ${Number(r.endpoint_profile_n).toLocaleString()} comparable trials`
+    : '';
+  document.getElementById('endpoint-context').textContent =
+    `Endpoint used: ${names} · ${source}${evidence}`;
+}
+
+function prettyEndpoint(value) {
+  return String(value).toLowerCase().replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
 }
 
 // ── Provenance: the working behind every number ───────────────────────────────
@@ -260,6 +258,8 @@ function labelFor(key) {
     followup_months: 'Follow-up',
     interval: 'Prediction interval',
     recruitment_rate: 'Recruitment rate',
+    estimated_recruitment_months: 'Planning recruitment window',
+    endpoint_profile: 'Endpoint profile used',
     enrollment: 'Target enrolment',
     num_sites: 'Sites',
     drug_type: 'Intervention type',
@@ -288,11 +288,42 @@ function displayRate(r) {
 
   panel.hidden = false;
   document.getElementById('rate-value').textContent = r.recruitment_rate.toFixed(2);
+  const confidence = r.recruitment_rate_confidence_pct || 80;
   document.getElementById('rate-range').textContent =
-    `${r.confidence_pct}% interval ${r.recruitment_rate_lower.toFixed(2)}–${r.recruitment_rate_upper.toFixed(2)}`;
+    `${confidence}% interval ${r.recruitment_rate_lower.toFixed(2)}–${r.recruitment_rate_upper.toFixed(2)}`;
+  const validation = r.recruitment_rate_validation || {};
+  const support = r.recruitment_rate_n_train
+    ? `${Number(r.recruitment_rate_n_train).toLocaleString()} history-derived trials`
+    : 'history-derived trial cohort';
+  const coverage = validation.interval_coverage != null
+    ? ` · ${(100 * validation.interval_coverage).toFixed(1)}% held-out coverage`
+    : '';
+  document.getElementById('rate-evidence').textContent =
+    `Direct ML estimate · ${support} · Tier ${r.recruitment_rate_target_quality || '—'} target${coverage}`;
   // The caveat ships with the number, not in a footnote. This figure is modelled
   // from trial-level data, not observed per-site enrolment.
   document.getElementById('rate-note').textContent = r.rate_note || '';
+}
+
+function displayScenario(r) {
+  const panel = document.getElementById('scenario-panel');
+  if (!r || r.recruitment_rate == null || r.followup_months == null ||
+      enrolField.hidden || sitesField.hidden) {
+    panel.hidden = true;
+    return;
+  }
+  const patients = Number(enrolInput.value);
+  const centres = Number(sitesInput.value);
+  const ppcm = Number(r.recruitment_rate);
+  if (!(patients > 0 && centres > 0 && ppcm > 0)) { panel.hidden = true; return; }
+  const recruiting = patients / (centres * ppcm);
+  const total = recruiting + Number(r.followup_months);
+  panel.hidden = false;
+  document.getElementById('scenario-assumption').textContent =
+    `${patients.toLocaleString()} patients · ${centres.toLocaleString()} centres · ${ppcm.toFixed(2)} PPCM held fixed`;
+  document.getElementById('scenario-recruiting').textContent = recruiting.toFixed(1);
+  document.getElementById('scenario-followup').textContent = Number(r.followup_months).toFixed(1);
+  document.getElementById('scenario-total').textContent = total.toFixed(1);
 }
 
 function escapeHtml(s) {

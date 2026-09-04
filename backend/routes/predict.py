@@ -82,10 +82,22 @@ class PredictResponse(BaseModel):
     recruitment_rate_upper: Optional[float] = None
     rate_implied_total_months: Optional[float] = None
     recruitment_rate_crosscheck: Optional[float] = None
+    estimated_recruitment_months: Optional[float] = None
+    recruitment_rate_definition: Optional[str] = None
+    recruitment_rate_target_quality: Optional[str] = None
+    recruitment_rate_validation: Optional[dict] = None
+    recruitment_rate_confidence_pct: Optional[int] = None
+    recruitment_rate_n_train: Optional[int] = None
+    enrollment_used: Optional[float] = None
+    num_sites_used: Optional[float] = None
     rate_note: Optional[str] = None
     # Duration split into its two stages
     enrolment_months: Optional[float] = None
     followup_months: Optional[float] = None
+    endpoint_archetypes_used: List[str] = []
+    endpoint_source: str = "unknown"
+    endpoint_profile_share: Optional[float] = None
+    endpoint_profile_n: Optional[int] = None
     # Provenance
     model_used: str
     rmse_days: float
@@ -95,11 +107,11 @@ class PredictResponse(BaseModel):
     provenance: Optional[dict] = None
 
 
-# Rendered under the rate figure. The rate is DERIVED from the recruiting
-# window (inference.py), so the note describes that, not the retired rate head.
+# Rendered under the independently modelled rate figure.
 _RATE_NOTE = (
-    "Modelled, not observed — no per-site enrolment is published. Largely set "
-    "by site count (slope ≈ −1), so compare like-sized trials."
+    "Estimated from completed-trial record histories with actual enrollment and "
+    "a recorded recruiting interval. Tier B assumes listed centres had the full "
+    "interval to recruit; it is a planning benchmark, not observed centre performance."
 )
 
 
@@ -168,8 +180,20 @@ def post_predict(req: PredictRequest):
         recruitment_rate_upper=result.recruitment_rate_upper,
         rate_implied_total_months=result.rate_implied_total_months,
         recruitment_rate_crosscheck=result.recruitment_rate_crosscheck,
+        estimated_recruitment_months=result.estimated_recruitment_months,
+        recruitment_rate_definition=result.recruitment_rate_definition,
+        recruitment_rate_target_quality=result.recruitment_rate_target_quality,
+        recruitment_rate_validation=result.recruitment_rate_validation,
+        recruitment_rate_confidence_pct=result.recruitment_rate_confidence_pct,
+        recruitment_rate_n_train=result.recruitment_rate_n_train,
+        enrollment_used=result.enrollment_used,
+        num_sites_used=result.num_sites_used,
         enrolment_months=result.enrolment_months,
         followup_months=result.followup_months,
+        endpoint_archetypes_used=result.endpoint_archetypes_used,
+        endpoint_source=result.endpoint_source,
+        endpoint_profile_share=result.endpoint_profile_share,
+        endpoint_profile_n=result.endpoint_profile_n,
         rate_note=_RATE_NOTE if result.recruitment_rate is not None else None,
         model_used=result.model_used,
         rmse_days=result.rmse_days,

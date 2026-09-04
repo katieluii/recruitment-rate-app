@@ -36,18 +36,32 @@ class Prediction:
     recruitment_rate: Optional[float] = None
     recruitment_rate_lower: Optional[float] = None
     recruitment_rate_upper: Optional[float] = None
-    # NOT an enrolment window: the rate's denominator is the full
-    # start → primary-completion span, so inverting it reconstructs total
-    # duration for a trial of this size.
+    # Deprecated compatibility field; new clients use estimated_recruitment_months.
     rate_implied_total_months: Optional[float] = None
-    rate_is_approximate: bool = True
-    #: The separately fitted rate model's answer, kept as a visible cross-check.
+    # Compatibility flag from the retired algebraic proxy. Direct history-model
+    # estimates are not labelled approximate; their Tier B limitation is
+    # carried explicitly in recruitment_rate_target_quality.
+    rate_is_approximate: bool = False
+    # Deprecated: the direct history-trained rate head is now the sole estimate.
     recruitment_rate_crosscheck: Optional[float] = None
+    estimated_recruitment_months: Optional[float] = None
+    recruitment_rate_definition: Optional[str] = None
+    recruitment_rate_target_quality: Optional[str] = None
+    recruitment_rate_validation: Optional[dict] = None
+    recruitment_rate_confidence_pct: Optional[int] = None
+    recruitment_rate_n_train: Optional[int] = None
+    # Effective planning inputs after trained defaults have been applied.
+    enrollment_used: Optional[float] = None
+    num_sites_used: Optional[float] = None
     # The V3.3 split. Enrolment window is when the last patient is in; follow-up
     # is how long the endpoint then takes to read out. They are near-independent
     # processes, and only the first is something a site strategy can move.
     enrolment_months: Optional[float] = None
     followup_months: Optional[float] = None
+    endpoint_archetypes_used: list[str] = field(default_factory=list)
+    endpoint_source: str = "unknown"
+    endpoint_profile_share: Optional[float] = None
+    endpoint_profile_n: Optional[int] = None
     # How every number above was produced — see backend/models/provenance.py
     provenance: Optional[dict] = None
 
@@ -138,7 +152,48 @@ def _build_input_row(phase_key: str, therapeutic_area: str,
             if field in X.columns and value is not None:
                 X[field] = value
 
-    return _apply_defaults(X, phase_key, therapeutic_area)
+    X = _apply_defaults(X, phase_key, therapeutic_area)
+
+    # Defaults must be hydrated before dependent features are recomputed.  The
+    # previous order filled the primary/secondary counts after outcomes_total
+    # had already become 0, and filled an endpoint category while leaving every
+    # endpoint_has_* flag at 0.
+    if {"total_primary_outcomes", "total_secondary_outcomes"}.issubset(X.columns):
+        primary = pd.to_numeric(X["total_primary_outcomes"], errors="coerce").fillna(0)
+        secondary = pd.to_numeric(X["total_secondary_outcomes"], errors="coerce").fillna(0)
+        X["outcomes_total"] = primary + secondary
+    if {"Enrollment", "site_count"}.issubset(X.columns):
+        enrol = pd.to_numeric(X["Enrollment"], errors="coerce")
+        sites = pd.to_numeric(X["site_count"], errors="coerce").replace(0, np.nan)
+        X["enrollment_per_site"] = enrol / sites
+
+    flags = [c for c in X.columns if c.startswith("endpoint_has_")]
+    if endpoint_archetypes:
+        for flag in flags:
+            X[flag] = int(flag.removeprefix("endpoint_has_") in endpoint_archetypes)
+    elif "endpoint_archetype" in X.columns:
+        selected = str(X["endpoint_archetype"].iloc[0])
+        for flag in flags:
+            X[flag] = int(flag == f"endpoint_has_{selected}")
+    return X
+
+
+def _endpoint_profile(entry: dict, therapeutic_area: str) -> tuple[list[str], dict]:
+    """Resolve one coherent endpoint combination for an unspecified request."""
+    profiles = entry.get("endpoint_profiles") or {}
+    for source, rows in (
+        ("therapeutic_area_profile", profiles.get(therapeutic_area, [])),
+        ("phase_profile", profiles.get("_phase", [])),
+    ):
+        for row in rows:
+            archetypes = row.get("archetypes") or []
+            if archetypes:
+                return list(archetypes), {
+                    "source": source,
+                    "share": row.get("share"),
+                    "n": row.get("n"),
+                }
+    return [], {"source": "model_default", "share": None, "n": None}
 
 
 def _apply_defaults(X: pd.DataFrame, phase_key: str,
@@ -246,8 +301,12 @@ def predict(
     if "duration" not in heads:
         raise FileNotFoundError(f"No duration head trained for {phase_key}.")
 
+    endpoint_meta = {"source": "request", "share": None, "n": None}
+    if not endpoint_archetypes:
+        endpoint_archetypes, endpoint_meta = _endpoint_profile(entry, therapeutic_area)
+
     X = _build_input_row(phase_key, therapeutic_area, enrollment, num_sites,
-                         drug_type, region, endpoint_archetypes,
+                         drug_type, region, endpoint_archetypes or None,
                          eligibility_features=eligibility_features)
     warnings = _check_extrapolation(X, phase_key)
     for w in warnings:
@@ -264,38 +323,20 @@ def predict(
         enrol_m = round(float(e[0]) / _DAYS_PER_MONTH, 1)
         fu_m = round(float(f[0]) / _DAYS_PER_MONTH, 1)
 
-    # The recruitment rate is DERIVED from the enrolment window rather than
-    # predicted separately. Two independently fitted models produced two answers
-    # to the same question, and in the all-defaults case they disagreed badly
-    # (P3 infectious disease: 21.1 months from the enrolment head against 13.0
-    # implied by the rate) because medians do not compose — the median of a ratio
-    # is not the ratio of medians. On real trials the two agree closely (log
-    # correlation +0.82 to +0.97) and are equally accurate, so nothing is lost by
-    # collapsing them, and consistency becomes structural rather than hoped for.
-    rate = rate_lo = rate_hi = implied_months = None
-    rate_crosscheck = None
+    # Direct history-trained PPCM head.  This estimate is independent of WSi's
+    # duration decomposition; a separate deterministic scenario may invert it
+    # for planning, but that arithmetic is not presented as modelled duration.
+    rate = rate_lo = rate_hi = planning_months = None
     sites = num_sites or X["site_count"].iloc[0]
     target_n = enrollment or X["Enrollment"].iloc[0]
 
-    if enrol_m and sites and target_n and enrol_m > 0:
-        denom = float(sites) * enrol_m
-        rate = round(float(target_n) / denom, 3)
-        # Bounds invert: a longer window means a slower rate.
-        e_lo = max(float(lo_arr[0]) / _DAYS_PER_MONTH - fu_m, 0.1) if fu_m is not None else None
-        e_hi = max(float(hi_arr[0]) / _DAYS_PER_MONTH - fu_m, 0.1) if fu_m is not None else None
-        if e_lo and e_hi:
-            rate_lo = round(float(target_n) / (float(sites) * max(e_hi, 0.1)), 3)
-            rate_hi = round(float(target_n) / (float(sites) * max(e_lo, 0.1)), 3)
-        implied_months = round(enrol_m, 1)
-
-        # Keep the independently fitted head as a visible cross-check rather than
-        # discarding it: a large gap is information, not something to hide.
-        if "rate" in heads:
-            rate_crosscheck = round(float(heads["rate"].predict(X)[0]), 3)
-    elif "rate" in heads:
+    rate_spec = ((entry.get("meta", {}).get("heads") or {}).get("rate") or {})
+    if "rate" in heads and rate_spec.get("target_source") == "ClinicalTrials.gov record history":
         rate = round(float(heads["rate"].predict(X)[0]), 3)
         r_lo, r_hi = heads["rate"].predict_interval(X)
         rate_lo, rate_hi = round(float(r_lo[0]), 3), round(float(r_hi[0]), 3)
+        if sites and target_n and rate > 0:
+            planning_months = round(float(target_n) / (float(sites) * rate), 1)
 
     def to_months(d: float) -> float:
         return round(d / _DAYS_PER_MONTH, 1)
@@ -322,10 +363,25 @@ def predict(
         recruitment_rate=rate,
         recruitment_rate_lower=rate_lo,
         recruitment_rate_upper=rate_hi,
-        recruitment_rate_crosscheck=rate_crosscheck,
-        rate_implied_total_months=implied_months,
+        recruitment_rate_crosscheck=None,
+        rate_implied_total_months=None,
+        estimated_recruitment_months=planning_months,
+        recruitment_rate_definition=rate_spec.get("target_definition"),
+        recruitment_rate_target_quality=rate_spec.get("target_quality_tier"),
+        recruitment_rate_validation=rate_spec.get("validation"),
+        recruitment_rate_confidence_pct=(
+            int(round(100 * float(rate_spec.get("coverage_nominal", 0.80))))
+            if rate is not None else None
+        ),
+        recruitment_rate_n_train=rate_spec.get("n_fit"),
+        enrollment_used=(float(target_n) if target_n is not None else None),
+        num_sites_used=(float(sites) if sites is not None else None),
         enrolment_months=enrol_m,
         followup_months=fu_m,
+        endpoint_archetypes_used=list(endpoint_archetypes or []),
+        endpoint_source=endpoint_meta["source"],
+        endpoint_profile_share=endpoint_meta.get("share"),
+        endpoint_profile_n=endpoint_meta.get("n"),
     )
 
     from backend.models import provenance as _prov

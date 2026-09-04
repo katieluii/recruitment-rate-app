@@ -28,17 +28,38 @@
     },
     "rate": {
       "target": "recruitment_rate",
+      "target_definition": "actual enrollment / (initiated sites x recorded recruiting months)",
+      "target_quality_tier": "B",
+      "target_source": "ClinicalTrials.gov record history",
       "kind": "single",
       "transform": "log",
-      "qhat": 0.07971062589869138,
+      "qhat": 0.28122507104155314,
       "quantiles": [
         0.1,
         0.5,
         0.9
       ],
-      "n_fit": 14940,
+      "point_model": "rate_point.pkl",
+      "n_fit": 1248,
       "coverage_nominal": 0.8,
-      "ipcw_applied": false
+      "ipcw_applied": false,
+      "built": "2026-09-03",
+      "validation": {
+        "n_test": 299,
+        "mae_raw": 3.7444,
+        "medae_raw": 0.2826,
+        "log_mae": 0.5334,
+        "within_1_5x": 0.431,
+        "within_2x": 0.706,
+        "median_factor_error": 1.59,
+        "interval_coverage": 0.829,
+        "skill_vs_ta_median": 0.462
+      },
+      "validation_window": {
+        "train_before": "2021-01-01",
+        "test_start": "2021-01-01",
+        "test_end": "2023-01-01"
+      }
     }
   },
   "feature_defaults": {
