@@ -90,7 +90,7 @@ def build_profiles(df: pd.DataFrame) -> dict:
     for area, mask in ta_masks(df).items():
         sub = df[mask.to_numpy()]
         if len(sub) < MIN_CELL:
-            log.info("endpoint profiles: %s has %d trials (< %d) — will fall back "
+            log.info("endpoint profiles: %s has %d trials (< %d), falling back "
                      "to the phase-wide profile", area, len(sub), MIN_CELL)
             continue
         rows = _profiles_for(sub)

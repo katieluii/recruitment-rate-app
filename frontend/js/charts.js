@@ -123,7 +123,7 @@ export function renderErrorBar(lower, predicted, upper, containerId, confidenceP
 
   el.innerHTML = `
     <div class="error-bar-label">
-      ${confidencePct}% prediction interval &nbsp;·&nbsp;
+      ${confidencePct}% prediction interval:
       <span style="color:var(--accent)">${lower.toFixed(1)} – ${upper.toFixed(1)} months</span>
     </div>
     <div class="error-bar-track">

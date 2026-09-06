@@ -72,7 +72,7 @@ def _measured_coverage(phase_key: str) -> str:
     try:
         pub = json.loads(_PUBLISHED.read_text())
     except (OSError, ValueError):
-        return "not measured — experiments/published_metrics.json is missing or unreadable"
+        return "not measured: experiments/published_metrics.json is missing or unreadable"
     p = pub.get("phases", {}).get(phase_key, {})
     cov = p.get("interval_coverage")
     if cov is None:
@@ -83,7 +83,7 @@ def _measured_coverage(phase_key: str) -> str:
     gate = p.get("coverage_gate") or {}
     if gate and gate.get("pass") is False:
         lo = (gate.get("threshold") or ["?"])[0]
-        text += f" — BELOW the {lo} coverage gate; recalibration pending"
+        text += f"; BELOW the {lo} coverage gate, recalibration pending"
     return text
 
 
@@ -232,7 +232,7 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
                 f"= {prediction.predicted_months} mo"),
             "note": ("The two stages are modelled separately because they are "
                      "near-independent (r = +0.03) and driven by different "
-                     "things — geography and eligibility move enrolment, the "
+                     "things: geography and eligibility move enrolment, the "
                      "endpoint moves follow-up."),
         }
         values["enrolment_months"] = {
@@ -344,6 +344,6 @@ def build(phase_key: str, prediction, supplied: dict[str, Any],
         "values": values,
         "gaps": gaps,
         "note": ("Every value here is DERIVED, never read from a source, so all "
-                 "carry verification 'inference' and value_verified false — the "
+                 "carry verification 'inference' and value_verified false, the "
                  "same tier Atlas uses for computed figures."),
     }

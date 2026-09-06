@@ -12,7 +12,7 @@ from backend.models import registry
 router = APIRouter(tags=["site-rates"])
 
 _CAVEAT = (
-    "Modelled from trial-level rates, not observed per-site enrolment — "
+    "Modelled from trial-level rates, not observed per-site enrolment; "
     "neither ClinicalTrials.gov nor AACT publishes per-site counts. Facility "
     "figures are association, not attribution: a site that appears in fast "
     "trials scores well, which may reflect the trials it is chosen for."

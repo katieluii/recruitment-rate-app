@@ -278,7 +278,7 @@ def simulate_site_mix(priors: dict, target_enrollment: int,
         "projected_total_months": round(months, 1),
         "projected_months_basis": (
             "total start-to-primary-completion span, not the enrolment period "
-            "alone — the underlying rate uses full trial duration as its "
+            "alone; the underlying rate uses full trial duration as its "
             "denominator"
         ),
         "by_country": per_country,

@@ -43,8 +43,8 @@ class PredictRequest(BaseModel):
         description=(
             "Patient-population characteristics as FEATURE VALUES. A cluster "
             "label cannot be sent: eligibility reaches the model through 13 "
-            "numeric and binary features, and `criteria_text` is not among them "
-            "— it is built and then dropped by the fitted preprocessor. Unknown "
+            "numeric and binary features, and `criteria_text` is not among them; "
+            "it is built and then dropped by the fitted preprocessor. Unknown "
             "keys are rejected rather than ignored. Effect size is modest; see "
             "docs/WS21_CONTRACT.md before building a UI that implies otherwise."
         ),
@@ -54,7 +54,7 @@ class PredictRequest(BaseModel):
         description=(
             "Every primary-endpoint archetype the trial carries. A trial has a "
             "COMBINATION, not one endpoint: 21.8% of trials light more than one "
-            "flag, and the combination is not the sum of its parts — P1 oncology "
+            "flag, and the combination is not the sum of its parts: P1 oncology "
             "RESPONSE+SAFETY runs a median 44.7 months against 33.0 for SAFETY "
             "alone and 38.6 for RESPONSE alone. The model has always trained on "
             "a multi-hot flag set; sending a single value was the interface "
