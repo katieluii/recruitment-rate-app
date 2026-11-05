@@ -22,7 +22,7 @@ _CAVEAT = (
 def _priors(phase: str) -> dict:
     if phase not in PHASES:
         raise HTTPException(422, f"Unknown phase '{phase}'. Valid: {list(PHASES)}")
-    entry = registry.load(phase)
+    entry = registry.metadata(phase)
     if entry is None:
         raise HTTPException(503, f"No trained artifacts for {phase}.")
     priors = entry.get("site_priors") or {}

@@ -27,7 +27,9 @@ def get_therapeutic_areas():
 
 @router.get("/health")
 def health():
-    return {"status": "ok", "models": registry.load_all()}
+    return {"status": "ok",
+            "models": {k: k in registry.available_phases() for k in PHASES},
+            "model_status": "available_on_disk", "loading": "on_demand"}
 
 
 @router.get("/input-ranges")
@@ -48,7 +50,7 @@ def get_input_ranges(phase: str = "P2",
     """
     if phase not in PHASES:
         raise HTTPException(422, f"Unknown phase '{phase}'")
-    entry = registry.load(phase)
+    entry = registry.metadata(phase)
     if entry is None:
         raise HTTPException(503, f"No trained model for {phase}.")
 

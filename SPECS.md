@@ -80,3 +80,14 @@ expressed and comes back as 38.6 or 33.8 months depending on which half is sent.
 - Sending both `endpoint_archetype` and `endpoint_archetypes` returns 422.
 - Sending an archetype outside `ARCHETYPES` returns 422.
 - Dragging a slider updates the number with no button press and issues one request.
+
+## Resource-efficient serving [id: serving-efficiency-20261105; status: approved]
+Goal: reduce Railway idle memory and cost without changing predictions or trained artifacts.
+1. The system shall serve health, phase metadata, analytics and site priors without deserializing prediction models.
+2. When a prediction needs a phase, the system shall load that phase on demand and retain at most one phase by default; concurrent cold loads shall not duplicate cache population.
+3. The system shall preserve prediction values, intervals, public routes and in-process consumer signatures.
+4. When idle, the Railway deployment shall be eligible for Serverless sleep, accepting cold-start delay.
+Acceptance: unchanged predictions for all four phases against baseline; lightweight endpoints do not call joblib.load; concurrent same-phase loads deserialize once; measured startup memory reduction; existing suite passes.
+Out of scope: retraining, model pruning/quantization, new services, changes to clinical claims or WS21 pins.
+Verification cases: health -> no model cache; P2 predict -> one cached phase; P3 then P2 -> eviction/reload with identical outputs; parallel P2 requests -> one load.
+Implementation brief: retain the existing FastAPI app and artifacts, separate metadata from model deserialization, bound the model cache, and verify output parity before deployment.

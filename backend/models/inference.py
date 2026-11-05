@@ -206,7 +206,7 @@ def _apply_defaults(X: pd.DataFrame, phase_key: str,
     phase-wide median flattens two genuinely different trials before the model
     is consulted.
     """
-    entry = registry.load(phase_key) or {}
+    entry = registry.metadata(phase_key) or {}
     defaults = dict(entry.get("feature_defaults") or {})
     if not defaults:
         return X
@@ -245,7 +245,7 @@ def _check_extrapolation(X: pd.DataFrame, phase_key: str) -> list[str]:
     Values between p99 and max are real but rare, so they get a softer note
     rather than the same warning: the model HAS seen them, just barely.
     """
-    entry = registry.load(phase_key) or {}
+    entry = registry.metadata(phase_key) or {}
     ranges = entry.get("feature_ranges") or {}
     out: list[str] = []
     for col, bounds in ranges.items():
