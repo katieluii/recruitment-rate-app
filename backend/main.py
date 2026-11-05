@@ -17,17 +17,7 @@ log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    log.info("Loading model artifacts...")
-    status = registry.load_all()
-    trained = [k for k, v in status.items() if v]
-    if trained:
-        log.info("Models loaded: %s", trained)
-    else:
-        log.warning(
-            "No trained models found in %s. "
-            "Run:  python -m scripts.train_models",
-            settings.models_dir,
-        )
+    log.info("Models available for on-demand loading: %s", registry.available_phases())
     yield
 
 

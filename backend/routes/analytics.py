@@ -11,7 +11,7 @@ def get_analytics(phase: str = Query("P2")):
     if phase not in PHASES:
         raise HTTPException(422, f"Unknown phase '{phase}'")
 
-    entry = registry.load(phase)
+    entry = registry.metadata(phase)
     if entry is None:
         raise HTTPException(503, f"No trained model for {phase}. Run training first.")
 

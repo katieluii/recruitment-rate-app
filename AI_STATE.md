@@ -2,6 +2,8 @@
 
 ## Current Context
 
+2026-11-05: serving-efficiency implementation on isolated codex/recruitment-memory-20261105. Startup and metadata routes no longer deserialize models; thread-safe LRU retains one phase by default (CACHED_PHASE_LIMIT=1..4). Existing model artifacts and predictor signature unchanged. Deployment pending.
+
 WSi is the clinical-trial duration and recruitment-rate predictor at
 `https://web-production-e6859b.up.railway.app`. `main` and `origin/main` are both at
 `99c4668` (`Client copy gate: land check_client_copy.py on main and clear 83 violations`);
@@ -14,6 +16,8 @@ split. The direct recruitment-rate model is a separate Tier B record-history hea
 P1/P2/P3. WS21 pins a WSi commit and consumes both outputs.
 
 ## Completed
+
+- Efficiency verification: all 111 pre-existing tests passed; both new serving/concurrency tests passed after using a tight tolerance for raw parallel-forest floating-point summation. Sixteen rounded prediction responses match baseline exactly after excluding existing filesystem-mtime provenance dates. Local startup baseline 835 MB with all phases versus 176 MB before on-demand loading. Sequential all-phase traversal can still retain allocator high-water memory (~691 MB); Railway sleep is needed to eliminate idle residency.
 
 - House-style gate `scripts/check_client_copy.py` now lives on `main`. It scans the
   frontend, backend routes/models/analytics and top-level markdown for em dash, middle

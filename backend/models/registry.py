@@ -7,6 +7,8 @@ constant, the training-set feature defaults and the trained feature ranges.
 """
 import json
 import logging
+from collections import OrderedDict
+from threading import RLock
 from pathlib import Path
 from typing import Optional
 
@@ -19,7 +21,8 @@ from backend.models.quantile_model import (POINT_KEY, QUANTILES, TRANSFORMS,
 
 log = logging.getLogger(__name__)
 
-_cache: dict[str, dict] = {}
+_cache: dict[str, dict] = OrderedDict()
+_load_lock = RLock()
 
 HEAD_NAMES = ("duration", "rate")
 
@@ -200,7 +203,7 @@ def _load_head(base: Path, head: str, meta: dict):
                       spec.get("point_transform"))
 
 
-def load(phase_key: str, force: bool = False) -> Optional[dict]:
+def _load(phase_key: str, force: bool = False) -> Optional[dict]:
     """Return the loaded artifact bundle for a phase, or None if absent."""
     if phase_key in _cache and not force:
         return _cache[phase_key]
@@ -243,8 +246,38 @@ def load(phase_key: str, force: bool = False) -> Optional[dict]:
         "meta": meta,
     }
     _cache[phase_key] = entry
+    while len(_cache) > settings.cached_phase_limit:
+        _cache.popitem(last=False)
     log.info("Loaded %s: heads=%s n_train=%d",
              phase_key, list(heads), entry["n_train"])
+    return entry
+
+
+def load(phase_key: str, force: bool = False) -> Optional[dict]:
+    """Load once under concurrent cold requests; retain only recent phases.
+
+    Eviction drops the cache reference. In-flight callers keep their own bundle.
+    """
+    with _load_lock:
+        result = _load(phase_key, force)
+        if phase_key in _cache:
+            _cache.move_to_end(phase_key)
+        return result
+
+
+def metadata(phase_key: str) -> Optional[dict]:
+    """Read small display/analytics artifacts without loading predictors."""
+    base = settings.models_dir / phase_key
+    path = base / "metadata.json"
+    if not path.exists():
+        return None
+    meta = json.loads(path.read_text())
+    entry = {"meta": meta,
+             "feature_defaults": meta.get("feature_defaults", {}),
+             "feature_ranges": meta.get("feature_ranges", {})}
+    for name in ("analytics", "site_priors", "endpoint_profiles"):
+        path = base / f"{name}.json"
+        entry[name] = json.loads(path.read_text()) if path.exists() else {}
     return entry
 
 
