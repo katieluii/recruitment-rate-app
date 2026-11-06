@@ -1,8 +1,11 @@
 # Project Memory State
 
+2026-11-06 S371 wrap: Railway readback reports SLEEPING, confirming sleep is active. Katie merged PR1 and approved deploy plus sleep. Railway deployment0b6b33de-5f0b-432c-9ecf-a59b7a79b906 SUCCESS at f01dbd8e43d97c0b6b9d60c28ade863af1cc1041. Manifest sleepApplication=true. Live health on_demand and all four phase predictions numerically match baseline. Local import176MB versus835MB eager; all-phase live sample604MB, so do not present local startup as guaranteed live use.
+
+
 ## Current Context
 
-2026-11-05: serving-efficiency implementation on isolated codex/recruitment-memory-20261105. Startup and metadata routes no longer deserialize models; thread-safe LRU retains one phase by default (CACHED_PHASE_LIMIT=1..4). Existing model artifacts and predictor signature unchanged. Deployment pending.
+2026-11-05: serving-efficiency implementation on isolated codex/recruitment-memory-20261105. Startup and metadata routes no longer deserialize models; thread-safe LRU retains one phase by default (CACHED_PHASE_LIMIT=1..4). Existing model artifacts and predictor signature unchanged. Deployment f01dbd8 is live; Railway reports SLEEPING with sleep enabled.
 
 WSi is the clinical-trial duration and recruitment-rate predictor at
 `https://web-production-e6859b.up.railway.app`. `main` and `origin/main` are both at
